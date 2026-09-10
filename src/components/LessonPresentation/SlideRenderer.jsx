@@ -91,6 +91,41 @@ export default function SlideRenderer({
     );
   };
 
+  // 0. SLIDE: IMPORTED_SLIDE (Slide trích xuất nguyên bản từ PowerPoint)
+  if (slide.type === 'IMPORTED_SLIDE' || slide.type === 'PPTX_SLIDE' || (slide.image_url && slide.layout === 'FULL_IMAGE')) {
+    return (
+      <div style={{
+        height: '100%',
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#090d16',
+        overflow: 'hidden',
+        position: 'relative'
+      }}>
+        {slide.image_url ? (
+          <img 
+            src={slide.image_url} 
+            alt={slide.title || `Slide ${slide.order_index !== undefined ? slide.order_index + 1 : ''}`} 
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              aspectRatio: '16/9',
+              display: 'block',
+              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)'
+            }}
+          />
+        ) : (
+          <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>
+            <p>Không tìm thấy hình ảnh kết xuất của slide này.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // 1. SLIDE: TITLE (Trang bìa bài học)
   if (slide.type === 'TITLE') {
     return (
@@ -488,11 +523,39 @@ export default function SlideRenderer({
         border: '1px solid var(--surface-border)'
       }}>
         {slide.image_url ? (
-          <img 
-            src={slide.image_url} 
-            alt={slide.title || 'Minh họa'} 
-            style={{ width: '100%', height: '100%', objectFit: 'contain', maxHeight: isPresentation ? '65vh' : '45vh' }}
-          />
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <img 
+              src={slide.image_url} 
+              alt={slide.title || 'Minh họa'} 
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fb = e.currentTarget.parentElement?.querySelector('.img-error-fallback');
+                if (fb) fb.style.display = 'flex';
+              }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', maxHeight: isPresentation ? '65vh' : '45vh' }}
+            />
+            <div 
+              className="img-error-fallback" 
+              style={{ 
+                display: 'none', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                color: 'var(--text-muted)', 
+                padding: '2rem', 
+                textAlign: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <span style={{ fontSize: '3rem' }}>🖼️</span>
+              <p style={{ fontWeight: 700, color: 'var(--text-main)', margin: 0, fontSize: isPresentation ? '1.25rem' : '1rem' }}>
+                Không thể tải hình ảnh minh họa
+              </p>
+              <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>
+                Vui lòng kiểm tra lại đường dẫn ảnh trong trình soạn thảo bài học
+              </span>
+            </div>
+          </div>
         ) : (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
             <span style={{ fontSize: '3rem' }}>🖼️</span>
@@ -559,6 +622,13 @@ export default function SlideRenderer({
 
   // 6. SLIDE: VIDEO (Video thực hành)
   if (slide.type === 'VIDEO') {
+    const rawUrl = slide.video_url?.trim() || '';
+    let ytEmbed = null;
+    const ytMatch = rawUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch && ytMatch[1]) {
+      ytEmbed = `https://www.youtube.com/embed/${ytMatch[1]}`;
+    }
+
     return (
       <div style={{
         height: '100%',
@@ -592,58 +662,76 @@ export default function SlideRenderer({
           </h2>
         </div>
 
-        {/* Khung video */}
+        {/* Khung video (Hỗ trợ nhúng YouTube hoặc player) */}
         <div style={{
           flex: 1,
-          margin: '1rem 0',
+          margin: '0.75rem 0',
           borderRadius: 'var(--radius-xl)',
           background: '#0f172a',
           border: '2px solid rgba(139, 92, 246, 0.4)',
+          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#fff',
-          padding: '2rem',
-          textAlign: 'center',
-          position: 'relative'
+          position: 'relative',
+          minHeight: 280
         }}>
-          <div style={{
-            width: 72,
-            height: 72,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '1rem',
-            boxShadow: '0 8px 24px rgba(139, 92, 246, 0.45)'
-          }}>
-            <Play size={36} fill="#fff" />
-          </div>
-
-          <h3 style={{ fontSize: isPresentation ? '1.5rem' : '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-            {slide.video_url ? 'Sẵn sàng phát video bài giảng' : 'Chưa nhập đường dẫn video'}
-          </h3>
-          
-          {slide.video_url && (
-            <a 
-              href={slide.video_url} 
-              target="_blank" 
-              rel="noreferrer"
-              style={{
-                display: 'inline-flex',
+          {ytEmbed ? (
+            <iframe
+              src={ytEmbed}
+              title={slide.title || 'Video bài giảng'}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ width: '100%', height: '100%', border: 'none', minHeight: 320 }}
+            />
+          ) : rawUrl ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', textAlign: 'center', color: '#fff' }}>
+              <div style={{
+                width: 72,
+                height: 72,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+                display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                color: '#38bdf8',
-                fontSize: isPresentation ? '1.2rem' : '0.9rem',
-                textDecoration: 'none',
-                marginTop: '0.5rem'
-              }}
-            >
-              <span>Mở liên kết video trong tab mới</span>
-              <ExternalLink size={16} />
-            </a>
+                justifyContent: 'center',
+                marginBottom: '1rem',
+                boxShadow: '0 8px 24px rgba(139, 92, 246, 0.45)'
+              }}>
+                <Play size={36} fill="#fff" />
+              </div>
+
+              <h3 style={{ fontSize: isPresentation ? '1.5rem' : '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                Sẵn sàng phát video bài giảng
+              </h3>
+
+              <a 
+                href={rawUrl} 
+                target="_blank" 
+                rel="noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  color: '#38bdf8',
+                  fontSize: isPresentation ? '1.2rem' : '0.9rem',
+                  textDecoration: 'none',
+                  marginTop: '0.5rem',
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(56, 189, 248, 0.3)'
+                }}
+              >
+                <span>Mở liên kết video trong tab mới</span>
+                <ExternalLink size={16} />
+              </a>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', color: 'rgba(255, 255, 255, 0.6)', padding: '2rem' }}>
+              <Play size={40} style={{ opacity: 0.4, marginBottom: '0.5rem' }} />
+              <p style={{ margin: 0, fontSize: isPresentation ? '1.2rem' : '0.95rem' }}>Chưa nhập đường dẫn video cho slide này</p>
+            </div>
           )}
         </div>
 

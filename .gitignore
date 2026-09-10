@@ -26,3 +26,7 @@ dist-ssr
 # SQLite temporary files
 *.sqlite-wal
 *.sqlite-shm
+
+# Uploads temporary files
+uploads/temp/*
+!uploads/temp/.gitkeep

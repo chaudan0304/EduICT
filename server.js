@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { handleApiRequest } from './server/api-handler.js';
+import { handleUploadsRequest } from './server/static-file-handler.js';
 import { getDatabase } from './server/db.js';
 
 const PORT = process.env.PORT || 5173;
@@ -11,6 +12,12 @@ const DIST_DIR = path.resolve(process.cwd(), 'dist');
 getDatabase();
 
 const server = http.createServer(async (req, res) => {
+  // Xử lý static files uploads
+  if (req.url && req.url.startsWith('/uploads/')) {
+    const handled = handleUploadsRequest(req, res);
+    if (handled) return;
+  }
+
   // Xử lý API routes
   if (req.url && req.url.startsWith('/api/')) {
     try {

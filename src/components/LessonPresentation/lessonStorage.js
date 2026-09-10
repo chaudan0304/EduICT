@@ -392,3 +392,63 @@ export async function saveLessonSlidesApi(lessonId, slides) {
   }
   return slides;
 }
+
+// 8. Upload file PowerPoint (.pptx) để xử lý và trích xuất slide xem trước
+export async function uploadPptxPreviewApi(file) {
+  // Đọc file thành base64 để gửi an toàn qua JSON
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = reader.result;
+      const commaIdx = res.indexOf(',');
+      resolve(commaIdx >= 0 ? res.substring(commaIdx + 1) : res);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const res = await fetch('/api/lessons/upload-pptx-preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileName: file.name,
+      fileBase64: base64
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Không thể xử lý file PowerPoint.');
+  }
+  return data;
+}
+
+// 9. Xác nhận lưu bài học PowerPoint đã import vào Thư viện bài học
+export async function confirmImportPptxApi(importData) {
+  const res = await fetch('/api/lessons/confirm-import-pptx', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(importData)
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Không thể lưu bài giảng vào thư viện.');
+  }
+  return data.lesson;
+}
+
+// 10. Hủy bỏ phiên import PowerPoint tạm thời
+export async function cancelImportPptxApi(tempId) {
+  if (!tempId) return;
+  try {
+    await fetch('/api/lessons/cancel-import-pptx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tempId })
+    });
+  } catch (err) {
+    console.warn('Lỗi hủy phiên import tạm thời:', err.message);
+  }
+}
+

@@ -37,6 +37,11 @@ import {
   updateQuizSession,
   saveQuizResults
 } from './db.js';
+import {
+  processPptxUploadPreview,
+  commitImportedPptx,
+  cancelImportSession
+} from './pptxService.js';
 
 const DB_PATH = path.resolve(process.cwd(), 'edumaster.sqlite');
 
@@ -44,6 +49,15 @@ function sendJson(res, statusCode, data) {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify(data));
+}
+
+function parseRequestBodyBuffer(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
 }
 
 function parseJsonBody(req) {
@@ -61,6 +75,48 @@ function parseJsonBody(req) {
     });
     req.on('error', reject);
   });
+}
+
+function parseMultipart(buffer, boundary) {
+  const boundaryBuffer = Buffer.from(`--${boundary}`);
+  let start = 0;
+  let fileName = 'presentation.pptx';
+  let fileBuffer = null;
+
+  while (true) {
+    const boundaryIdx = buffer.indexOf(boundaryBuffer, start);
+    if (boundaryIdx === -1) break;
+
+    const headerStart = boundaryIdx + boundaryBuffer.length + 2; // skip \r\n
+    const headerEnd = buffer.indexOf(Buffer.from('\r\n\r\n'), headerStart);
+    if (headerEnd === -1) break;
+
+    const headersStr = buffer.subarray(headerStart, headerEnd).toString('utf-8');
+    const dataStart = headerEnd + 4;
+    const nextBoundaryIdx = buffer.indexOf(boundaryBuffer, dataStart);
+    if (nextBoundaryIdx === -1) break;
+
+    const dataEnd = nextBoundaryIdx - 2; // skip \r\n
+    const partData = buffer.subarray(dataStart, dataEnd);
+
+    const dispositionMatch = headersStr.match(/Content-Disposition:\s*form-data;[^\r\n]*/i);
+    if (dispositionMatch) {
+      const match = dispositionMatch[0];
+      const filenameMatch = match.match(/filename="?([^";\r\n]+)"?/i);
+      if (filenameMatch) {
+        try {
+          fileName = decodeURIComponent(escape(filenameMatch[1]));
+        } catch {
+          fileName = filenameMatch[1];
+        }
+        fileBuffer = partData;
+      }
+    }
+
+    start = nextBoundaryIdx;
+  }
+
+  return { fileName, fileBuffer };
 }
 
 export async function handleApiRequest(req, res) {
@@ -377,6 +433,119 @@ export async function handleApiRequest(req, res) {
       const body = await parseJsonBody(req);
       const created = createLesson(body);
       sendJson(res, 201, created);
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
+  // 11.2.1 POST /api/lessons/upload-pptx-preview (Upload file PowerPoint và trích xuất slide xem trước)
+  if (pathname === '/api/lessons/upload-pptx-preview' && method === 'POST') {
+    try {
+      const rawBuffer = await parseRequestBodyBuffer(req);
+      const contentType = req.headers['content-type'] || '';
+      let fileName = 'bai_giang.pptx';
+      let fileBuffer = null;
+
+      if (contentType.includes('multipart/form-data')) {
+        const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
+        if (!boundaryMatch) {
+          sendJson(res, 400, { error: 'Thiếu boundary trong multipart request' });
+          return true;
+        }
+        const parsed = parseMultipart(rawBuffer, boundaryMatch[1].trim());
+        fileName = parsed.fileName;
+        fileBuffer = parsed.fileBuffer;
+      } else if (contentType.includes('application/json')) {
+        const json = JSON.parse(rawBuffer.toString('utf-8'));
+        fileName = json.fileName || 'bai_giang.pptx';
+        fileBuffer = json.fileBase64 ? Buffer.from(json.fileBase64, 'base64') : null;
+      } else {
+        // Hỗ trợ binary stream trực tiếp kèm header X-File-Name
+        const headerFileName = req.headers['x-file-name'];
+        if (headerFileName) {
+          try {
+            fileName = decodeURIComponent(headerFileName);
+          } catch {
+            fileName = headerFileName;
+          }
+        }
+        fileBuffer = rawBuffer;
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        sendJson(res, 400, { error: 'Không tìm thấy dữ liệu file PowerPoint.' });
+        return true;
+      }
+
+      const previewData = await processPptxUploadPreview({ originalName: fileName, buffer: fileBuffer });
+      sendJson(res, 200, { success: true, ...previewData });
+    } catch (err) {
+      console.error('Lỗi render PPTX preview:', err);
+      sendJson(res, 500, { error: err.message || 'Không thể xử lý file PowerPoint.' });
+    }
+    return true;
+  }
+
+  // 11.2.2 POST /api/lessons/confirm-import-pptx (Lưu bài học PowerPoint chính thức vào database)
+  if (pathname === '/api/lessons/confirm-import-pptx' && method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const { tempId, title, grade, topic, durationMinutes, description, originalFileName } = body;
+
+      if (!tempId) {
+        sendJson(res, 400, { error: 'Mã phiên import tạm thời không hợp lệ.' });
+        return true;
+      }
+
+      const lessonId = `les_pptx_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+      const commitResult = await commitImportedPptx(tempId, lessonId);
+
+      const slides = commitResult.slides.map((s, idx) => ({
+        id: `slide_${lessonId}_${idx + 1}`,
+        lesson_id: lessonId,
+        order_index: idx,
+        type: 'IMPORTED_SLIDE',
+        title: s.title,
+        layout: 'FULL_IMAGE',
+        image_url: s.imageUrl,
+        content: '',
+        teacher_notes: ''
+      }));
+
+      const created = createLesson({
+        id: lessonId,
+        title: title || 'Bài giảng PowerPoint',
+        grade: Number(grade) || 3,
+        subject: 'Tin Học',
+        topic: topic || 'Chung',
+        duration_minutes: Number(durationMinutes) || 35,
+        objectives: description || '',
+        keywords: `PowerPoint, ${topic || ''}`,
+        type: 'imported',
+        source_file_name: originalFileName || '',
+        source_file_path: commitResult.sourceFilePath,
+        thumbnail_url: commitResult.thumbnailUrl,
+        slide_count: commitResult.slideCount,
+        slides
+      });
+
+      sendJson(res, 201, { success: true, lesson: created });
+    } catch (err) {
+      console.error('Lỗi xác nhận import PPTX:', err);
+      sendJson(res, 500, { error: err.message || 'Không thể lưu bài học PowerPoint vào thư viện.' });
+    }
+    return true;
+  }
+
+  // 11.2.3 POST /api/lessons/cancel-import-pptx (Hủy bỏ phiên import tạm thời)
+  if (pathname === '/api/lessons/cancel-import-pptx' && method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      if (body.tempId) {
+        cancelImportSession(body.tempId);
+      }
+      sendJson(res, 200, { success: true });
     } catch (err) {
       sendJson(res, 500, { error: err.message });
     }

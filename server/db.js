@@ -159,6 +159,11 @@ function initSchema(db) {
       objectives TEXT DEFAULT '',
       keywords TEXT DEFAULT '',
       teacher_notes TEXT DEFAULT '',
+      type TEXT NOT NULL DEFAULT 'native',
+      source_file_name TEXT,
+      source_file_path TEXT,
+      thumbnail_url TEXT,
+      slide_count INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -191,6 +196,13 @@ function initSchema(db) {
   } catch (e) {
     // Cột lesson_id đã tồn tại
   }
+
+  // Bổ sung các cột cho tính năng Import PowerPoint (.pptx) nếu chưa có
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN type TEXT DEFAULT 'native';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_name TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_path TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN thumbnail_url TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN slide_count INTEGER DEFAULT 0;`); } catch (e) {}
 
   // Chỉ mục tối ưu cho module Lesson
   db.exec(`
@@ -1590,9 +1602,15 @@ export function createLesson(lessonData) {
   const lessonId = lessonData.id || `les_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
 
   const stmt = db.prepare(`
-    INSERT INTO lessons (id, title, grade, subject, topic, duration_minutes, objectives, keywords, teacher_notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+    INSERT INTO lessons (
+      id, title, grade, subject, topic, duration_minutes, 
+      objectives, keywords, teacher_notes, type, 
+      source_file_name, source_file_path, thumbnail_url, slide_count,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
   `);
+
+  const slideCount = Array.isArray(lessonData.slides) ? lessonData.slides.length : (Number(lessonData.slide_count) || 0);
 
   stmt.run(
     lessonId,
@@ -1603,7 +1621,12 @@ export function createLesson(lessonData) {
     Number(lessonData.duration_minutes || lessonData.durationMinutes) || 35,
     lessonData.objectives || '',
     lessonData.keywords || '',
-    lessonData.teacher_notes || lessonData.teacherNotes || ''
+    lessonData.teacher_notes || lessonData.teacherNotes || '',
+    lessonData.type || 'native',
+    lessonData.source_file_name || lessonData.sourceFileName || '',
+    lessonData.source_file_path || lessonData.sourceFilePath || '',
+    lessonData.thumbnail_url || lessonData.thumbnailUrl || '',
+    slideCount
   );
 
   if (Array.isArray(lessonData.slides) && lessonData.slides.length > 0) {
@@ -1626,9 +1649,16 @@ export function updateLesson(lessonId, lessonData) {
       objectives = COALESCE(?, objectives),
       keywords = COALESCE(?, keywords),
       teacher_notes = COALESCE(?, teacher_notes),
+      type = COALESCE(?, type),
+      source_file_name = COALESCE(?, source_file_name),
+      source_file_path = COALESCE(?, source_file_path),
+      thumbnail_url = COALESCE(?, thumbnail_url),
+      slide_count = COALESCE(?, slide_count),
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?;
   `);
+
+  const slideCount = Array.isArray(lessonData.slides) ? lessonData.slides.length : (lessonData.slide_count !== undefined ? Number(lessonData.slide_count) : null);
 
   stmt.run(
     lessonData.title !== undefined ? lessonData.title : null,
@@ -1639,6 +1669,11 @@ export function updateLesson(lessonId, lessonData) {
     lessonData.objectives !== undefined ? lessonData.objectives : null,
     lessonData.keywords !== undefined ? lessonData.keywords : null,
     lessonData.teacher_notes !== undefined ? lessonData.teacher_notes : (lessonData.teacherNotes !== undefined ? lessonData.teacherNotes : null),
+    lessonData.type !== undefined ? lessonData.type : null,
+    lessonData.source_file_name !== undefined ? lessonData.source_file_name : (lessonData.sourceFileName !== undefined ? lessonData.sourceFileName : null),
+    lessonData.source_file_path !== undefined ? lessonData.source_file_path : (lessonData.sourceFilePath !== undefined ? lessonData.sourceFilePath : null),
+    lessonData.thumbnail_url !== undefined ? lessonData.thumbnail_url : (lessonData.thumbnailUrl !== undefined ? lessonData.thumbnailUrl : null),
+    slideCount,
     lessonId
   );
 

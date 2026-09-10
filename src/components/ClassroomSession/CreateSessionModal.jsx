@@ -185,7 +185,7 @@ export default function CreateSessionModal({
                 <option value="">-- Tự soạn tên bài mới --</option>
                 {libraryLessons.map(l => (
                   <option key={l.id} value={l.id}>
-                    📖 {l.title} ({l.topic || 'Chung'})
+                    {l.type === 'imported' ? '🟣 [PowerPoint] ' : '📖 '} {l.title} ({l.topic || 'Chung'})
                   </option>
                 ))}
               </select>

@@ -187,6 +187,25 @@ Module hỗ trợ giáo viên xây dựng bài giảng lý thuyết và thực h
   - Đồng hồ đếm ngược của tiết học vẫn chạy chính xác trong nền.
   - Thoát trình chiếu quay lại ngay tiết học mà không mất dữ liệu.
 
+#### 4. 📥 Tính Năng Import Bài Giảng PowerPoint (.pptx)
+- **Mục tiêu**: Giáo viên có thể đưa trực tiếp các giáo án điện tử PowerPoint (.pptx) đã soạn sẵn vào EduICT để quản lý và trình chiếu mà không cần soạn lại từ đầu.
+- **Quy trình Import trực quan**:
+  1. Tại **Thư Viện Bài Học**, bấm nút `[📥 Import PowerPoint]`.
+  2. Kéo thả hoặc chọn file `.pptx` từ máy tính (hỗ trợ file dung lượng đến 100MB).
+  3. Hệ thống tự động phân tích và kết xuất toàn bộ slide sang định dạng hình ảnh độ nét cao.
+  4. Hiển thị thông tin tổng quan (Tên file gốc, dung lượng, tổng số slide), cho phép sửa Tên bài, Khối lớp, Chủ đề, Thời lượng và hiển thị **lưới thumbnail xem trước toàn bộ slide** (có bấm phóng to từng slide).
+  5. Bấm `[Import vào thư viện]` để hoàn tất lưu trữ.
+- **Bảo toàn 100% nguyên gốc (Độ trung thực cao nhất)**:
+  - Slide được kết xuất bằng công cụ native của PowerPoint, giữ trọn vẹn kiểu chữ tiếng Việt, hiệu ứng đồ họa, hình ảnh minh họa, bảng biểu và màu sắc thiết kế.
+  - Không tự ý phân tích văn bản thô hay đổi bố cục làm hỏng slide giáo án của giáo viên.
+- **Lưu trữ & Bảo mật tệp tin**:
+  - Tệp gốc và các slide kết xuất được lưu trữ riêng biệt tại: `uploads/presentations/{lessonId}/`.
+  - Cơ chế bảo vệ chống Path Traversal, tự động dọn dẹp file tạm trong `uploads/temp/` khi hoàn tất hoặc hủy phiên.
+- **Phân biệt & Thao tác**:
+  - Thẻ bài học trong Thư viện hiển thị **Thumbnail từ Slide 1** và huy hiệu nhận diện `🟣 PowerPoint đã import`.
+  - Hỗ trợ nút `[📺 Trình Chiếu]`, `[✏️ Thông tin]` (chỉnh sửa metadata) và `[🗑️ Xóa]`.
+  - Tương thích hoàn hảo với **Presentation Mode** (chuẩn tỷ lệ 16:9, phím tắt Next/Prev/Esc/F11, không crop méo hình ảnh) và tích hợp liền mạch trong **Classroom Session**.
+
 ---
 
 ### 4.3. ⚡ Quick Quiz & Ngân Hàng Câu Hỏi Trắc Nghiệm (GDPT 2018)

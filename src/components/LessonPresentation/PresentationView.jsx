@@ -9,7 +9,11 @@ import {
   Star, 
   RotateCcw, 
   Clock,
-  Zap
+  Zap,
+  AlertCircle,
+  Edit3,
+  Loader2,
+  Layers
 } from 'lucide-react';
 import SlideRenderer from './SlideRenderer';
 import TeacherNotesDrawer from './TeacherNotesDrawer';
@@ -18,24 +22,86 @@ import { soundEffects } from '../../utils/audio';
 import CreateQuizModal from '../QuickQuiz/CreateQuizModal';
 import QuizPlayer from '../QuickQuiz/QuizPlayer';
 import QuizResultModal from '../QuickQuiz/QuizResultModal';
+import { fetchLessonDetailApi } from './lessonStorage';
 
 export default function PresentationView({
-  lesson,
+  lesson: initialLesson = null,
+  lessonId = null,
   initialSlideIndex = 0,
   onClose,
+  onEditLesson = null,
   currentClass = null,
   onUpdateStudents = null,
   onUpdateGoodScores = null,
   sessionTimerRemainingSec = null,
   soundEnabled = true
 }) {
-  const slides = lesson?.slides || [];
+  const [activeLesson, setActiveLesson] = useState(initialLesson);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (lessonId && !initialLesson) return true;
+    if (initialLesson && (!initialLesson.slides || (initialLesson.slides_count > 0 && initialLesson.slides.length === 0))) return true;
+    return false;
+  });
+  const [loadError, setLoadError] = useState(null);
+
+  // Tự động tải bài học và danh sách slide nếu cần
+  useEffect(() => {
+    let ignore = false;
+    const targetId = lessonId || initialLesson?.id;
+
+    if (initialLesson?.slides && initialLesson.slides.length > 0) {
+      setActiveLesson(initialLesson);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!targetId) {
+      setIsLoading(false);
+      setLoadError('Không tìm thấy thông tin bài học để trình chiếu.');
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+    fetchLessonDetailApi(targetId)
+      .then(data => {
+        if (!ignore) {
+          if (data) {
+            setActiveLesson(data);
+          } else {
+            setLoadError('Không tìm thấy dữ liệu bài học này.');
+          }
+          setIsLoading(false);
+        }
+      })
+      .catch(err => {
+        if (!ignore) {
+          setLoadError(err.message || 'Lỗi nạp bài học');
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [lessonId, initialLesson]);
+
+  const slides = activeLesson?.slides || [];
   const [currentIndex, setCurrentIndex] = useState(() => {
     if (initialSlideIndex >= 0 && initialSlideIndex < slides.length) {
       return initialSlideIndex;
     }
     return 0;
   });
+
+  // Đồng bộ currentIndex khi slides load xong
+  useEffect(() => {
+    if (initialSlideIndex >= 0 && initialSlideIndex < slides.length) {
+      setCurrentIndex(initialSlideIndex);
+    } else {
+      setCurrentIndex(0);
+    }
+  }, [slides.length, initialSlideIndex]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
@@ -116,6 +182,10 @@ export default function PresentationView({
           e.preventDefault();
           setCurrentIndex(totalSlides - 1);
           break;
+        case 'F11':
+          e.preventDefault();
+          toggleFullscreen();
+          break;
         default:
           break;
       }
@@ -168,7 +238,7 @@ export default function PresentationView({
         ruleId: 'rule_pos_1',
         type: 'positive',
         points: starCount,
-        title: `Phát biểu trong bài: ${lesson?.title || 'Slide'}`,
+        title: `Phát biểu trong bài: ${activeLesson?.title || 'Slide'}`,
         timestamp: new Date().toISOString()
       };
       const existingMerits = currentClass.goodScores || [];
@@ -185,6 +255,135 @@ export default function PresentationView({
     const s = totalSec % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
+
+  // 1. Màn hình Loading
+  if (isLoading) {
+    return (
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'var(--surface-ground)', color: 'var(--text-main)',
+        zIndex: 1000, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: '1.25rem'
+      }}>
+        <Loader2 size={48} className="animate-spin" color="#0284c7" />
+        <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>
+          Đang tải nội dung bài giảng & slide...
+        </div>
+        <button onClick={onClose} className="btn btn-secondary" style={{ marginTop: '0.5rem' }}>
+          Hủy / Thoát
+        </button>
+      </div>
+    );
+  }
+
+  // 2. Màn hình Lỗi (Không tìm thấy bài học)
+  if (loadError || !activeLesson) {
+    return (
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'var(--surface-ground)', color: 'var(--text-main)',
+        zIndex: 1000, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', padding: '2rem'
+      }}>
+        <div style={{
+          background: 'var(--surface-card)', border: '1px solid var(--surface-border)',
+          borderRadius: 'var(--radius-2xl)', padding: '3rem 2.5rem',
+          maxWidth: 520, width: '100%', textAlign: 'center',
+          boxShadow: 'var(--shadow-xl)', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', gap: '1.25rem'
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <AlertCircle size={36} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+              Không Thể Mở Trình Chiếu
+            </h2>
+            <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+              {loadError || 'Bài học này có thể đã bị xóa hoặc không tồn tại trong hệ thống.'}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="btn btn-primary"
+            style={{
+              padding: '0.75rem 1.75rem', fontWeight: 700,
+              background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
+            }}
+          >
+            ← Quay lại Thư viện
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Màn hình Bài Học Chưa Có Slide (Yêu cầu đặc tả của người dùng)
+  if (slides.length === 0) {
+    return (
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'var(--surface-ground)', color: 'var(--text-main)',
+        zIndex: 1000, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', padding: '2rem'
+      }}>
+        <div style={{
+          background: 'var(--surface-card)', border: '1px solid var(--surface-border)',
+          borderRadius: 'var(--radius-2xl)', padding: '3rem 2.5rem',
+          maxWidth: 560, width: '100%', textAlign: 'center',
+          boxShadow: 'var(--shadow-xl)', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', gap: '1.25rem'
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: 'rgba(2, 132, 199, 0.12)', color: '#0284c7',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <Layers size={36} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+              Bài học này chưa có slide trình chiếu.
+            </h2>
+            <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+              Bài học "<strong>{activeLesson.title}</strong>" hiện chưa có nội dung slide nào. Hãy mở trình soạn thảo để thêm các slide bài giảng.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', width: '100%', marginTop: '0.5rem' }}>
+            <button
+              onClick={() => {
+                if (onEditLesson) {
+                  onEditLesson(activeLesson);
+                } else {
+                  onClose();
+                }
+              }}
+              className="btn btn-primary"
+              style={{
+                flex: 1, padding: '0.75rem', fontWeight: 700,
+                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+              }}
+            >
+              <Edit3 size={18} />
+              <span>✏️ Chỉnh sửa bài học</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="btn btn-secondary"
+              style={{ padding: '0.75rem 1.25rem', fontWeight: 600 }}
+            >
+              ← Quay lại Thư viện
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -228,9 +427,26 @@ export default function PresentationView({
             fontSize: '0.875rem',
             fontWeight: 700
           }}>
-            <span style={{ color: '#0284c7' }}>📖 {lesson?.title || 'Bài giảng'}</span>
+            <span style={{ color: '#0284c7' }}>📖 {activeLesson?.title || 'Bài giảng'}</span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <span style={{ color: 'var(--text-muted)' }}>Khối {lesson?.grade || 3}</span>
+            <span style={{ color: 'var(--text-muted)' }}>Khối {activeLesson?.grade || 3}</span>
+            {activeLesson?.type === 'imported' && (
+              <span style={{
+                background: 'rgba(168, 85, 247, 0.15)',
+                color: '#a855f7',
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                padding: '0.15rem 0.55rem',
+                borderRadius: '999px',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem'
+              }}>
+                <span>🟣</span>
+                <span>PowerPoint</span>
+              </span>
+            )}
           </div>
 
           {sessionTimerRemainingSec !== null && (
@@ -271,37 +487,43 @@ export default function PresentationView({
       </div>
 
       {/* 2. Slide Canvas Chính (Fullscreen / 16:9 responsive) */}
-      <main style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem 1rem 6rem 1rem',
-        boxSizing: 'border-box',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '1380px',
-          height: '100%',
-          maxHeight: '88vh',
-          background: 'var(--surface-card)',
-          borderRadius: 'var(--radius-2xl)',
-          border: '1px solid var(--surface-border)',
-          boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.15)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative'
-        }}>
-          <SlideRenderer 
-            slide={currentSlide} 
-            isProjector={true} 
-            isPresentation={true}
-            onAwardStar={() => setShowStarModal(true)}
-          />
-        </div>
-      </main>
+      {(() => {
+        const isImported = activeLesson?.type === 'imported' || currentSlide?.type === 'IMPORTED_SLIDE';
+        return (
+          <main style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: isImported ? 0 : '2rem 1rem 6rem 1rem',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
+            background: isImported ? '#090d16' : 'transparent'
+          }}>
+            <div style={{
+              width: '100%',
+              maxWidth: isImported ? '100%' : '1380px',
+              height: '100%',
+              maxHeight: isImported ? '100%' : '88vh',
+              background: isImported ? '#090d16' : 'var(--surface-card)',
+              borderRadius: isImported ? 0 : 'var(--radius-2xl)',
+              border: isImported ? 'none' : '1px solid var(--surface-border)',
+              boxShadow: isImported ? 'none' : '0 20px 40px -15px rgba(0, 0, 0, 0.15)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative'
+            }}>
+              <SlideRenderer 
+                slide={currentSlide} 
+                isProjector={true} 
+                isPresentation={true}
+                onAwardStar={() => setShowStarModal(true)}
+              />
+            </div>
+          </main>
+        );
+      })()}
 
       {/* 3. Thanh Điều Khiển Cố Định Dưới (Floating Dock) */}
       <div style={{
@@ -342,6 +564,25 @@ export default function PresentationView({
           >
             <ChevronLeft size={22} />
           </button>
+
+          {/* Badge số slide nổi bật */}
+          <div style={{
+            background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+            color: '#fff',
+            padding: '0.35rem 0.85rem',
+            borderRadius: '999px',
+            fontWeight: 800,
+            fontSize: '0.95rem',
+            letterSpacing: '0.05em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)'
+          }}>
+            <span>{String(currentIndex + 1).padStart(2, '0')}</span>
+            <span style={{ opacity: 0.6 }}>/</span>
+            <span>{String(totalSlides).padStart(2, '0')}</span>
+          </div>
 
           {/* Chọn nhanh slide */}
           <select
@@ -495,7 +736,7 @@ export default function PresentationView({
         isOpen={isNotesOpen}
         onClose={() => setIsNotesOpen(false)}
         slide={currentSlide}
-        lesson={lesson}
+        lesson={activeLesson}
         currentSlideIndex={currentIndex}
         totalSlides={totalSlides}
       />
@@ -639,7 +880,7 @@ export default function PresentationView({
           setActiveQuizSession(session);
         }}
         currentClass={currentClass}
-        preselectedLesson={lesson}
+        preselectedLesson={activeLesson}
       />
 
       {/* Màn Hình Phát Quick Quiz Toàn Màn Hình */}

@@ -1,10 +1,16 @@
 import { handleApiRequest } from './api-handler.js';
+import { handleUploadsRequest } from './static-file-handler.js';
 
 export function sqliteApiPlugin() {
   return {
     name: 'vite-plugin-edumaster-sqlite',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
+        if (req.url && req.url.startsWith('/uploads/')) {
+          const handled = handleUploadsRequest(req, res);
+          if (handled) return;
+        }
+
         if (req.url && req.url.startsWith('/api/')) {
           try {
             const handled = await handleApiRequest(req, res);

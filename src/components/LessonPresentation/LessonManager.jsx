@@ -57,6 +57,10 @@ export default function LessonManager({
           lesson={presentationLesson}
           initialSlideIndex={presentationInitialSlide}
           onClose={() => setPresentationLesson(null)}
+          onEditLesson={(lessonToEdit) => {
+            setPresentationLesson(null);
+            handleOpenEditor(lessonToEdit);
+          }}
           currentClass={currentClass}
           onUpdateStudents={onUpdateStudents}
           onUpdateGoodScores={onUpdateGoodScores}
