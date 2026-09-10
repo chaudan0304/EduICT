@@ -10,10 +10,11 @@ import {
   Sparkles, 
   Award,
   CheckSquare,
-  Square,
-  Volume2
+  Square
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
+
+const getCurrentTimestamp = () => Date.now();
 
 // Bảng màu đa dạng cho các chú vịt
 const DUCK_COLORS = [
@@ -37,7 +38,7 @@ export default function DuckRace({
   const students = currentClass?.students || [];
   
   // Danh sách ID học sinh tham gia đua
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(() => (currentClass?.students || []).map(s => s.id));
   const [gameState, setGameState] = useState('idle'); // 'idle' | 'racing' | 'finished'
   const [winners, setWinners] = useState([]); // Top 3
   const [boostAnnounce, setBoostAnnounce] = useState(null);
@@ -46,12 +47,16 @@ export default function DuckRace({
   const ducksRef = useRef([]);
   const animationFrameRef = useRef(null);
 
-  // Mặc định chọn tất cả học sinh
+  // Cập nhật khi đổi lớp học
+  const prevClassIdRef = useRef(currentClass?.id);
   useEffect(() => {
-    if (students.length > 0 && selectedIds.length === 0) {
-      setSelectedIds(students.map(s => s.id));
+    if (prevClassIdRef.current !== currentClass?.id) {
+      prevClassIdRef.current = currentClass?.id;
+      if (students.length > 0) {
+        setSelectedIds(students.map(s => s.id));
+      }
     }
-  }, [students]);
+  }, [currentClass?.id, students]);
 
   // Bộ lọc nhanh danh sách đua
   const handleSelectAll = () => {
@@ -134,7 +139,7 @@ export default function DuckRace({
     const canvas = canvasRef.current;
     const finishLineX = canvas.width - 90;
     const finishedDucks = [];
-    let startTime = Date.now();
+    let startTime = getCurrentTimestamp();
 
     const animate = () => {
       const ctx = canvas.getContext('2d');
@@ -144,7 +149,7 @@ export default function DuckRace({
       drawRiver(ctx, canvas, finishLineX);
 
       const ducks = ducksRef.current;
-      const now = Date.now();
+      const now = getCurrentTimestamp();
 
       ducks.forEach(duck => {
         if (!duck.finished) {
@@ -668,7 +673,7 @@ export default function DuckRace({
           overflowY: 'auto',
           padding: '0.5rem 0'
         }}>
-          {students.map((student, idx) => {
+          {students.map((student) => {
             const isSelected = selectedIds.includes(student.id);
             return (
               <div

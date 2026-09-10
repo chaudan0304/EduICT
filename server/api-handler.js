@@ -40,7 +40,9 @@ import {
 import {
   processPptxUploadPreview,
   commitImportedPptx,
-  cancelImportSession
+  cancelImportSession,
+  deleteLessonPresentationsDir,
+  fastImportPptx
 } from './pptxService.js';
 
 const DB_PATH = path.resolve(process.cwd(), 'edumaster.sqlite');
@@ -82,6 +84,7 @@ function parseMultipart(buffer, boundary) {
   let start = 0;
   let fileName = 'presentation.pptx';
   let fileBuffer = null;
+  const fields = {};
 
   while (true) {
     const boundaryIdx = buffer.indexOf(boundaryBuffer, start);
@@ -102,21 +105,29 @@ function parseMultipart(buffer, boundary) {
     const dispositionMatch = headersStr.match(/Content-Disposition:\s*form-data;[^\r\n]*/i);
     if (dispositionMatch) {
       const match = dispositionMatch[0];
+      const filenameStarMatch = match.match(/filename\*=UTF-8''([^;\r\n]+)/i);
       const filenameMatch = match.match(/filename="?([^";\r\n]+)"?/i);
-      if (filenameMatch) {
+      const nameMatch = match.match(/name="?([^";\r\n]+)"?/i);
+
+      if (filenameStarMatch) {
         try {
-          fileName = decodeURIComponent(escape(filenameMatch[1]));
+          fileName = decodeURIComponent(filenameStarMatch[1]);
         } catch {
-          fileName = filenameMatch[1];
+          fileName = filenameStarMatch[1];
         }
         fileBuffer = partData;
+      } else if (filenameMatch) {
+        fileName = filenameMatch[1].trim();
+        fileBuffer = partData;
+      } else if (nameMatch) {
+        fields[nameMatch[1]] = partData.toString('utf-8');
       }
     }
 
     start = nextBoundaryIdx;
   }
 
-  return { fileName, fileBuffer };
+  return { fileName, fileBuffer, fields };
 }
 
 export async function handleApiRequest(req, res) {
@@ -552,6 +563,92 @@ export async function handleApiRequest(req, res) {
     return true;
   }
 
+  // 11.2.4 POST /api/lessons/import-fast (Import nhanh PPTX < 30ms, trích xuất metadata và render nền)
+  if (pathname === '/api/lessons/import-fast' && method === 'POST') {
+    try {
+      const rawBuffer = await parseRequestBodyBuffer(req);
+      const contentType = req.headers['content-type'] || '';
+      let fileName = 'bai_giang.pptx';
+      let fileBuffer = null;
+      let fields = {};
+
+      if (contentType.includes('multipart/form-data')) {
+        const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
+        if (!boundaryMatch) {
+          sendJson(res, 400, { error: 'Thiếu boundary trong multipart request' });
+          return true;
+        }
+        const parsed = parseMultipart(rawBuffer, boundaryMatch[1].trim());
+        fileName = parsed.fileName;
+        fileBuffer = parsed.fileBuffer;
+        fields = parsed.fields || {};
+      } else if (contentType.includes('application/json')) {
+        const json = JSON.parse(rawBuffer.toString('utf-8'));
+        fileName = json.fileName || 'bai_giang.pptx';
+        fileBuffer = json.fileBase64 ? Buffer.from(json.fileBase64, 'base64') : null;
+        fields = json;
+      } else {
+        const headerFileName = req.headers['x-file-name'];
+        if (headerFileName) {
+          try {
+            fileName = decodeURIComponent(headerFileName);
+          } catch {
+            fileName = headerFileName;
+          }
+        }
+        fileBuffer = rawBuffer;
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        sendJson(res, 400, { error: 'Không tìm thấy dữ liệu file PowerPoint.' });
+        return true;
+      }
+
+      const result = await fastImportPptx({
+        originalName: fileName,
+        buffer: fileBuffer,
+        lessonData: {
+          title: fields.title,
+          grade: fields.grade ? Number(fields.grade) : undefined,
+          subject: fields.subject,
+          topic: fields.topic,
+          durationMinutes: fields.durationMinutes ? Number(fields.durationMinutes) : undefined,
+          description: fields.description
+        }
+      });
+
+      sendJson(res, 201, result);
+    } catch (err) {
+      console.error('Lỗi fastImportPptx:', err);
+      sendJson(res, 500, { error: err.message || 'Không thể import nhanh file PowerPoint.' });
+    }
+    return true;
+  }
+
+  // 11.2.5 GET /api/lessons/:id/render-status (Kiểm tra trạng thái render slide nền)
+  if (pathname.match(/^\/api\/lessons\/[^/]+\/render-status$/) && method === 'GET') {
+    const parts = pathname.split('/');
+    const lessonId = parts[3];
+    try {
+      const lesson = getLessonById(lessonId);
+      if (!lesson) {
+        sendJson(res, 404, { error: 'Không tìm thấy bài học' });
+        return true;
+      }
+      sendJson(res, 200, {
+        id: lesson.id,
+        title: lesson.title,
+        render_status: lesson.render_status || 'ready',
+        slide_count: lesson.slide_count || (lesson.slides ? lesson.slides.length : 0),
+        thumbnail_url: lesson.thumbnail_url || '',
+        slides: lesson.slides || []
+      });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
   // 11.3 GET /api/lessons/:id (Chi tiết bài học + slides)
   if (pathname.match(/^\/api\/lessons\/[^/]+$/) && method === 'GET') {
     const lessonId = pathname.replace('/api/lessons/', '');
@@ -586,6 +683,7 @@ export async function handleApiRequest(req, res) {
     const lessonId = pathname.replace('/api/lessons/', '');
     try {
       deleteLesson(lessonId);
+      deleteLessonPresentationsDir(lessonId);
       sendJson(res, 200, { success: true, id: lessonId });
     } catch (err) {
       sendJson(res, 500, { error: err.message });

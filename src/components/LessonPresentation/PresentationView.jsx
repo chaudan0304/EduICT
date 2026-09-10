@@ -22,7 +22,7 @@ import { soundEffects } from '../../utils/audio';
 import CreateQuizModal from '../QuickQuiz/CreateQuizModal';
 import QuizPlayer from '../QuickQuiz/QuizPlayer';
 import QuizResultModal from '../QuickQuiz/QuizResultModal';
-import { fetchLessonDetailApi } from './lessonStorage';
+import { fetchLessonDetailApi, fetchLessonRenderStatusApi } from './lessonStorage';
 
 export default function PresentationView({
   lesson: initialLesson = null,
@@ -102,6 +102,44 @@ export default function PresentationView({
       setCurrentIndex(0);
     }
   }, [slides.length, initialSlideIndex]);
+
+  // Preload thông minh (Smart Preload): Slide trước (currentIndex - 1) và Slide sau (currentIndex + 1)
+  useEffect(() => {
+    if (!slides || slides.length === 0) return;
+    const preloadIndices = [currentIndex - 1, currentIndex + 1].filter(idx => idx >= 0 && idx < slides.length);
+    preloadIndices.forEach(idx => {
+      const s = slides[idx];
+      const url = s?.image_url || s?.imageUrl;
+      if (url) {
+        const img = new Image();
+        img.src = url;
+      }
+    });
+  }, [currentIndex, slides.length, activeLesson?.id]);
+
+  // Tự động polling cập nhật nếu bài học đang ở trạng thái render slide nền
+  useEffect(() => {
+    if (activeLesson?.render_status !== 'processing' || !activeLesson?.id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const statusData = await fetchLessonRenderStatusApi(activeLesson.id);
+        if (statusData && statusData.render_status !== 'processing') {
+          setActiveLesson(prev => ({
+            ...prev,
+            render_status: statusData.render_status,
+            thumbnail_url: statusData.thumbnail_url,
+            slide_count: statusData.slide_count,
+            slides: statusData.slides
+          }));
+        }
+      } catch (err) {
+        console.warn('Lỗi polling trong PresentationView:', err);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [activeLesson?.id, activeLesson?.render_status]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
@@ -313,6 +351,53 @@ export default function PresentationView({
             style={{
               padding: '0.75rem 1.75rem', fontWeight: 700,
               background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
+            }}
+          >
+            ← Quay lại Thư viện
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 2.5 Màn hình Đang Xử Lý Slide Nền (Background Processing)
+  if (activeLesson?.render_status === 'processing') {
+    return (
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: '#090d16', color: '#fff',
+        zIndex: 1000, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', padding: '2rem'
+      }}>
+        <div style={{
+          background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(168, 85, 247, 0.3)',
+          borderRadius: 'var(--radius-2xl)', padding: '3rem 2.5rem',
+          maxWidth: 560, width: '100%', textAlign: 'center',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', gap: '1.25rem'
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <Loader2 size={36} className="animate-spin" />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem', color: '#fff' }}>
+              Đang Chuẩn Bị Slide Trình Chiếu...
+            </h2>
+            <p style={{ fontSize: '0.95rem', color: 'rgba(255, 255, 255, 0.7)', margin: 0, lineHeight: 1.5 }}>
+              Hệ thống đang trích xuất chất lượng cao cho {activeLesson.slide_count || 14} slides của bài <strong>"{activeLesson.title}"</strong>. Bài trình chiếu sẽ tự động sẵn sàng trong giây lát.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.65rem 1.5rem', fontWeight: 700,
+              background: 'rgba(255, 255, 255, 0.1)', color: '#fff',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
             }}
           >
             ← Quay lại Thư viện

@@ -19,8 +19,6 @@ export default function StarExchangeModal({
   onUpdateStudents,
   soundEnabled
 }) {
-  if (!isOpen) return null;
-
   const [selectedStudentId, setSelectedStudentId] = useState(
     initialStudentId || students[0]?.id || ''
   );
@@ -56,6 +54,8 @@ export default function StarExchangeModal({
       setPointsToConvert(Math.max(1, maxPossiblePoints));
     }
   }, [selectedStudentId, maxPossiblePoints]);
+
+  if (!isOpen) return null;
 
   const getColumnName = (col) => {
     switch (col) {

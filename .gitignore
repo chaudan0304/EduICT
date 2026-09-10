@@ -27,6 +27,11 @@ dist-ssr
 *.sqlite-wal
 *.sqlite-shm
 
-# Uploads temporary files
+# Scratch directory
+scratch/
+
+# Uploads directory (exclude huge presentations and render cache)
+uploads/presentations/*
+uploads/cache/
 uploads/temp/*
-!uploads/temp/.gitkeep
+!uploads/**/.gitkeep

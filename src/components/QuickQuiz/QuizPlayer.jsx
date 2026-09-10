@@ -5,6 +5,7 @@ import {
   ChevronRight, 
   Clock, 
   CheckCircle2, 
+  Check,
   Volume2, 
   VolumeX, 
   Lightbulb, 

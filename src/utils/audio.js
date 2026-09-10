@@ -77,6 +77,33 @@ export const soundEffects = {
     }
   },
 
+  // Tiếng click chuyển slide nhẹ nhàng
+  playClick: () => {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      const now = ctx.currentTime;
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(400, now + 0.03);
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.035);
+    } catch (e) {
+      console.warn('Audio playClick failed', e);
+    }
+  },
+
   // Tiếng tăng tốc vọt lên (Boost / Swoosh)
   playBoost: () => {
     try {

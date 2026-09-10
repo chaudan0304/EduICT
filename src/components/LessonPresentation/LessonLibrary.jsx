@@ -18,10 +18,13 @@ import {
   deleteLessonApi, 
   duplicateLessonApi, 
   INFORMATICS_TOPICS,
-  fetchLessonDetailApi
+  fetchLessonDetailApi,
+  fetchLessonRenderStatusApi,
+  compareLessonTitles
 } from './lessonStorage';
 import ImportPptxModal from './ImportPptxModal';
 import EditImportedLessonModal from './EditImportedLessonModal';
+import ErrorBoundary from '../ErrorBoundary';
 
 export default function LessonLibrary({
   onOpenEditor,
@@ -34,6 +37,7 @@ export default function LessonLibrary({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState(() => currentClass?.grade || 'all');
   const [selectedTopic, setSelectedTopic] = useState('all');
+  const [sortBy, setSortBy] = useState('lesson_order'); // 'lesson_order' | 'title_asc' | 'title_desc' | 'recent'
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingImportedLesson, setEditingImportedLesson] = useState(null);
 
@@ -63,9 +67,41 @@ export default function LessonLibrary({
     };
   }, [selectedGrade, selectedTopic, searchTerm]);
 
-  // Tìm kiếm tức thời phía client
+  // Polling tự động cập nhật trạng thái render slide nền cho các bài đang processing
+  useEffect(() => {
+    const processingLessons = lessons.filter(l => l.render_status === 'processing');
+    if (processingLessons.length === 0) return;
+
+    const interval = setInterval(async () => {
+      for (const l of processingLessons) {
+        try {
+          const statusData = await fetchLessonRenderStatusApi(l.id);
+          if (statusData && statusData.render_status !== 'processing') {
+            setLessons(prev => prev.map(item => {
+              if (item.id === l.id) {
+                return {
+                  ...item,
+                  render_status: statusData.render_status,
+                  thumbnail_url: statusData.thumbnail_url || item.thumbnail_url,
+                  slide_count: statusData.slide_count || item.slide_count,
+                  slides: statusData.slides || item.slides
+                };
+              }
+              return item;
+            }));
+          }
+        } catch (err) {
+          console.warn('Lỗi polling status trong LessonLibrary:', err);
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [lessons]);
+
+  // Tìm kiếm tức thời phía client & Sắp xếp bài học chuẩn xác
   const filteredLessons = useMemo(() => {
-    let list = lessons;
+    let list = [...lessons];
     if (selectedGrade !== 'all') {
       list = list.filter(l => Number(l.grade) === Number(selectedGrade));
     }
@@ -80,8 +116,36 @@ export default function LessonLibrary({
         (l.objectives && l.objectives.toLowerCase().includes(s))
       );
     }
+
+    list.sort((a, b) => {
+      // 1. Nếu xem tất cả khối lớp, sắp xếp theo Khối 1 -> 2 -> 3 -> 4 -> 5 trước
+      if (selectedGrade === 'all') {
+        const gradeA = Number(a.grade) || 0;
+        const gradeB = Number(b.grade) || 0;
+        if (gradeA !== gradeB) {
+          return gradeA - gradeB;
+        }
+      }
+
+      // 2. Sắp xếp theo tiêu chí người dùng chọn
+      if (sortBy === 'recent') {
+        const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+        const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+        return dateB - dateA;
+      }
+      if (sortBy === 'title_desc') {
+        return compareLessonTitles(b.title || '', a.title || '');
+      }
+      if (sortBy === 'title_asc') {
+        return (a.title || '').localeCompare(b.title || '', 'vi');
+      }
+
+      // Mặc định: 'lesson_order' (Bài 1, Bài 2, ..., Bài 9, Bài 10, Bài 11...)
+      return compareLessonTitles(a.title || '', b.title || '');
+    });
+
     return list;
-  }, [lessons, selectedGrade, selectedTopic, searchTerm]);
+  }, [lessons, selectedGrade, selectedTopic, searchTerm, sortBy]);
 
   // Xóa bài học
   const handleDeleteLesson = async (lesson, e) => {
@@ -310,6 +374,20 @@ export default function LessonLibrary({
             ))}
           </select>
 
+          {/* Sắp xếp bài giảng */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="input-field"
+            style={{ minWidth: 185, fontSize: '0.875rem', fontWeight: 600 }}
+            title="Thứ tự sắp xếp bài giảng"
+          >
+            <option value="lesson_order">🔢 Thứ tự bài (Bài 1 → 10)</option>
+            <option value="title_asc">🔤 Tên bài: A → Z</option>
+            <option value="title_desc">🔤 Tên bài: Z → A</option>
+            <option value="recent">🕒 Mới cập nhật gần đây</option>
+          </select>
+
           <div style={{ position: 'relative', width: 240 }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
             <input
@@ -400,8 +478,8 @@ export default function LessonLibrary({
               >
                 {/* Phần trên thẻ bài */}
                 <div>
-                  {/* Thumbnail Slide 1 nếu có */}
-                  {lesson.thumbnail_url && (
+                  {/* Thumbnail Slide 1 hoặc placeholder */}
+                  {lesson.thumbnail_url ? (
                     <div style={{
                       width: '100%',
                       aspectRatio: '16/9',
@@ -436,7 +514,46 @@ export default function LessonLibrary({
                         Slide 1
                       </div>
                     </div>
-                  )}
+                  ) : isImported ? (
+                    <div style={{
+                      width: '100%',
+                      aspectRatio: '16/9',
+                      background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                      borderRadius: 'var(--radius-lg)',
+                      overflow: 'hidden',
+                      marginBottom: '0.85rem',
+                      position: 'relative',
+                      border: '1px solid rgba(168, 85, 247, 0.25)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      color: '#fff'
+                    }}>
+                      <span style={{ fontSize: '1.6rem' }}>📊</span>
+                      <span style={{ fontSize: '0.775rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.85)' }}>
+                        PowerPoint • {slideCount} slides
+                      </span>
+                      {lesson.render_status === 'processing' && (
+                        <span style={{
+                          fontSize: '0.675rem',
+                          color: '#eab308',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          background: 'rgba(234, 179, 8, 0.15)',
+                          border: '1px solid rgba(234, 179, 8, 0.3)',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '999px',
+                          fontWeight: 700
+                        }}>
+                          <Loader2 size={10} className="animate-spin" />
+                          Đang chuẩn bị slide...
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -463,21 +580,54 @@ export default function LessonLibrary({
                         {lesson.topic || 'Chung'}
                       </span>
                       {isImported && (
-                        <span style={{
-                          background: 'rgba(168, 85, 247, 0.12)',
-                          color: '#a855f7',
-                          border: '1px solid rgba(168, 85, 247, 0.3)',
-                          fontSize: '0.725rem',
-                          fontWeight: 800,
-                          padding: '0.15rem 0.55rem',
-                          borderRadius: '999px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.25rem'
-                        }}>
-                          <span>🟣</span>
-                          <span>PowerPoint đã import</span>
-                        </span>
+                        lesson.render_status === 'processing' ? (
+                          <span style={{
+                            background: 'rgba(234, 179, 8, 0.12)',
+                            color: '#eab308',
+                            border: '1px solid rgba(234, 179, 8, 0.35)',
+                            fontSize: '0.725rem',
+                            fontWeight: 800,
+                            padding: '0.15rem 0.55rem',
+                            borderRadius: '999px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                          }}>
+                            <Loader2 size={10} className="animate-spin" />
+                            <span>Đang chuẩn bị slide...</span>
+                          </span>
+                        ) : lesson.render_status === 'failed' ? (
+                          <span style={{
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            fontSize: '0.725rem',
+                            fontWeight: 800,
+                            padding: '0.15rem 0.55rem',
+                            borderRadius: '999px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                          }}>
+                            <span>⚠️ Lỗi xử lý slide</span>
+                          </span>
+                        ) : (
+                          <span style={{
+                            background: 'rgba(168, 85, 247, 0.12)',
+                            color: '#a855f7',
+                            border: '1px solid rgba(168, 85, 247, 0.3)',
+                            fontSize: '0.725rem',
+                            fontWeight: 800,
+                            padding: '0.15rem 0.55rem',
+                            borderRadius: '999px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                          }}>
+                            <span>🟣</span>
+                            <span>PowerPoint đã import</span>
+                          </span>
+                        )
                       )}
                     </div>
 
@@ -655,24 +805,45 @@ export default function LessonLibrary({
       )}
 
       {/* Modal Import PowerPoint */}
-      <ImportPptxModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImportSuccess={(newLesson) => {
-          setLessons(prev => [newLesson, ...prev]);
-        }}
-        defaultGrade={currentClass?.grade || 3}
-      />
+      <ErrorBoundary title="Không thể hiển thị hộp thoại Import PowerPoint" onClose={() => setIsImportModalOpen(false)}>
+        <ImportPptxModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportSuccess={(newLessons) => {
+            const toAdd = Array.isArray(newLessons) ? newLessons : [newLessons];
+            if (toAdd.length === 0 || !toAdd[0]) return;
+
+            setLessons(prev => {
+              const addMap = new Map(toAdd.map(item => [item.id, item]));
+              // Cập nhật các bài đã tồn tại
+              const updated = prev.map(p => addMap.has(p.id) ? { ...p, ...addMap.get(p.id) } : p);
+              // Thêm các bài mới vào đầu danh sách nếu chưa có
+              const existingIds = new Set(prev.map(p => p.id));
+              const reallyNew = toAdd.filter(item => !existingIds.has(item.id));
+              return [...reallyNew, ...updated];
+            });
+
+            // Tự động chuyển bộ lọc về 'all' để giáo viên thấy ngay bài vừa import
+            setSelectedGrade('all');
+            setSelectedTopic('all');
+            setSearchTerm('');
+          }}
+          defaultGrade={currentClass?.grade || 3}
+        />
+      </ErrorBoundary>
 
       {/* Modal Chỉnh Sửa Thông Tin Bài Import */}
-      <EditImportedLessonModal
-        isOpen={!!editingImportedLesson}
-        lesson={editingImportedLesson}
-        onClose={() => setEditingImportedLesson(null)}
-        onUpdateSuccess={(updated) => {
-          setLessons(prev => prev.map(l => l.id === updated.id ? { ...l, ...updated } : l));
-        }}
-      />
+      {editingImportedLesson && (
+        <EditImportedLessonModal
+          key={editingImportedLesson.id}
+          isOpen={!!editingImportedLesson}
+          lesson={editingImportedLesson}
+          onClose={() => setEditingImportedLesson(null)}
+          onUpdateSuccess={(updated) => {
+            setLessons(prev => prev.map(l => l.id === updated.id ? { ...l, ...updated } : l));
+          }}
+        />
+      )}
     </div>
   );
 }

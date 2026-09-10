@@ -12,6 +12,7 @@ import StarExchangeModal from './components/StarExchangeModal';
 import SessionManager from './components/ClassroomSession/SessionManager';
 import LessonManager from './components/LessonPresentation/LessonManager';
 import QuickQuizManager from './components/QuickQuiz/QuickQuizManager';
+import ErrorBoundary from './components/ErrorBoundary';
 import { 
   getStoredClasses, 
   saveClasses, 
@@ -186,100 +187,102 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="app-container" style={{ flex: 1, paddingTop: '1.5rem' }}>
-        {activeTab === 'home' && (
-          <HomeDashboard
-            currentClass={currentClass}
-            onSelectTab={setActiveTab}
-            onOpenExchangeModal={handleOpenExchangeModal}
-          />
-        )}
+      <ErrorBoundary title="Đã xảy ra sự cố khi tải nội dung chức năng">
+        <main className="app-container" style={{ flex: 1, paddingTop: '1.5rem' }}>
+          {activeTab === 'home' && (
+            <HomeDashboard
+              currentClass={currentClass}
+              onSelectTab={setActiveTab}
+              onOpenExchangeModal={handleOpenExchangeModal}
+            />
+          )}
 
-        {activeTab === 'sessions' && (
-          <SessionManager
-            classes={classes}
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-            onUpdateGoodScores={handleUpdateGoodScores}
-            soundEnabled={soundEnabled}
-          />
-        )}
+          {activeTab === 'sessions' && (
+            <SessionManager
+              classes={classes}
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+              onUpdateGoodScores={handleUpdateGoodScores}
+              soundEnabled={soundEnabled}
+            />
+          )}
 
-        {activeTab === 'lessons' && (
-          <LessonManager
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-            onUpdateGoodScores={handleUpdateGoodScores}
-            soundEnabled={soundEnabled}
-          />
-        )}
+          {activeTab === 'lessons' && (
+            <LessonManager
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+              onUpdateGoodScores={handleUpdateGoodScores}
+              soundEnabled={soundEnabled}
+            />
+          )}
 
-        {activeTab === 'quiz' && (
-          <QuickQuizManager
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-          />
-        )}
+          {activeTab === 'quiz' && (
+            <QuickQuizManager
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+            />
+          )}
 
-        {activeTab === 'gradebook' && (
-          <Gradebook
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-            onOpenExchangeModal={handleOpenExchangeModal}
-            soundEnabled={soundEnabled}
-          />
-        )}
+          {activeTab === 'gradebook' && (
+            <Gradebook
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+              onOpenExchangeModal={handleOpenExchangeModal}
+              soundEnabled={soundEnabled}
+            />
+          )}
 
-        {activeTab === 'goodscores' && (
-          <GoodScoresBoard
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-            onUpdateGoodScores={handleUpdateGoodScores}
-            onOpenExchangeModal={handleOpenExchangeModal}
-            soundEnabled={soundEnabled}
-          />
-        )}
+          {activeTab === 'goodscores' && (
+            <GoodScoresBoard
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+              onUpdateGoodScores={handleUpdateGoodScores}
+              onOpenExchangeModal={handleOpenExchangeModal}
+              soundEnabled={soundEnabled}
+            />
+          )}
 
-        {activeTab === 'duckrace' && (
-          <DuckRace
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-            soundEnabled={soundEnabled}
-          />
-        )}
+          {activeTab === 'duckrace' && (
+            <DuckRace
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+              soundEnabled={soundEnabled}
+            />
+          )}
 
-        {activeTab === 'luckywheel' && (
-          <LuckyWheel
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-            soundEnabled={soundEnabled}
-          />
-        )}
+          {activeTab === 'luckywheel' && (
+            <LuckyWheel
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+              soundEnabled={soundEnabled}
+            />
+          )}
 
-        {activeTab === 'seating' && (
-          <SeatingChart
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-            onUpdateGoodScores={handleUpdateGoodScores}
-            soundEnabled={soundEnabled}
-          />
-        )}
+          {activeTab === 'seating' && (
+            <SeatingChart
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+              onUpdateGoodScores={handleUpdateGoodScores}
+              soundEnabled={soundEnabled}
+            />
+          )}
 
-        {activeTab === 'rewards' && (
-          <RewardShop
-            currentClass={currentClass}
-            onUpdateStudents={handleUpdateStudents}
-            onOpenExchangeModal={handleOpenExchangeModal}
-            soundEnabled={soundEnabled}
-          />
-        )}
+          {activeTab === 'rewards' && (
+            <RewardShop
+              currentClass={currentClass}
+              onUpdateStudents={handleUpdateStudents}
+              onOpenExchangeModal={handleOpenExchangeModal}
+              soundEnabled={soundEnabled}
+            />
+          )}
 
-        {activeTab === 'timer' && (
-          <ClassroomTimer
-            soundEnabled={soundEnabled}
-          />
-        )}
-      </main>
+          {activeTab === 'timer' && (
+            <ClassroomTimer
+              soundEnabled={soundEnabled}
+            />
+          )}
+        </main>
+      </ErrorBoundary>
 
       {/* Modal Quy Đổi Sao Sang Điểm (10⭐ = +1.0 Điểm) */}
       <StarExchangeModal

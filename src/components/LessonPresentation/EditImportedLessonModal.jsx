@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Save, 
@@ -7,7 +7,7 @@ import {
   Layers, 
   AlertCircle 
 } from 'lucide-react';
-import { updateLessonApi, INFORMATICS_TOPICS } from './lessonStorage';
+import { updateLessonApi, INFORMATICS_TOPICS, detectGradeFromFileName } from './lessonStorage';
 
 export default function EditImportedLessonModal({
   isOpen,
@@ -22,6 +22,26 @@ export default function EditImportedLessonModal({
   const [objectives, setObjectives] = useState(lesson?.objectives || '');
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  // Tự động đồng bộ lại thông tin mỗi khi mở modal hoặc thay đổi bài học được chọn
+  useEffect(() => {
+    if (lesson) {
+      const fallbackTitle = (lesson.source_file_name || lesson.sourceFileName || '')
+        .replace(/\.pptx$/i, '')
+        .replace(/^KHBD[_-]/i, '')
+        .trim();
+
+      setTitle(lesson.title || fallbackTitle || 'Bài giảng PowerPoint');
+
+      const detected = detectGradeFromFileName(lesson.source_file_name || lesson.title, 3);
+      setGrade(lesson.grade ? Number(lesson.grade) : detected);
+
+      setTopic(lesson.topic && lesson.topic !== 'Chung' ? lesson.topic : 'Máy tính & Em');
+      setDurationMinutes(lesson.duration_minutes || lesson.durationMinutes || 35);
+      setObjectives(lesson.objectives || '');
+      setErrorMsg(null);
+    }
+  }, [lesson, isOpen]);
 
   if (!isOpen || !lesson) return null;
 

@@ -15,6 +15,78 @@ export const INFORMATICS_TOPICS = [
   { id: 'Giải quyết vấn đề & Lập trình', label: 'Chủ đề F: Lập trình & Thuật toán', icon: '🧩' },
 ];
 
+/**
+ * So sánh tên bài học tự nhiên (Natural Lesson Sorting)
+ * Tự động nhận diện và sắp xếp chuẩn: "Bài 1", "Bài 2", ..., "Bài 9", "Bài 10", "Bài 11"...
+ * Hỗ trợ tiếng Việt có dấu và các tiền tố Tiết, Tuần, Chủ đề, Lesson, Unit.
+ */
+export function compareLessonTitles(titleA = '', titleB = '') {
+  const cleanA = (titleA || '').trim();
+  const cleanB = (titleB || '').trim();
+
+  const extractLessonNum = (str) => {
+    const match = str.match(/(?:bài|tiết|tuần|chủ đề|lesson|unit)\s*(\d+)/i);
+    if (match) return parseInt(match[1], 10);
+    const generalMatch = str.match(/(?:^|[_\-\s])(\d+)(?:[_\-\s:]|$)/);
+    if (generalMatch) return parseInt(generalMatch[1], 10);
+    return null;
+  };
+
+  const numA = extractLessonNum(cleanA);
+  const numB = extractLessonNum(cleanB);
+
+  if (numA !== null && numB !== null) {
+    if (numA !== numB) {
+      return numA - numB;
+    }
+  } else if (numA !== null && numB === null) {
+    return -1;
+  } else if (numA === null && numB !== null) {
+    return 1;
+  }
+
+  return cleanA.localeCompare(cleanB, 'vi', { numeric: true, sensitivity: 'base' });
+}
+
+/**
+ * Tự động nhận diện Khối lớp (1 - 5) từ tên file PowerPoint hoặc tiêu đề
+ * Hỗ trợ các định dạng:
+ * - TIN HOC 3, TIN HỌC 3, TINHOC3, TIN 3, TH3, TH 3
+ * - LỚP 3, LOP 3, LP 3
+ * - KHỐI 3, KHOI 3, KH 3
+ * - LQTH3, LQTH 3 (Làm quen tin học)
+ * - K3 (K3_Bai 1, K3-...)
+ */
+export function detectGradeFromFileName(fileName = '', fallbackGrade = 3) {
+  if (!fileName) return Number(fallbackGrade) || 3;
+  const fn = fileName.toUpperCase();
+
+  for (let g = 1; g <= 5; g++) {
+    // 1. Cụm từ môn học: TIN HOC 3, TIN HỌC 3, TINHOC 3, TIN 3, TH3, TH 3
+    const tinHocPattern = new RegExp(`(?:TIN\\s*HỌC|TIN\\s*HOC|TINHOC|TIN|TH)[\\s_.-]*${g}(?=[^0-9]|$)`, 'i');
+    if (tinHocPattern.test(fn)) return g;
+
+    // 2. Cụm từ lớp học: LỚP 3, LOP 3, LP 3
+    const lopPattern = new RegExp(`(?:LỚP|LOP|LP)[\\s_.-]*${g}(?=[^0-9]|$)`, 'i');
+    if (lopPattern.test(fn)) return g;
+
+    // 3. Cụm từ khối: KHỐI 3, KHOI 3, KH 3
+    const khoiPattern = new RegExp(`(?:KHỐI|KHOI|KH)[\\s_.-]*${g}(?=[^0-9]|$)`, 'i');
+    if (khoiPattern.test(fn)) return g;
+
+    // 4. LQTH (Làm quen tin học): LQTH3, LQTH 3
+    const lqthPattern = new RegExp(`LQTH[\\s_.-]*${g}(?=[^0-9]|$)`, 'i');
+    if (lqthPattern.test(fn)) return g;
+
+    // 5. K3 (ví dụ K3-Bai 1, K3_...)
+    const kPattern = new RegExp(`(^|[^a-zA-Z0-9])K[\\s_.-]*${g}(?=[^0-9]|$)`, 'i');
+    if (kPattern.test(fn)) return g;
+  }
+
+  return Number(fallbackGrade) || 3;
+}
+
+
 // Định nghĩa 7 loại Slide hỗ trợ trong giảng dạy Tin học
 export const SLIDE_TYPES = [
   {
@@ -450,5 +522,40 @@ export async function cancelImportPptxApi(tempId) {
   } catch (err) {
     console.warn('Lỗi hủy phiên import tạm thời:', err.message);
   }
+}
+
+// 11. Import nhanh bài giảng PowerPoint (Giai đoạn A: phản hồi < 30ms, trích xuất metadata và render nền)
+export async function fastImportPptxApi(file, options = {}) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (options.title) formData.append('title', options.title);
+  if (options.grade) formData.append('grade', options.grade);
+  if (options.topic) formData.append('topic', options.topic);
+  if (options.durationMinutes) formData.append('durationMinutes', options.durationMinutes);
+  if (options.description) formData.append('description', options.description);
+
+  const res = await fetch('/api/lessons/import-fast', {
+    method: 'POST',
+    body: formData
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Không thể import nhanh file PowerPoint.');
+  }
+  return data; // { success: true, lesson, isCached }
+}
+
+// 12. Kiểm tra tiến độ/trạng thái render slide nền của bài học
+export async function fetchLessonRenderStatusApi(lessonId) {
+  try {
+    const res = await fetch(`/api/lessons/${lessonId}/render-status`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn(`Lỗi kiểm tra render status cho bài học ${lessonId}:`, err.message);
+  }
+  return null;
 }
 

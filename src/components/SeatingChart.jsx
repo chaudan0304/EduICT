@@ -11,11 +11,8 @@ import {
   Sparkles,
   AlertTriangle,
   ArrowDown,
-  ArrowRight,
   ArrowLeftRight,
-  Users,
-  UserPlus,
-  ThumbsUp
+  Users
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
 import { 
@@ -45,12 +42,8 @@ export default function SeatingChart({
   const [activeMachineNum, setActiveMachineNum] = useState(null);
 
   // Danh sách nội quy phòng máy phục vụ cộng/trừ nhanh
-  const [rules, setRules] = useState(() => getClassroomRules());
+  const rules = React.useMemo(() => getClassroomRules(), [activeMachineNum]);
   const [quickRuleFeedback, setQuickRuleFeedback] = useState(null);
-
-  React.useEffect(() => {
-    setRules(getClassroomRules());
-  }, [activeMachineNum]);
 
   // Hàm cộng / trừ sao và ghi nhận nội quy phòng máy cho học sinh
   const handleAwardStudent = (studentId, pointsDelta, ruleObj = null) => {
@@ -573,7 +566,7 @@ export default function SeatingChart({
                       {/* Student(s) Display */}
                       {assigned.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                          {assigned.map((student, sIdx) => {
+                          {assigned.map((student) => {
                             return (
                               <div 
                                 key={student.id} 

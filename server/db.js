@@ -164,6 +164,8 @@ function initSchema(db) {
       source_file_path TEXT,
       thumbnail_url TEXT,
       slide_count INTEGER DEFAULT 0,
+      render_status TEXT DEFAULT 'ready',
+      file_hash TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -203,6 +205,8 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_path TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN thumbnail_url TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN slide_count INTEGER DEFAULT 0;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN file_hash TEXT;`); } catch (e) {}
 
   // Chỉ mục tối ưu cho module Lesson
   db.exec(`
@@ -1606,8 +1610,9 @@ export function createLesson(lessonData) {
       id, title, grade, subject, topic, duration_minutes, 
       objectives, keywords, teacher_notes, type, 
       source_file_name, source_file_path, thumbnail_url, slide_count,
+      render_status, file_hash,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
   `);
 
   const slideCount = Array.isArray(lessonData.slides) ? lessonData.slides.length : (Number(lessonData.slide_count) || 0);
@@ -1626,7 +1631,9 @@ export function createLesson(lessonData) {
     lessonData.source_file_name || lessonData.sourceFileName || '',
     lessonData.source_file_path || lessonData.sourceFilePath || '',
     lessonData.thumbnail_url || lessonData.thumbnailUrl || '',
-    slideCount
+    slideCount,
+    lessonData.render_status || lessonData.renderStatus || 'ready',
+    lessonData.file_hash || lessonData.fileHash || null
   );
 
   if (Array.isArray(lessonData.slides) && lessonData.slides.length > 0) {
@@ -1654,6 +1661,8 @@ export function updateLesson(lessonId, lessonData) {
       source_file_path = COALESCE(?, source_file_path),
       thumbnail_url = COALESCE(?, thumbnail_url),
       slide_count = COALESCE(?, slide_count),
+      render_status = COALESCE(?, render_status),
+      file_hash = COALESCE(?, file_hash),
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?;
   `);
@@ -1674,6 +1683,8 @@ export function updateLesson(lessonId, lessonData) {
     lessonData.source_file_path !== undefined ? lessonData.source_file_path : (lessonData.sourceFilePath !== undefined ? lessonData.sourceFilePath : null),
     lessonData.thumbnail_url !== undefined ? lessonData.thumbnail_url : (lessonData.thumbnailUrl !== undefined ? lessonData.thumbnailUrl : null),
     slideCount,
+    lessonData.render_status !== undefined ? lessonData.render_status : (lessonData.renderStatus !== undefined ? lessonData.renderStatus : null),
+    lessonData.file_hash !== undefined ? lessonData.file_hash : (lessonData.fileHash !== undefined ? lessonData.fileHash : null),
     lessonId
   );
 
