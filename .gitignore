@@ -26,15 +26,15 @@ dist-ssr
 *.sln
 *.sw?
 
-# SQLite temporary files
+# SQLite database files
+*.sqlite
 *.sqlite-wal
 *.sqlite-shm
 
 # Scratch directory
 scratch/
 
-# Uploads directory (exclude huge presentations and render cache)
-uploads/presentations/*
-uploads/cache/
-uploads/temp/*
+# Uploads directory
+uploads/**
 !uploads/**/.gitkeep
+

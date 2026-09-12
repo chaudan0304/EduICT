@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { handleApiRequest } from './server/api-handler.js';
 import { handleUploadsRequest } from './server/static-file-handler.js';
-import { getDatabase } from './server/db.js';
+import { getDatabase, getDatabasePath } from './server/db.js';
 
 const PORT = process.env.PORT || 5173;
 const DIST_DIR = path.resolve(process.cwd(), 'dist');
@@ -64,5 +64,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`🚀 EduICT Backend SQLite server running at http://localhost:${PORT}`);
-  console.log(`📁 SQLite Database File: ${path.resolve(process.cwd(), 'edumaster.sqlite')}`);
+  console.log(`📁 SQLite Database File: ${getDatabasePath()}`);
 });

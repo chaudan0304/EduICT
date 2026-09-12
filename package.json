@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "seed": "node server/seedFakeData.js",
     "preview": "vite preview"
   },
   "dependencies": {

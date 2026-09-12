@@ -37,7 +37,8 @@ import {
   getQuizSessionById,
   updateQuizSession,
   saveQuizResults,
-  getClassStats
+  getClassStats,
+  getDatabasePath
 } from './db.js';
 import {
   processPptxUploadPreview,
@@ -51,7 +52,6 @@ import {
 import { checkDuplicateBatch, scanLibraryDuplicates } from './duplicateDetector.js';
 import { handleAiApiRequest } from './ai/aiHandler.js';
 
-const DB_PATH = path.resolve(process.cwd(), 'edumaster.sqlite');
 
 function sendJson(res, statusCode, data) {
   res.statusCode = statusCode;
@@ -160,13 +160,15 @@ export async function handleApiRequest(req, res) {
 
   // 1. Kiểm tra trạng thái Backend & File SQLite
   if (pathname === '/api/status' && method === 'GET') {
-    const exists = fs.existsSync(DB_PATH);
-    const size = exists ? fs.statSync(DB_PATH).size : 0;
+    const dbPath = getDatabasePath();
+    const exists = fs.existsSync(dbPath);
+    const size = exists ? fs.statSync(dbPath).size : 0;
     const classes = getAllClassesWithStudents();
     sendJson(res, 200, {
       status: 'ok',
       engine: 'SQLite (Node.js 22 Native)',
-      dbFile: 'edumaster.sqlite',
+      dbFile: path.basename(dbPath),
+      dbPath: dbPath,
       fileSizeBytes: size,
       fileSizeKb: Math.round(size / 1024),
       totalClasses: classes.length,
@@ -302,16 +304,17 @@ export async function handleApiRequest(req, res) {
   // 8. Tải trực tiếp file cơ sở dữ liệu SQLite binary (.sqlite)
   if (pathname === '/api/sql/download-db' && method === 'GET') {
     try {
-      if (!fs.existsSync(DB_PATH)) {
-        sendJson(res, 404, { error: 'File edumaster.sqlite chưa được khởi tạo' });
+      const dbPath = getDatabasePath();
+      if (!fs.existsSync(dbPath)) {
+        sendJson(res, 404, { error: `File SQLite chưa được khởi tạo tại ${dbPath}` });
         return true;
       }
-      const stat = fs.statSync(DB_PATH);
+      const stat = fs.statSync(dbPath);
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/x-sqlite3');
       res.setHeader('Content-Length', stat.size);
-      res.setHeader('Content-Disposition', 'attachment; filename="edumaster.sqlite"');
-      fs.createReadStream(DB_PATH).pipe(res);
+      res.setHeader('Content-Disposition', `attachment; filename="${path.basename(dbPath)}"`);
+      fs.createReadStream(dbPath).pipe(res);
     } catch (err) {
       sendJson(res, 500, { error: err.message });
     }

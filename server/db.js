@@ -1,14 +1,30 @@
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
+import { loadEnv } from './ai/envLoader.js';
 
-const DB_PATH = path.resolve(process.cwd(), 'edumaster.sqlite');
+export function getDatabasePath() {
+  loadEnv();
+  const customPath = (process.env.EDUICT_DB_PATH || '').trim();
+  if (customPath) {
+    const resolved = path.resolve(customPath);
+    const dir = path.dirname(resolved);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return resolved;
+  }
+  // Mặc định: edumaster.sqlite tại thư mục dự án (được bảo vệ tuyệt đối bởi .gitignore)
+  return path.resolve(process.cwd(), 'edumaster.sqlite');
+}
 
 let dbInstance = null;
 
 export function getDatabase() {
   if (!dbInstance) {
-    dbInstance = new DatabaseSync(DB_PATH);
+    const dbPath = getDatabasePath();
+    console.log(`[Database] Kết nối SQLite CSDL tại: ${dbPath}`);
+    dbInstance = new DatabaseSync(dbPath);
     initSchema(dbInstance);
   }
   return dbInstance;
@@ -416,56 +432,56 @@ function seedInitialData(db) {
 
   const insertStudent = db.prepare(`
     INSERT INTO students (
-      id, class_id, name, gender, machine_number, stars, attendance,
+      id, class_id, name, dob, gender, machine_number, stars, attendance,
       skill_mouse, skill_keyboard, skill_paint, eval_regular, score_hk1, score_ck, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
   `);
 
-  // Dữ liệu mẫu học sinh 5 khối
+  // Dữ liệu mẫu học sinh 5 khối (HOÀN TOÀN GIẢ ĐỊNH - KHÔNG CHỨA PII THỰC TẾ)
   const sampleStudents = {
     class_1a1: [
-      { id: 'HS101', name: 'Nguyễn Tuấn Anh', gender: 'Nam', m: 1, s: 15, m_skill: 'T', k_skill: 'H', p_skill: 'T', ev: 'T', note: 'Cầm chuột đúng cách, vẽ bông hoa đẹp' },
-      { id: 'HS102', name: 'Trần Bảo Châu', gender: 'Nữ', m: 2, s: 22, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Thao tác kéo thả rất nhanh, chăm chỉ' },
-      { id: 'HS103', name: 'Lê Minh Đăng', gender: 'Nam', m: 3, s: 10, m_skill: 'H', k_skill: 'H', p_skill: 'H', ev: 'H', note: 'Biết click đúp mở phần mềm Paint' },
-      { id: 'HS104', name: 'Phạm Quỳnh Giang', gender: 'Nữ', m: 4, s: 18, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Tô màu khéo, không lem ra ngoài' },
-      { id: 'HS105', name: 'Vũ Đức Khang', gender: 'Nam', m: 5, s: 8, m_skill: 'H', k_skill: 'C', p_skill: 'H', ev: 'H', note: 'Cần luyện thêm tìm phím Enter và Space' },
-      { id: 'HS106', name: 'Đỗ Thảo Linh', gender: 'Nữ', m: 6, s: 14, m_skill: 'T', k_skill: 'H', p_skill: 'T', ev: 'T', note: 'Rất ngoan, ngồi đúng tư thế' },
-      { id: 'HS107', name: 'Bùi Gia Minh', gender: 'Nam', m: 7, s: 9, m_skill: 'H', k_skill: 'H', p_skill: 'H', ev: 'H', note: 'Đã biết di chuyển chuột mượt mà' },
-      { id: 'HS108', name: 'Ngô Ngọc Mai', gender: 'Nữ', m: 8, s: 20, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Biết chọn hình tròn, hình vuông trong Paint' },
+      { id: 'HS101', name: 'Nguyễn Tuấn Anh', dob: '15/03/2018', gender: 'Nam', m: 1, s: 15, m_skill: 'T', k_skill: 'H', p_skill: 'T', ev: 'T', note: 'Cầm chuột đúng cách, vẽ bông hoa đẹp' },
+      { id: 'HS102', name: 'Trần Bảo Châu', dob: '20/07/2018', gender: 'Nữ', m: 2, s: 22, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Thao tác kéo thả rất nhanh, chăm chỉ' },
+      { id: 'HS103', name: 'Lê Minh Đăng', dob: '12/11/2018', gender: 'Nam', m: 3, s: 10, m_skill: 'H', k_skill: 'H', p_skill: 'H', ev: 'H', note: 'Biết click đúp mở phần mềm Paint' },
+      { id: 'HS104', name: 'Phạm Quỳnh Giang', dob: '05/01/2018', gender: 'Nữ', m: 4, s: 18, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Tô màu khéo, không lem ra ngoài' },
+      { id: 'HS105', name: 'Vũ Đức Khang', dob: '18/09/2018', gender: 'Nam', m: 5, s: 8, m_skill: 'H', k_skill: 'C', p_skill: 'H', ev: 'H', note: 'Cần luyện thêm tìm phím Enter và Space' },
+      { id: 'HS106', name: 'Đỗ Thảo Linh', dob: '22/04/2018', gender: 'Nữ', m: 6, s: 14, m_skill: 'T', k_skill: 'H', p_skill: 'T', ev: 'T', note: 'Rất ngoan, ngồi đúng tư thế' },
+      { id: 'HS107', name: 'Bùi Gia Minh', dob: '09/10/2018', gender: 'Nam', m: 7, s: 9, m_skill: 'H', k_skill: 'H', p_skill: 'H', ev: 'H', note: 'Đã biết di chuyển chuột mượt mà' },
+      { id: 'HS108', name: 'Ngô Ngọc Mai', dob: '30/06/2018', gender: 'Nữ', m: 8, s: 20, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Biết chọn hình tròn, hình vuông trong Paint' },
     ],
     class_2a1: [
-      { id: 'HS201', name: 'Trịnh Bảo An', gender: 'Nữ', m: 1, s: 18, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Gõ hàng phím cơ sở tốt' },
-      { id: 'HS202', name: 'Lý Quốc Bảo', gender: 'Nam', m: 2, s: 14, m_skill: 'T', k_skill: 'H', p_skill: 'T', ev: 'T', note: 'Vẽ ngôi nhà và cây xanh rất sáng tạo' },
-      { id: 'HS203', name: 'Dương Khánh Chi', gender: 'Nữ', m: 3, s: 25, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Thao tác gõ chữ tiếng Việt cơ bản nhanh' },
-      { id: 'HS204', name: 'Mai Hữu Đạt', gender: 'Nam', m: 4, s: 9, m_skill: 'H', k_skill: 'H', p_skill: 'H', ev: 'H', note: 'Cần chú ý đặt đúng ngón tay trên phím F và J' },
-      { id: 'HS205', name: 'Cao Diễm Hằng', gender: 'Nữ', m: 5, s: 16, m_skill: 'T', k_skill: 'H', p_skill: 'T', ev: 'T', note: 'Biết phóng to thu nhỏ hình vẽ' },
-      { id: 'HS206', name: 'Phan Tuấn Kiệt', gender: 'Nam', m: 6, s: 11, m_skill: 'H', k_skill: 'H', p_skill: 'H', ev: 'H', note: 'Chăm chỉ hoàn thành bài luyện gõ' },
+      { id: 'HS201', name: 'Trịnh Bảo An', dob: '14/02/2017', gender: 'Nữ', m: 1, s: 18, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Gõ hàng phím cơ sở tốt' },
+      { id: 'HS202', name: 'Lý Quốc Bảo', dob: '08/05/2017', gender: 'Nam', m: 2, s: 14, m_skill: 'T', k_skill: 'H', p_skill: 'T', ev: 'T', note: 'Vẽ ngôi nhà và cây xanh rất sáng tạo' },
+      { id: 'HS203', name: 'Dương Khánh Chi', dob: '19/08/2017', gender: 'Nữ', m: 3, s: 25, m_skill: 'T', k_skill: 'T', p_skill: 'T', ev: 'T', note: 'Thao tác gõ chữ tiếng Việt cơ bản nhanh' },
+      { id: 'HS204', name: 'Mai Hữu Đạt', dob: '25/11/2017', gender: 'Nam', m: 4, s: 9, m_skill: 'H', k_skill: 'H', p_skill: 'H', ev: 'H', note: 'Cần chú ý đặt đúng ngón tay trên phím F và J' },
+      { id: 'HS205', name: 'Cao Diễm Hằng', dob: '02/03/2017', gender: 'Nữ', m: 5, s: 16, m_skill: 'T', k_skill: 'H', p_skill: 'T', ev: 'T', note: 'Biết phóng to thu nhỏ hình vẽ' },
+      { id: 'HS206', name: 'Phan Tuấn Kiệt', dob: '17/09/2017', gender: 'Nam', m: 6, s: 11, m_skill: 'H', k_skill: 'H', p_skill: 'H', ev: 'H', note: 'Chăm chỉ hoàn thành bài luyện gõ' },
     ],
     class_3a1: [
-      { id: 'HS301', name: 'Nguyễn Thành Long', gender: 'Nam', m: 1, s: 28, hk1: 9.5, ck: 10.0, ev: 'T', note: 'Gõ 10 ngón chuẩn xác, hoàn thành bài sớm' },
-      { id: 'HS302', name: 'Lê Thuỳ Trang', gender: 'Nữ', m: 2, s: 24, hk1: 9.0, ck: 9.5, ev: 'T', note: 'Hiểu bài nhanh, hướng dẫn bạn cùng máy' },
-      { id: 'HS303', name: 'Trần Quang Huy', gender: 'Nam', m: 3, s: 12, hk1: 7.5, ck: 8.0, ev: 'H', note: 'Thao tác gõ tiếng Việt Telex tiến bộ' },
-      { id: 'HS304', name: 'Võ Minh Thư', gender: 'Nữ', m: 4, s: 19, hk1: 8.5, ck: 9.0, ev: 'T', note: 'Vẽ tranh phong cảnh Paint rất khéo' },
-      { id: 'HS305', name: 'Phạm Đức Trọng', gender: 'Nam', m: 5, s: 8, hk1: 6.5, ck: 7.0, ev: 'H', note: 'Cần rèn luyện thêm gõ hàng phím trên' },
-      { id: 'HS306', name: 'Đỗ Ngọc Bích', gender: 'Nữ', m: 6, s: 26, hk1: 9.5, ck: 9.5, ev: 'T', note: 'Nắm vững quy tắc an toàn phòng máy' },
-      { id: 'HS307', name: 'Hoàng Anh Tuấn', gender: 'Nam', m: 7, s: 10, hk1: 7.0, ck: 7.5, ev: 'H', note: 'Có tiến bộ trong thực hành tạo thư mục' },
-      { id: 'HS308', name: 'Đặng Mai Chi', gender: 'Nữ', m: 8, s: 17, hk1: 8.5, ck: 9.0, ev: 'T', note: 'Soạn đoạn thơ ngắn đúng dấu' },
+      { id: 'HS301', name: 'Nguyễn Thành Long', dob: '10/01/2016', gender: 'Nam', m: 1, s: 28, hk1: 9.5, ck: 10.0, ev: 'T', note: 'Gõ 10 ngón chuẩn xác, hoàn thành bài sớm' },
+      { id: 'HS302', name: 'Lê Thuỳ Trang', dob: '24/04/2016', gender: 'Nữ', m: 2, s: 24, hk1: 9.0, ck: 9.5, ev: 'T', note: 'Hiểu bài nhanh, hướng dẫn bạn cùng máy' },
+      { id: 'HS303', name: 'Trần Quang Huy', dob: '15/07/2016', gender: 'Nam', m: 3, s: 12, hk1: 7.5, ck: 8.0, ev: 'H', note: 'Thao tác gõ tiếng Việt Telex tiến bộ' },
+      { id: 'HS304', name: 'Võ Minh Thư', dob: '09/10/2016', gender: 'Nữ', m: 4, s: 19, hk1: 8.5, ck: 9.0, ev: 'T', note: 'Vẽ tranh phong cảnh Paint rất khéo' },
+      { id: 'HS305', name: 'Phạm Đức Trọng', dob: '03/12/2016', gender: 'Nam', m: 5, s: 8, hk1: 6.5, ck: 7.0, ev: 'H', note: 'Cần rèn luyện thêm gõ hàng phím trên' },
+      { id: 'HS306', name: 'Đỗ Ngọc Bích', dob: '28/02/2016', gender: 'Nữ', m: 6, s: 26, hk1: 9.5, ck: 9.5, ev: 'T', note: 'Nắm vững quy tắc an toàn phòng máy' },
+      { id: 'HS307', name: 'Hoàng Anh Tuấn', dob: '11/06/2016', gender: 'Nam', m: 7, s: 10, hk1: 7.0, ck: 7.5, ev: 'H', note: 'Có tiến bộ trong thực hành tạo thư mục' },
+      { id: 'HS308', name: 'Đặng Mai Chi', dob: '16/09/2016', gender: 'Nữ', m: 8, s: 17, hk1: 8.5, ck: 9.0, ev: 'T', note: 'Soạn đoạn thơ ngắn đúng dấu' },
     ],
     class_4a1: [
-      { id: 'HS401', name: 'Bùi Đức Anh', gender: 'Nam', m: 1, s: 20, hk1: 9.0, ck: 9.5, ev: 'T', note: 'Định dạng phông chữ, cỡ chữ văn bản rất chuẩn' },
-      { id: 'HS402', name: 'Nguyễn Hoàng Yến', gender: 'Nữ', m: 2, s: 32, hk1: 10.0, ck: 10.0, ev: 'T', note: 'Chèn ảnh và tạo hiệu ứng trình chiếu đẹp mắt' },
-      { id: 'HS403', name: 'Lê Gia Hưng', gender: 'Nam', m: 3, s: 13, hk1: 7.5, ck: 8.0, ev: 'H', note: 'Biết chèn bảng đơn giản trong Word' },
-      { id: 'HS404', name: 'Trần Phương Uyên', gender: 'Nữ', m: 4, s: 21, hk1: 9.0, ck: 9.0, ev: 'T', note: 'Tìm kiếm thông tin trên Internet an toàn' },
-      { id: 'HS405', name: 'Vũ Quốc Khánh', gender: 'Nam', m: 5, s: 9, hk1: 6.5, ck: 7.0, ev: 'H', note: 'Cần lưu bài đúng vào thư mục cá nhân' },
-      { id: 'HS406', name: 'Phạm Hồng Nhung', gender: 'Nữ', m: 6, s: 25, hk1: 9.5, ck: 9.5, ev: 'T', note: 'Thiết kế slide bài thuyết trình rất sinh động' },
+      { id: 'HS401', name: 'Bùi Đức Anh', dob: '05/03/2015', gender: 'Nam', m: 1, s: 20, hk1: 9.0, ck: 9.5, ev: 'T', note: 'Định dạng phông chữ, cỡ chữ văn bản rất chuẩn' },
+      { id: 'HS402', name: 'Nguyễn Hoàng Yến', dob: '12/06/2015', gender: 'Nữ', m: 2, s: 32, hk1: 10.0, ck: 10.0, ev: 'T', note: 'Chèn ảnh và tạo hiệu ứng trình chiếu đẹp mắt' },
+      { id: 'HS403', name: 'Lê Gia Hưng', dob: '21/08/2015', gender: 'Nam', m: 3, s: 13, hk1: 7.5, ck: 8.0, ev: 'H', note: 'Biết chèn bảng đơn giản trong Word' },
+      { id: 'HS404', name: 'Trần Phương Uyên', dob: '17/10/2015', gender: 'Nữ', m: 4, s: 21, hk1: 9.0, ck: 9.0, ev: 'T', note: 'Tìm kiếm thông tin trên Internet an toàn' },
+      { id: 'HS405', name: 'Vũ Quốc Khánh', dob: '02/12/2015', gender: 'Nam', m: 5, s: 9, hk1: 6.5, ck: 7.0, ev: 'H', note: 'Cần lưu bài đúng vào thư mục cá nhân' },
+      { id: 'HS406', name: 'Phạm Hồng Nhung', dob: '29/01/2015', gender: 'Nữ', m: 6, s: 25, hk1: 9.5, ck: 9.5, ev: 'T', note: 'Thiết kế slide bài thuyết trình rất sinh động' },
     ],
     class_5a1: [
-      { id: 'HS501', name: 'Đoàn Nhật Minh', gender: 'Nam', m: 1, s: 35, hk1: 10.0, ck: 10.0, ev: 'T', note: 'Lập trình nhân vật Scratch chuyển động mượt mà' },
-      { id: 'HS502', name: 'Võ Khánh Vy', gender: 'Nữ', m: 2, s: 27, hk1: 9.5, ck: 9.5, ev: 'T', note: 'Tạo game mê cung Scratch rất sáng tạo' },
-      { id: 'HS503', name: 'Hoàng Trung Kiên', gender: 'Nam', m: 3, s: 22, hk1: 9.0, ck: 9.5, ev: 'T', note: 'Hiểu câu lệnh lặp và rẽ nhánh if-then' },
-      { id: 'HS504', name: 'Ngô Thảo Nguyên', gender: 'Nữ', m: 4, s: 15, hk1: 8.0, ck: 8.5, ev: 'H', note: 'Nhập dữ liệu vào bảng tính cẩn thận' },
-      { id: 'HS505', name: 'Đinh Trọng Phúc', gender: 'Nam', m: 5, s: 11, hk1: 7.0, ck: 7.5, ev: 'H', note: 'Cần chú ý thêm khối lệnh âm thanh trong Scratch' },
-      { id: 'HS506', name: 'Trần Mỹ Dung', gender: 'Nữ', m: 6, s: 30, hk1: 9.5, ck: 10.0, ev: 'T', note: 'Xuất sắc, tư duy logic rất tốt' },
+      { id: 'HS501', name: 'Đoàn Nhật Minh', dob: '19/02/2014', gender: 'Nam', m: 1, s: 35, hk1: 10.0, ck: 10.0, ev: 'T', note: 'Lập trình nhân vật Scratch chuyển động mượt mà' },
+      { id: 'HS502', name: 'Võ Khánh Vy', dob: '14/05/2014', gender: 'Nữ', m: 2, s: 27, hk1: 9.5, ck: 9.5, ev: 'T', note: 'Tạo game mê cung Scratch rất sáng tạo' },
+      { id: 'HS503', name: 'Hoàng Trung Kiên', dob: '08/08/2014', gender: 'Nam', m: 3, s: 22, hk1: 9.0, ck: 9.5, ev: 'T', note: 'Hiểu câu lệnh lặp và rẽ nhánh if-then' },
+      { id: 'HS504', name: 'Ngô Thảo Nguyên', dob: '23/10/2014', gender: 'Nữ', m: 4, s: 15, hk1: 8.0, ck: 8.5, ev: 'H', note: 'Nhập dữ liệu vào bảng tính cẩn thận' },
+      { id: 'HS505', name: 'Đinh Trọng Phúc', dob: '06/11/2014', gender: 'Nam', m: 5, s: 11, hk1: 7.0, ck: 7.5, ev: 'H', note: 'Cần chú ý thêm khối lệnh âm thanh trong Scratch' },
+      { id: 'HS506', name: 'Trần Mỹ Dung', dob: '30/12/2014', gender: 'Nữ', m: 6, s: 30, hk1: 9.5, ck: 10.0, ev: 'T', note: 'Xuất sắc, tư duy logic rất tốt' },
     ]
   };
 
@@ -477,6 +493,7 @@ function seedInitialData(db) {
         s.id,
         c.id,
         s.name,
+        s.dob || '',
         s.gender,
         s.m,
         s.s || 0,
