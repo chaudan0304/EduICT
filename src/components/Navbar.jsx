@@ -1,35 +1,38 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Tv, 
   Volume2, 
   VolumeX, 
   PlusCircle, 
-  Trash2,
-  Database,
-  Download,
-  Upload,
-  RefreshCw,
-  Monitor,
-  CheckCircle2,
-  AlertCircle,
-  FileCode2,
-  FileText,
-  HardDrive,
-  FileSpreadsheet
+  Trash2, 
+  Database, 
+  Download, 
+  Upload, 
+  RefreshCw, 
+  Monitor, 
+  CheckCircle2, 
+  AlertCircle, 
+  FileCode2, 
+  FileText, 
+  HardDrive, 
+  FileSpreadsheet,
+  Sparkles
 } from 'lucide-react';
 import { 
   exportAllBackupData, 
   importAllBackupData, 
   getGlobalBrokenMachines, 
-  detectGradeFromName,
-  downloadSqliteDatabaseFile,
-  downloadSqlScriptFile,
-  importSqlScriptFile,
-  exportAllClassesToExcel,
-  downloadSampleExcelTemplate
+  detectGradeFromName, 
+  downloadSqliteDatabaseFile, 
+  downloadSqlScriptFile, 
+  importSqlScriptFile, 
+  exportAllClassesToExcel, 
+  downloadSampleExcelTemplate 
 } from '../utils/storage';
 import ImportExcelModal from './ImportExcelModal';
+import AiAssistantModal from './AI/AiAssistantModal';
+import { fetchAiStatus } from './AI/aiService';
 
 export default function Navbar({ 
   classes, 
@@ -37,23 +40,30 @@ export default function Navbar({
   onSelectClass, 
   onAddClass, 
   onDeleteClass, 
-  onRestoreClasses,
-  onBatchImportSuccess,
+  onRestoreClasses, 
+  onBatchImportSuccess, 
   isProjector, 
   onToggleProjector, 
   soundEnabled, 
   onToggleSound, 
   activeTab, 
-  onSelectTab,
-  dbStatus = { connected: true, dbFile: 'edumaster.sqlite' }
+  onSelectTab, 
+  dbStatus = { connected: true, dbFile: 'edumaster.sqlite' } 
 }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [showImportExcelModal, setShowImportExcelModal] = useState(false);
+  const [showAiAssistantModal, setShowAiAssistantModal] = useState(false);
+  const [aiStatus, setAiStatus] = useState({ enabled: true, configured: false, model: 'gemini-2.5-flash' });
   const [showCreateForm, setShowCreateForm] = useState(true);
   const [newClassName, setNewClassName] = useState('');
   const [newClassGrade, setNewClassGrade] = useState(3);
   const [newClassSubject, setNewClassSubject] = useState('Tin Học');
+
+  // Kiểm tra trạng thái AI khi mở Navbar
+  useEffect(() => {
+    fetchAiStatus().then(st => setAiStatus(st));
+  }, []);
 
   // Khối lớp đang chọn lọc trên thanh điều hướng ('all' hoặc 1 | 2 | 3 | 4 | 5)
   const [selectedGradeFilter, setSelectedGradeFilter] = useState(() => {
@@ -345,6 +355,36 @@ export default function Navbar({
                   boxShadow: dbStatus?.connected !== false ? '0 0 6px #10b981' : 'none'
                 }} 
                 title={dbStatus?.connected !== false ? 'Đã kết nối edumaster.sqlite' : 'Đang kết nối'}
+              />
+            </button>
+
+            {/* Nút Trợ Giảng AI Gemini */}
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => setShowAiAssistantModal(true)}
+              title="Trợ Giảng AI Gemini GDPT 2018"
+              style={{
+                borderColor: 'rgba(168, 85, 247, 0.45)',
+                background: 'rgba(168, 85, 247, 0.08)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                color: '#a855f7',
+                fontWeight: 700
+              }}
+            >
+              <Sparkles size={15} color="#a855f7" />
+              <span>Trợ Giảng AI</span>
+              <span 
+                style={{ 
+                  width: 8, 
+                  height: 8, 
+                  borderRadius: '50%', 
+                  background: aiStatus.configured ? '#10b981' : '#f59e0b',
+                  boxShadow: aiStatus.configured ? '0 0 6px #10b981' : 'none'
+                }} 
+                title={aiStatus.configured ? 'Gemini AI sẵn sàng' : 'Chưa thiết lập GEMINI_API_KEY'}
               />
             </button>
           </div>
@@ -898,6 +938,18 @@ export default function Navbar({
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Modal Trung Tâm Điều Khiển Trợ Giảng AI Gemini */}
+      {showAiAssistantModal && (
+        <AiAssistantModal
+          isOpen={showAiAssistantModal}
+          onClose={() => setShowAiAssistantModal(false)}
+          onOpenAnalyzeLesson={() => onSelectTab('lessons')}
+          onOpenQuestionGen={() => onSelectTab('quiz')}
+          onOpenLessonFlow={() => onSelectTab('sessions')}
+          onOpenClassAnalysis={() => onSelectTab('gradebook')}
+        />
       )}
     </>
   );

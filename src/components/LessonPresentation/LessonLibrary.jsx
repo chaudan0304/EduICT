@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   ShieldCheck,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { 
   fetchLessonsApi, 
@@ -35,6 +36,8 @@ import {
 import ImportPptxModal from './ImportPptxModal';
 import EditImportedLessonModal from './EditImportedLessonModal';
 import ErrorBoundary from '../ErrorBoundary';
+import AiLessonAnalysisModal from '../AI/AiLessonAnalysisModal';
+import AiQuestionGeneratorModal from '../AI/AiQuestionGeneratorModal';
 
 export default function LessonLibrary({
   onOpenEditor,
@@ -57,6 +60,11 @@ export default function LessonLibrary({
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [scanModalTab, setScanModalTab] = useState('all'); // 'all' | 'exact' | 'high' | 'reference'
   const [scanModalClassFilter, setScanModalClassFilter] = useState('all'); // 'all' | '1' | '2' | '3' | '4' | '5' | 'unassigned'
+
+  // Trợ Giảng AI Modals
+  const [aiAnalysisLesson, setAiAnalysisLesson] = useState(null);
+  const [aiQuestionGenLessonId, setAiQuestionGenLessonId] = useState(null);
+  const [isAiQuestionGenOpen, setIsAiQuestionGenOpen] = useState(false);
 
   // Load danh sách bài học
   useEffect(() => {
@@ -1255,6 +1263,29 @@ export default function LessonLibrary({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          setAiAnalysisLesson(lesson);
+                        }}
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '0.35rem 0.65rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          color: '#0284c7',
+                          borderColor: 'rgba(2, 132, 199, 0.35)',
+                          background: 'rgba(2, 132, 199, 0.08)'
+                        }}
+                        title="✨ AI Phân tích bài giảng & gợi ý chuẩn GDPT 2018"
+                      >
+                        <Sparkles size={14} color="#0284c7" />
+                        <span>AI Phân tích</span>
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setEditingImportedLesson(lesson);
                         }}
                         className="btn btn-secondary"
@@ -1307,6 +1338,29 @@ export default function LessonLibrary({
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAiAnalysisLesson(lesson);
+                        }}
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '0.35rem 0.65rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          color: '#0284c7',
+                          borderColor: 'rgba(2, 132, 199, 0.35)',
+                          background: 'rgba(2, 132, 199, 0.08)'
+                        }}
+                        title="✨ AI Phân tích bài giảng & gợi ý chuẩn GDPT 2018"
+                      >
+                        <Sparkles size={14} color="#0284c7" />
+                        <span>AI Phân tích</span>
+                      </button>
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -2394,6 +2448,29 @@ export default function LessonLibrary({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal AI Phân Tích Bài Giảng */}
+      {aiAnalysisLesson && (
+        <AiLessonAnalysisModal
+          isOpen={!!aiAnalysisLesson}
+          onClose={() => setAiAnalysisLesson(null)}
+          lesson={aiAnalysisLesson}
+          onOpenQuestionGen={(lessonId) => {
+            setAiQuestionGenLessonId(lessonId);
+            setIsAiQuestionGenOpen(true);
+          }}
+        />
+      )}
+
+      {/* Modal AI Tạo Câu Hỏi Trắc Nghiệm */}
+      {isAiQuestionGenOpen && (
+        <AiQuestionGeneratorModal
+          isOpen={isAiQuestionGenOpen}
+          onClose={() => setIsAiQuestionGenOpen(false)}
+          lessons={lessons}
+          preselectedLessonId={aiQuestionGenLessonId}
+        />
       )}
     </div>
   );

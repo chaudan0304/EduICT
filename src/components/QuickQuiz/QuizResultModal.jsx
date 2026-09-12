@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Trophy, 
   X, 
@@ -9,8 +9,11 @@ import {
   Award, 
   TrendingUp, 
   HelpCircle,
-  Lightbulb
+  Lightbulb,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
+import { analyzeQuizApi } from '../AI/aiService';
 
 export default function QuizResultModal({
   isOpen,
@@ -18,6 +21,9 @@ export default function QuizResultModal({
   summaryData,
   onRetryQuiz = null
 }) {
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [aiError, setAiError] = useState(null);
   if (!isOpen || !summaryData) return null;
 
   const {
@@ -64,6 +70,24 @@ export default function QuizResultModal({
         topStudents.push({ name, count });
       });
   }
+
+  const handleRunAiAnalysis = async () => {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await analyzeQuizApi(summaryData.id || 0);
+      setAiAnalysis(res.data);
+    } catch (err) {
+      console.error('[AI Quiz Analysis] Lỗi:', err);
+      let msg = err.message || 'Không thể phân tích kết quả.';
+      if (err.errorCode === 'AI_NOT_CONFIGURED') {
+        msg = 'Trợ giảng AI chưa được cấu hình GEMINI_API_KEY.';
+      }
+      setAiError(msg);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
     <div style={{
@@ -260,6 +284,73 @@ export default function QuizResultModal({
               </p>
             </div>
           )}
+
+          {/* Khối Trợ Giảng AI Phân Tích Đố Vui */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(147, 51, 234, 0.06) 100%)',
+            border: '1px solid rgba(2, 132, 199, 0.25)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 800, color: '#0284c7', fontSize: '0.95rem' }}>
+                <Sparkles size={18} color="#0284c7" />
+                <span>Trợ Giảng AI: Phân Tích Sư Phạm & Kế Hoạch Củng Cố</span>
+              </div>
+
+              {!aiAnalysis && !aiLoading && (
+                <button
+                  type="button"
+                  onClick={handleRunAiAnalysis}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    fontSize: '0.8rem',
+                    borderColor: '#0284c7',
+                    color: '#0284c7',
+                    background: 'rgba(2, 132, 199, 0.1)'
+                  }}
+                >
+                  <Sparkles size={14} />
+                  <span>✨ Phân tích kết quả</span>
+                </button>
+              )}
+            </div>
+
+            {aiLoading && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0284c7', fontSize: '0.85rem' }}>
+                <Loader2 size={16} className="animate-spin" />
+                <span>AI đang phân tích câu đúng/sai và đề xuất kế hoạch củng cố...</span>
+              </div>
+            )}
+
+            {aiError && (
+              <div style={{ fontSize: '0.825rem', color: '#ef4444' }}>
+                ⚠️ {aiError}
+              </div>
+            )}
+
+            {aiAnalysis && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                <p style={{ margin: 0, fontWeight: 600 }}>{aiAnalysis.summary}</p>
+                {aiAnalysis.recommendedReinforcement?.length > 0 && (
+                  <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '0.6rem 0.85rem', borderRadius: 8 }}>
+                    <strong style={{ color: '#10b981' }}>🎯 Gợi ý củng cố ({aiAnalysis.recommendedMinutes || 3} phút):</strong>
+                    <ul style={{ margin: '0.35rem 0 0 0', paddingLeft: '1.25rem' }}>
+                      {aiAnalysis.recommendedReinforcement.map((rec, i) => (
+                        <li key={i}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Top Học Sinh Sôi Nổi (Nếu có dữ liệu Mode 2) */}
           {topStudents.length > 0 && (

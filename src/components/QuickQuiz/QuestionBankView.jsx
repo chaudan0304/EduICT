@@ -8,7 +8,8 @@ import {
   Zap, 
   CheckCircle2, 
   Lightbulb, 
-  FolderOpen
+  FolderOpen,
+  Sparkles
 } from 'lucide-react';
 import { 
   fetchQuestionsApi, 
@@ -20,7 +21,9 @@ import {
   QUESTION_TYPES,
   DIFFICULTIES
 } from './quizStorage';
+import { fetchLessonsApi } from '../LessonPresentation/lessonStorage';
 import QuestionFormModal from './QuestionFormModal';
+import AiQuestionGeneratorModal from '../AI/AiQuestionGeneratorModal';
 
 export default function QuestionBankView({
   onLaunchQuizCreator,
@@ -38,6 +41,20 @@ export default function QuestionBankView({
   // Quản lý Modal thêm/sửa câu hỏi
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
+
+  // Quản lý Modal AI tạo câu hỏi
+  const [isAiGenOpen, setIsAiGenOpen] = useState(false);
+  const [loadedLessons, setLoadedLessons] = useState(availableLessons);
+
+  useEffect(() => {
+    if (availableLessons && availableLessons.length > 0) {
+      setLoadedLessons(availableLessons);
+    } else {
+      fetchLessonsApi({ grade: 'all' })
+        .then(data => setLoadedLessons(data || []))
+        .catch(err => console.warn('Lỗi tải danh sách bài học cho AI Question:', err));
+    }
+  }, [availableLessons]);
 
   // Load danh sách câu hỏi
   useEffect(() => {
@@ -194,6 +211,26 @@ export default function QuestionBankView({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setIsAiGenOpen(true)}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.65rem 1.25rem',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              borderColor: 'rgba(236, 72, 153, 0.4)',
+              color: '#ec4899',
+              background: 'rgba(236, 72, 153, 0.08)'
+            }}
+            title="✨ Trợ Giảng AI tạo câu hỏi trắc nghiệm tự động từ bài giảng"
+          >
+            <Sparkles size={16} color="#ec4899" />
+            <span>✨ AI Tạo Câu Hỏi</span>
+          </button>
+
           <button
             onClick={handleOpenCreate}
             className="btn btn-secondary"
@@ -589,6 +626,24 @@ export default function QuestionBankView({
         onSave={handleSaveQuestion}
         availableLessons={availableLessons}
       />
+
+      {/* Modal AI Tạo Câu Hỏi */}
+      {isAiGenOpen && (
+        <AiQuestionGeneratorModal
+          isOpen={isAiGenOpen}
+          onClose={() => setIsAiGenOpen(false)}
+          lessons={loadedLessons}
+          onQuestionsAdded={() => {
+            fetchQuestionsApi({
+              grade: selectedGrade,
+              topic: selectedTopic,
+              difficulty: selectedDifficulty,
+              type: selectedType,
+              search: searchTerm
+            }).then(data => setQuestions(data || []));
+          }}
+        />
+      )}
     </div>
   );
 }

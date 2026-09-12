@@ -25,6 +25,7 @@ import {
   detectGradeFromName 
 } from '../utils/storage';
 import { soundEffects } from '../utils/audio';
+import AiClassAnalysisModal from './AI/AiClassAnalysisModal';
 
 export default function Gradebook({ 
   currentClass, 
@@ -36,6 +37,7 @@ export default function Gradebook({
   const [genderFilter, setGenderFilter] = useState('all');
   const [evalFilter, setEvalFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isAiClassModalOpen, setIsAiClassModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   const grade = currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
@@ -299,7 +301,26 @@ export default function Gradebook({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button 
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setIsAiClassModalOpen(true)}
+            title="Trợ Giảng AI phân tích năng lực thực hành và học sinh cần hỗ trợ theo TT27"
+            style={{
+              borderColor: 'rgba(59, 130, 246, 0.4)',
+              background: 'rgba(59, 130, 246, 0.08)',
+              color: '#3b82f6',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontWeight: 700
+            }}
+          >
+            <Sparkles size={16} color="#3b82f6" />
+            <span>✨ AI Phân Tích Lớp</span>
+          </button>
+
           <button 
             className="btn btn-outline btn-sm"
             onClick={() => exportToExcel(students, currentClass?.name, grade)}
@@ -915,6 +936,15 @@ export default function Gradebook({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal Trợ Giảng AI Phân Tích Lớp */}
+      {isAiClassModalOpen && (
+        <AiClassAnalysisModal
+          isOpen={isAiClassModalOpen}
+          onClose={() => setIsAiClassModalOpen(false)}
+          currentClass={currentClass}
+        />
       )}
     </div>
   );

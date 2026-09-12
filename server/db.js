@@ -358,6 +358,29 @@ function initSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_qsr_session ON quiz_student_results(quiz_session_id, student_id);
   `);
 
+  // Bảng Cache & Audit Phân Hệ Trợ Giảng AI (ai_generations)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_generations (
+      id TEXT PRIMARY KEY,
+      feature TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      model TEXT,
+      input_hash TEXT NOT NULL,
+      status TEXT NOT NULL,
+      result_json TEXT,
+      error_code TEXT,
+      prompt_version TEXT DEFAULT 'v1',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_cache ON ai_generations(feature, input_hash);
+    CREATE INDEX IF NOT EXISTS idx_ai_entity ON ai_generations(feature, entity_id);
+  `);
+
+  // Migration: Bổ sung cột source cho question_bank nếu chưa có
+  try { db.exec(`ALTER TABLE question_bank ADD COLUMN source TEXT DEFAULT 'MANUAL';`); } catch (e) {}
+
   // Kiểm tra nếu chưa có dữ liệu thì nạp dữ liệu mẫu 5 khối lớp
   const countRow = db.prepare('SELECT COUNT(*) as count FROM classes;').get();
   if (countRow.count === 0) {
@@ -2683,4 +2706,75 @@ export function getClassStats() {
     classCountByGrade[Number(r.grade)] = Number(r.count || 0);
   }
   return { totalClasses, classCountByGrade };
+}
+
+// ====================================================
+// 14. PHÂN HỆ TRỢ GIẢNG AI: CACHE & AUDIT
+// ====================================================
+
+// 1. Lấy kết quả AI đã lưu trong cache theo input_hash
+export function getAiGenerationCache(feature, inputHash) {
+  if (!feature || !inputHash) return null;
+  const db = getDatabase();
+  const row = db.prepare(`
+    SELECT * FROM ai_generations 
+    WHERE feature = ? AND input_hash = ? AND status = 'SUCCESS'
+    ORDER BY created_at DESC LIMIT 1;
+  `).get(feature, inputHash);
+
+  if (!row || !row.result_json) return null;
+  try {
+    return {
+      ...row,
+      result: JSON.parse(row.result_json)
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+// 2. Lưu kết quả AI vào cache & audit log
+export function saveAiGenerationCache({
+  id = null,
+  feature,
+  entityType = null,
+  entityId = null,
+  model = 'gemini-2.5-flash',
+  inputHash,
+  status = 'SUCCESS',
+  result = null,
+  errorCode = null,
+  promptVersion = 'v1'
+}) {
+  const db = getDatabase();
+  const genId = id || `ai_gen_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const resultJson = typeof result === 'object' ? JSON.stringify(result) : (result || null);
+
+  const stmt = db.prepare(`
+    INSERT INTO ai_generations (
+      id, feature, entity_type, entity_id, model, input_hash, status, result_json, error_code, prompt_version, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  `);
+
+  stmt.run(
+    genId,
+    feature,
+    entityType,
+    entityId,
+    model,
+    inputHash,
+    status,
+    resultJson,
+    errorCode,
+    promptVersion
+  );
+
+  return { id: genId, success: true };
+}
+
+// 3. Xóa cache của một entity cụ thể khi nội dung thay đổi
+export function deleteAiGenerationCache(feature, entityId) {
+  if (!feature || !entityId) return;
+  const db = getDatabase();
+  db.prepare('DELETE FROM ai_generations WHERE feature = ? AND entity_id = ?;').run(feature, entityId);
 }

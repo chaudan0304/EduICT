@@ -11,16 +11,21 @@ import {
   Edit3, 
   Check, 
   X,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { ACTIVITY_TYPES } from './sessionStorage';
+import { fetchLessonsApi } from '../LessonPresentation/lessonStorage';
+import AiLessonFlowModal from '../AI/AiLessonFlowModal';
 
 export default function LessonFlowList({
   activities = [],
   currentActivityIndex,
   onSelectActivity,
   onUpdateActivities,
-  _isSessionRunning
+  _isSessionRunning,
+  session = null,
+  lessonId = null
 }) {
   const [editingIndex, setEditingIndex] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', duration: 5, type: 'ACTIVITY', description: '' });
@@ -31,6 +36,16 @@ export default function LessonFlowList({
     duration: 10,
     description: ''
   });
+
+  // State Trợ Giảng AI Flow
+  const [isAiFlowOpen, setIsAiFlowOpen] = useState(false);
+  const [lessonsList, setLessonsList] = useState([]);
+
+  React.useEffect(() => {
+    fetchLessonsApi({ grade: 'all' })
+      .then(data => setLessonsList(data || []))
+      .catch(err => console.warn('Lỗi tải bài học cho AI Lesson Flow:', err));
+  }, []);
 
   // Chọn loại hoạt động khi tạo mới
   const handleTypeSelect = (typeKey) => {
@@ -208,15 +223,35 @@ export default function LessonFlowList({
           </p>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary btn-sm"
-          onClick={() => setShowAddForm(prev => !prev)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-        >
-          {showAddForm ? <X size={15} /> : <Plus size={15} />}
-          <span>{showAddForm ? 'Đóng' : 'Thêm Hoạt Động'}</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setIsAiFlowOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              borderColor: 'rgba(2, 132, 199, 0.4)',
+              color: '#0284c7',
+              background: 'rgba(2, 132, 199, 0.08)'
+            }}
+            title="Trợ Giảng AI đề xuất tiến trình 35 phút chuẩn phòng máy"
+          >
+            <Sparkles size={14} color="#0284c7" />
+            <span>🎯 AI Đề Xuất</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => setShowAddForm(prev => !prev)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            {showAddForm ? <X size={15} /> : <Plus size={15} />}
+            <span>{showAddForm ? 'Đóng' : 'Thêm Hoạt Động'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Form Thêm Hoạt Động Nhanh */}
@@ -541,6 +576,20 @@ export default function LessonFlowList({
           );
         })}
       </div>
+
+      {/* Modal AI Đề Xuất Tiến Trình */}
+      {isAiFlowOpen && (
+        <AiLessonFlowModal
+          isOpen={isAiFlowOpen}
+          onClose={() => setIsAiFlowOpen(false)}
+          lesson={lessonsList.find(l => l.id === lessonId) || null}
+          lessons={lessonsList}
+          onApplyFlow={(newActs) => {
+            onUpdateActivities(newActs);
+            if (onSelectActivity) onSelectActivity(0);
+          }}
+        />
+      )}
     </div>
   );
 }

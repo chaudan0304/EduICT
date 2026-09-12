@@ -49,6 +49,7 @@ import {
   ensureLessonThumbnail
 } from './pptxService.js';
 import { checkDuplicateBatch, scanLibraryDuplicates } from './duplicateDetector.js';
+import { handleAiApiRequest } from './ai/aiHandler.js';
 
 const DB_PATH = path.resolve(process.cwd(), 'edumaster.sqlite');
 
@@ -1077,6 +1078,14 @@ export async function handleApiRequest(req, res) {
     } catch (err) {
       sendJson(res, 500, { error: err.message });
     }
+    return true;
+  }
+
+  // ====================================================
+  // 14. PHÂN HỆ TRỢ GIẢNG AI (AI TEACHING ASSISTANT)
+  // ====================================================
+  const aiHandled = await handleAiApiRequest(req, res, pathname, method, parseJsonBody);
+  if (aiHandled) {
     return true;
   }
 
