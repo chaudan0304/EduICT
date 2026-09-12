@@ -276,11 +276,19 @@ export async function generateQuestionsService({ lessonId, count = 5, difficulty
     throw new Error('Không tìm thấy bài học để tạo câu hỏi.');
   }
 
-  const slidesText = (lesson.slides || [])
+  let slidesText = (lesson.slides || [])
     .slice(0, 30)
-    .map(s => `${s.title}: ${s.content}`)
+    .map(s => s.content ? `${s.title}: ${s.content}` : '')
     .filter(Boolean)
     .join('\n');
+
+  if (!slidesText || slidesText.trim().length === 0) {
+    if (lesson.content_fingerprint) {
+      slidesText = `Nội dung tóm tắt bài học: ${lesson.content_fingerprint}`;
+    } else if (lesson.objectives) {
+      slidesText = `Mục tiêu bài học: ${lesson.objectives}`;
+    }
+  }
 
   const inputData = JSON.stringify({
     lessonId,
@@ -344,13 +352,14 @@ export async function generateLessonFlowService({ lessonId, durationMinutes = 35
   }
 
   const targetDuration = Number(durationMinutes) || 35;
+  const objectivesText = lesson.objectives || (lesson.content_fingerprint ? `Nội dung: ${lesson.content_fingerprint.slice(0, 1000)}` : '');
   const inputData = JSON.stringify({
     lessonId,
     title: lesson.title,
     grade: lesson.grade,
     topic: lesson.topic,
     durationMinutes: targetDuration,
-    objectives: lesson.objectives
+    objectives: objectivesText
   });
 
   const prompt = buildLessonFlowPrompt({
@@ -358,7 +367,7 @@ export async function generateLessonFlowService({ lessonId, durationMinutes = 35
     grade: lesson.grade,
     topic: lesson.topic,
     durationMinutes: targetDuration,
-    objectives: lesson.objectives
+    objectives: objectivesText
   });
 
   const res = await callGeminiStructured({

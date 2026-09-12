@@ -587,9 +587,12 @@ export default function Gradebook({
                             <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.9375rem' }}>
                               {student.name}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              {student.id}{student.dob ? ` • 🎂 ${student.dob}` : ''}
-                            </div>
+                            {(student.dob || (student.id && !String(student.id).startsWith('hs_'))) && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {student.id && !String(student.id).startsWith('hs_') ? `${student.id}${student.dob ? ' • ' : ''}` : ''}
+                                {student.dob ? `🎂 ${student.dob}` : ''}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>

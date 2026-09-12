@@ -56,7 +56,7 @@ export default function AiLessonFlowModal({
     setError(null);
     try {
       const res = await generateLessonFlowApi({
-        lessonId: Number(lId),
+        lessonId: String(lId),
         durationMinutes: Number(durationMinutes) || 35
       });
       setFlowData(res.data);

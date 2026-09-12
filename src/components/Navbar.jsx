@@ -17,7 +17,8 @@ import {
   FileText, 
   HardDrive, 
   FileSpreadsheet,
-  Sparkles
+  Sparkles,
+  MoreVertical
 } from 'lucide-react';
 import { 
   exportAllBackupData, 
@@ -59,6 +60,15 @@ export default function Navbar({
   const [newClassName, setNewClassName] = useState('');
   const [newClassGrade, setNewClassGrade] = useState(3);
   const [newClassSubject, setNewClassSubject] = useState('Tin Học');
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+
+  // Đóng menu "..." khi click ra ngoài
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const handleOutsideClick = () => setShowMoreMenu(false);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [showMoreMenu]);
 
   // Kiểm tra trạng thái AI khi mở Navbar
   useEffect(() => {
@@ -150,20 +160,6 @@ export default function Navbar({
 
   const currentGradeNum = currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
 
-  const navTabs = [
-    { id: 'home', label: 'Trang Chủ', icon: '🏠' },
-    { id: 'sessions', label: 'Tiết Học (Session)', icon: '🎯', highlight: true },
-    { id: 'lessons', label: 'Bài Học & Slide', icon: '📚' },
-    { id: 'quiz', label: 'Quick Quiz (Đố Vui)', icon: '⚡' },
-    { id: 'seating', label: 'Phòng Máy (5 Dãy • 31 Máy)', icon: '🖥️' },
-    { id: 'gradebook', label: currentGradeNum <= 2 ? 'Sổ Kỹ Năng & Sao' : 'Sổ Điểm (TT27)', icon: '📋' },
-    { id: 'goodscores', label: 'Điểm Tốt & Nội Quy', icon: '⭐' },
-    { id: 'duckrace', label: 'Đua Vịt', icon: '🦆' },
-    { id: 'luckywheel', label: 'Vòng Quay', icon: '🎡' },
-    { id: 'rewards', label: 'Đổi Thưởng', icon: '🎁' },
-    { id: 'timer', label: 'Đếm Giờ', icon: '⏱️' },
-  ];
-
   return (
     <>
       <header className="navbar-container" style={{
@@ -171,85 +167,110 @@ export default function Navbar({
         borderBottom: '1px solid var(--surface-border)',
         position: 'sticky',
         top: 0,
-        zIndex: 100,
+        zIndex: 85,
         backdropFilter: 'blur(16px)',
         boxShadow: 'var(--shadow-sm)'
       }}>
         <div style={{
-          maxWidth: 1440,
-          margin: '0 auto',
-          padding: '0.65rem 1.25rem',
+          width: '100%',
+          minHeight: '58px',
+          padding: '0.45rem 1.5rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '1rem',
+          gap: '0.75rem',
           flexWrap: 'wrap'
         }}>
-          {/* Logo & Brand: Tin Học Tiểu Học */}
+          {/* Logo & Brand: Tin Học Tiểu Học (Zone 1: Trái) */}
           <div 
-            onClick={() => onSelectTab('home')}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => onSelectTab?.('home')}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.6rem', 
+              cursor: 'pointer', 
+              userSelect: 'none',
+              flex: '0 0 auto',
+              flexShrink: 0
+            }}
             title="Về Trang Chủ Tin Học EduICT"
           >
             <div style={{
-              width: 44,
-              height: 44,
+              width: 36,
+              height: 36,
               borderRadius: 'var(--radius-md)',
               background: 'linear-gradient(135deg, #0284c7 0%, #06b6d4 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#fff',
-              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)'
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)',
+              flexShrink: 0
             }}>
-              <Monitor size={24} />
+              <Monitor size={20} />
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
-                  EduICT
-                </span>
-                <span style={{
-                  fontSize: '0.6875rem',
-                  fontWeight: 800,
-                  background: 'linear-gradient(135deg, #0284c7, #2563eb)',
-                  color: '#fff',
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: 'var(--radius-full)'
-                }}>
-                  TIN HỌC TIỂU HỌC
-                </span>
-              </div>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                Phòng máy 31 máy • 5 Khối lớp ({classes.length} lớp học)
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                EduICT
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                color: '#fff',
+                padding: '0.15rem 0.55rem',
+                borderRadius: 'var(--radius-full)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                letterSpacing: '0.02em'
+              }}>
+                TIN HỌC TIỂU HỌC
+              </span>
             </div>
           </div>
 
-          {/* Selector 5 Khối Lớp & Lớp Học */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          {/* Selector 5 Khối Lớp & Lớp Học (Zone 2: Giữa) */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.65rem',
+            flex: '0 0 auto',
+            flexShrink: 0,
+            whiteSpace: 'nowrap'
+          }}>
             {/* Bộ chuyển nhanh 5 Khối */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
               background: 'var(--surface-secondary)',
-              padding: '0.2rem',
+              padding: '0.18rem',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--surface-border)'
+              border: '1px solid var(--surface-border)',
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
             }}>
               <button
                 type="button"
                 onClick={() => handleFilterGradeChange('all')}
                 style={{
-                  padding: '0.3rem 0.6rem',
-                  fontSize: '0.8125rem',
+                  padding: '0.25rem 0.65rem',
+                  fontSize: '0.75rem',
                   fontWeight: 700,
                   borderRadius: 'var(--radius-sm)',
                   border: 'none',
                   background: selectedGradeFilter === 'all' ? 'var(--primary)' : 'transparent',
                   color: selectedGradeFilter === 'all' ? '#fff' : 'var(--text-muted)',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease'
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                  minWidth: 54,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
                 }}
               >
                 Tất Cả
@@ -262,15 +283,21 @@ export default function Navbar({
                     type="button"
                     onClick={() => handleFilterGradeChange(g)}
                     style={{
-                      padding: '0.3rem 0.65rem',
-                      fontSize: '0.8125rem',
+                      padding: '0.25rem 0.55rem',
+                      fontSize: '0.75rem',
                       fontWeight: 700,
                       borderRadius: 'var(--radius-sm)',
                       border: 'none',
                       background: isActive ? 'var(--primary)' : 'transparent',
                       color: isActive ? '#fff' : 'var(--text-muted)',
                       cursor: 'pointer',
-                      transition: 'all 0.15s ease'
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap',
+                      minWidth: 32,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
                     }}
                     title={`Xem các lớp Khối ${g}`}
                   >
@@ -280,106 +307,89 @@ export default function Navbar({
               })}
             </div>
 
-            {/* Dropdown Lớp thuộc Khối */}
-            <div style={{ position: 'relative' }}>
-              <select 
-                value={currentClass?.id} 
-                onChange={(e) => onSelectClass(e.target.value)}
-                className="input-field"
-                style={{
-                  fontWeight: 700,
-                  paddingRight: '2rem',
-                  cursor: 'pointer',
-                  minWidth: 155,
-                  background: 'var(--surface-secondary)',
-                  borderColor: 'var(--primary)'
-                }}
-              >
-                {classesInSelectedGrade.length === 0 ? (
-                  <option value="">Chưa có lớp Khối {selectedGradeFilter}</option>
-                ) : (
-                  classesInSelectedGrade.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.students?.length || 0} HS)
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
+            {/* Dropdown Lớp thuộc Khối - cố định width 150px hợp lý */}
+            <select 
+              value={currentClass?.id} 
+              onChange={(e) => onSelectClass(e.target.value)}
+              className="input-field"
+              style={{
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                padding: '0.35rem 1.8rem 0.35rem 0.75rem',
+                height: '34px',
+                cursor: 'pointer',
+                width: 150,
+                minWidth: 140,
+                maxWidth: 160,
+                flex: '0 0 auto',
+                flexShrink: 0,
+                background: 'var(--surface-secondary)',
+                borderColor: 'var(--primary)',
+                borderRadius: 'var(--radius-md)'
+              }}
+            >
+              {classesInSelectedGrade.length === 0 ? (
+                <option value="">Chưa có lớp Khối {selectedGradeFilter}</option>
+              ) : (
+                classesInSelectedGrade.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.students?.length || 0} HS)
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
 
-            {/* Nút Thêm Lớp */}
+          {/* Action Buttons & Global Controls (Zone 3: Phải) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0, justifyContent: 'flex-end' }}>
+            {/* Nút Thêm Lớp (Inline trên >= 1151px, chuyển vào menu ⋮ trên <= 1150px) */}
             <button 
-              className="btn btn-outline btn-sm"
+              type="button"
+              className="btn btn-outline btn-sm navbar-btn-add-class-inline"
+              style={{
+                height: 34,
+                padding: '0 0.65rem',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
               onClick={() => setShowAddModal(true)}
               title="Thêm hoặc quản lý các lớp học"
             >
-              <PlusCircle size={16} />
+              <PlusCircle size={15} color="var(--primary)" />
               <span>Thêm Lớp</span>
             </button>
 
-            {/* Nút Xóa Lớp */}
-            <button 
-              className="btn btn-outline btn-sm"
-              style={{ 
-                color: '#ef4444', 
-                borderColor: 'rgba(239, 68, 68, 0.35)',
-                background: 'rgba(239, 68, 68, 0.05)'
-              }}
-              onClick={() => onDeleteClass?.(currentClass?.id)}
-              title={`Xóa ${currentClass?.name || 'lớp này'}`}
-            >
-              <Trash2 size={16} />
-            </button>
-
-            {/* Nút CSDL SQL & Sao lưu */}
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => setShowBackupModal(true)}
-              title="Cơ sở dữ liệu SQLite & Xuất file SQL"
-              style={{
-                borderColor: 'rgba(2, 132, 199, 0.4)',
-                background: 'rgba(2, 132, 199, 0.06)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem'
-              }}
-            >
-              <Database size={15} color="var(--primary)" />
-              <span>CSDL SQL</span>
-              <span 
-                style={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  background: dbStatus?.connected !== false ? '#10b981' : '#f59e0b',
-                  boxShadow: dbStatus?.connected !== false ? '0 0 6px #10b981' : 'none'
-                }} 
-                title={dbStatus?.connected !== false ? 'Đã kết nối edumaster.sqlite' : 'Đang kết nối'}
-              />
-            </button>
-
-            {/* Nút Trợ Giảng AI Gemini */}
+            {/* Nút Trợ Giảng AI Gemini (Primary - luôn hiển thị) */}
             <button
               type="button"
               className="btn btn-outline btn-sm"
               onClick={() => setShowAiAssistantModal(true)}
               title="Trợ Giảng AI Gemini GDPT 2018"
               style={{
+                height: 34,
+                padding: '0 0.65rem',
                 borderColor: 'rgba(168, 85, 247, 0.45)',
                 background: 'rgba(168, 85, 247, 0.08)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.4rem',
+                gap: '0.35rem',
                 color: '#a855f7',
-                fontWeight: 700
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
               }}
             >
               <Sparkles size={15} color="#a855f7" />
               <span>Trợ Giảng AI</span>
               <span 
                 style={{ 
-                  width: 8, 
-                  height: 8, 
+                  width: 7, 
+                  height: 7, 
                   borderRadius: '50%', 
                   background: aiStatus.configured ? '#10b981' : '#f59e0b',
                   boxShadow: aiStatus.configured ? '0 0 6px #10b981' : 'none'
@@ -387,82 +397,278 @@ export default function Navbar({
                 title={aiStatus.configured ? 'Gemini AI sẵn sàng' : 'Chưa thiết lập GEMINI_API_KEY'}
               />
             </button>
-          </div>
 
-          {/* Tiện ích toàn cục: Âm thanh & Máy chiếu */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Nút Máy chiếu (LUÔN HIỂN THỊ ĐỘC LẬP THEO YÊU CẦU - CẠNH TRỢ GIẢNG AI) */}
             <button 
-              onClick={onToggleSound}
-              className={`btn btn-sm ${soundEnabled ? 'btn-secondary' : 'btn-outline'}`}
-              title={soundEnabled ? 'Đang bật âm thanh' : 'Đang tắt âm thanh'}
-            >
-              {soundEnabled ? <Volume2 size={18} color="var(--primary)" /> : <VolumeX size={18} color="var(--text-dim)" />}
-              <span>{soundEnabled ? 'Âm thanh' : 'Tắt tiếng'}</span>
-            </button>
-
-            <button 
+              type="button"
               onClick={onToggleProjector}
               className={`btn btn-sm ${isProjector ? 'btn-amber pulse-card' : 'btn-secondary'}`}
+              style={{
+                height: 34,
+                padding: '0 0.65rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
               title="Chế độ Máy chiếu (Chữ to, tương phản cao trên màn hình lớn phòng tin học)"
             >
-              <Tv size={18} />
+              <Tv size={15} />
               <span>{isProjector ? 'Máy chiếu: BẬT' : 'Máy chiếu'}</span>
             </button>
-          </div>
-        </div>
 
-        {/* Navigation Tabs Bar */}
-        <div style={{
-          maxWidth: 1440,
-          margin: '0 auto',
-          padding: '0.25rem 1.25rem 0.5rem',
-          display: 'flex',
-          gap: '0.5rem',
-          overflowX: 'auto',
-          whiteSpace: 'nowrap'
-        }}>
-          {navTabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
+            {/* Các nút phụ inline khi màn hình rộng (> 1380px) */}
+            {/* Nút CSDL SQL (Secondary - inline trên màn hình rộng) */}
+            <button
+              type="button"
+              className="btn btn-outline btn-sm navbar-btn-inline-secondary"
+              onClick={() => setShowBackupModal(true)}
+              title="Cơ sở dữ liệu SQLite & Xuất/Nhập file SQL"
+              style={{
+                height: 34,
+                padding: '0 0.65rem',
+                borderColor: 'rgba(2, 132, 199, 0.4)',
+                background: 'rgba(2, 132, 199, 0.06)',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <Database size={15} color="var(--primary)" />
+              <span>CSDL</span>
+              <span 
+                style={{ 
+                  width: 7, 
+                  height: 7, 
+                  borderRadius: '50%', 
+                  background: dbStatus?.connected !== false ? '#10b981' : '#f59e0b',
+                  boxShadow: dbStatus?.connected !== false ? '0 0 6px #10b981' : 'none'
+                }} 
+                title={dbStatus?.connected !== false ? 'Đã kết nối SQLite' : 'Đang kết nối'}
+              />
+            </button>
+
+            {/* Âm thanh Toggle (Secondary - inline trên màn hình rộng) */}
+            <button 
+              type="button"
+              onClick={onToggleSound}
+              className={`btn btn-sm navbar-btn-inline-secondary ${soundEnabled ? 'btn-secondary' : 'btn-outline'}`}
+              style={{ width: 34, height: 34, padding: 0, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+              title={soundEnabled ? 'Âm thanh: Đang BẬT' : 'Âm thanh: Đang TẮT'}
+            >
+              {soundEnabled ? <Volume2 size={16} color="var(--primary)" /> : <VolumeX size={16} color="var(--text-dim)" />}
+            </button>
+
+            {/* Nút Xóa Lớp (Secondary - inline trên màn hình rộng) */}
+            <button 
+              type="button"
+              className="btn btn-outline btn-sm navbar-btn-inline-secondary"
+              style={{ 
+                width: 34,
+                height: 34,
+                padding: 0,
+                color: '#ef4444', 
+                borderColor: 'rgba(239, 68, 68, 0.35)',
+                background: 'rgba(239, 68, 68, 0.05)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+              onClick={() => onDeleteClass?.(currentClass?.id)}
+              title={`Xóa ${currentClass?.name || 'lớp này'}`}
+            >
+              <Trash2 size={15} />
+            </button>
+
+            {/* Menu "⋮" More actions (Gom các nút phụ khi màn hình hẹp hơn) */}
+            <div className="navbar-more-dropdown-wrapper" style={{ position: 'relative', flexShrink: 0 }}>
               <button
-                key={tab.id}
-                onClick={() => onSelectTab(tab.id)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.5rem 0.95rem',
-                  fontSize: '0.9375rem',
-                  fontWeight: isActive ? 700 : 500,
-                  borderRadius: 'var(--radius-md)',
-                  border: isActive ? '1px solid var(--primary)' : '1px solid transparent',
-                  background: isActive 
-                    ? 'var(--primary-light)' 
-                    : (tab.highlight ? 'rgba(2, 132, 199, 0.1)' : 'transparent'),
-                  color: isActive 
-                    ? 'var(--primary)' 
-                    : (tab.highlight ? '#0284c7' : 'var(--text-muted)'),
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMoreMenu(prev => !prev);
                 }}
+                className={`btn btn-outline btn-sm ${showMoreMenu ? 'active' : ''}`}
+                style={{
+                  width: 34,
+                  height: 34,
+                  padding: 0,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 'var(--radius-md)',
+                  borderColor: showMoreMenu ? 'var(--primary)' : 'var(--surface-border)',
+                  background: showMoreMenu ? 'var(--surface-secondary)' : 'transparent',
+                  color: showMoreMenu ? 'var(--primary)' : 'var(--text-main)'
+                }}
+                title="Thao tác & Cài đặt bổ sung"
               >
-                <span style={{ fontSize: '1.15rem' }}>{tab.icon}</span>
-                <span>{tab.label}</span>
-                {tab.highlight && (
-                  <span style={{
-                    fontSize: '0.625rem',
-                    background: '#0284c7',
-                    color: '#fff',
-                    padding: '0.1rem 0.35rem',
-                    borderRadius: 6,
-                    fontWeight: 800
-                  }}>
-                    CHÍNH
-                  </span>
-                )}
+                <MoreVertical size={16} />
               </button>
-            );
-          })}
+
+              {showMoreMenu && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    background: 'var(--surface-card)',
+                    border: '1px solid var(--surface-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
+                    padding: '0.5rem',
+                    minWidth: 230,
+                    zIndex: 100,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.25rem',
+                    backdropFilter: 'blur(16px)'
+                  }}
+                >
+                  {/* Âm thanh */}
+                  <button
+                    type="button"
+                    onClick={() => onToggleSound()}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      fontSize: '0.825rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-secondary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      {soundEnabled ? <Volume2 size={16} color="var(--primary)" /> : <VolumeX size={16} color="var(--text-dim)" />}
+                      <span>Âm thanh</span>
+                    </div>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '999px',
+                      background: soundEnabled ? 'rgba(2, 132, 199, 0.12)' : 'var(--surface-secondary)',
+                      color: soundEnabled ? 'var(--primary)' : 'var(--text-muted)'
+                    }}>
+                      {soundEnabled ? 'BẬT' : 'TẮT'}
+                    </span>
+                  </button>
+
+                  {/* CSDL SQL */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      setShowBackupModal(true);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      fontSize: '0.825rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-secondary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <Database size={16} color="var(--primary)" />
+                      <span>Cơ sở dữ liệu (CSDL)</span>
+                    </div>
+                    <span 
+                      style={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        background: dbStatus?.connected !== false ? '#10b981' : '#f59e0b',
+                        boxShadow: dbStatus?.connected !== false ? '0 0 6px #10b981' : 'none'
+                      }} 
+                      title={dbStatus?.connected !== false ? 'Đã kết nối SQLite' : 'Đang kết nối'}
+                    />
+                  </button>
+
+                  {/* Thêm Lớp (hiển thị trong menu khi màn hình hẹp <= 1150px) */}
+                  <button
+                    type="button"
+                    className="navbar-menu-item-add-class"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      setShowAddModal(true);
+                    }}
+                    style={{
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text-main)',
+                      fontSize: '0.825rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-secondary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <PlusCircle size={16} color="var(--primary)" />
+                    <span>Thêm / Quản lý Lớp</span>
+                  </button>
+
+                  <div style={{ height: 1, background: 'var(--surface-border)', margin: '0.25rem 0' }} />
+
+                  {/* Xóa lớp */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      onDeleteClass?.(currentClass?.id);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#ef4444',
+                      fontSize: '0.825rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <Trash2 size={16} color="#ef4444" />
+                    <span>Xóa lớp {currentClass?.name || ''}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 

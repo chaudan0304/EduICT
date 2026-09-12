@@ -60,7 +60,7 @@ export default function AiQuestionGeneratorModal({
     setSaveReport(null);
     try {
       const res = await generateQuestionsApi({
-        lessonId: Number(selectedLessonId),
+        lessonId: String(selectedLessonId),
         count: Number(count),
         difficulty,
         types: ['MULTIPLE_CHOICE']
@@ -111,7 +111,7 @@ export default function AiQuestionGeneratorModal({
       return;
     }
 
-    const lessonObj = lessons.find(l => Number(l.id) === Number(selectedLessonId));
+    const lessonObj = lessons.find(l => String(l.id) === String(selectedLessonId));
     const grade = lessonObj?.grade || 3;
     const topic = lessonObj?.topic || 'A';
 
@@ -126,14 +126,17 @@ export default function AiQuestionGeneratorModal({
         const questionPayload = {
           grade: Number(grade),
           topic: q.topic || topic,
-          difficulty: q.difficulty === 'recognition' ? 'EASY' : q.difficulty === 'understanding' ? 'MEDIUM' : 'HARD',
+          difficulty: q.difficulty === 'recognition' ? 'NHẬN BIẾT' : q.difficulty === 'understanding' ? 'THÔNG HIỂU' : q.difficulty === 'application' ? 'VẬN DỤNG' : (q.difficulty || 'NHẬN BIẾT'),
           type: 'MULTIPLE_CHOICE',
-          question_text: q.questionText || q.question_text,
+          question: q.questionText || q.question_text || q.question,
+          question_text: q.questionText || q.question_text || q.question,
           options: q.options || [],
           correct_answer: q.correctAnswer || q.correct_answer,
+          correct_index: q.correctIndex !== undefined ? q.correctIndex : (q.options ? q.options.indexOf(q.correctAnswer || q.correct_answer) : 0),
           explanation: q.explanation || '',
           source: 'AI_GEMINI',
-          source_lesson_id: Number(selectedLessonId),
+          lesson_id: String(selectedLessonId),
+          source_lesson_id: String(selectedLessonId),
           tags: ['AI', `Khối_${grade}`, `ChủĐề_${topic}`]
         };
 
@@ -157,7 +160,7 @@ export default function AiQuestionGeneratorModal({
 
   if (!isOpen) return null;
 
-  const currentLesson = lessons.find(l => Number(l.id) === Number(selectedLessonId));
+  const currentLesson = lessons.find(l => String(l.id) === String(selectedLessonId));
 
   return (
     <div style={{

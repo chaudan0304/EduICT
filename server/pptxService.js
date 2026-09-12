@@ -17,7 +17,9 @@ import {
   calculateFileHash, 
   SIMILARITY_STATUS, 
   calculateSimilarity, 
-  DUPLICATE_THRESHOLDS 
+  DUPLICATE_THRESHOLDS,
+  extractTitleFromSlide1Xml,
+  extractTitleFromFileName
 } from './duplicateDetector.js';
 
 const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
@@ -856,13 +858,10 @@ export async function processPptxUploadPreview({ originalName, buffer }) {
       throw new Error('File PowerPoint không chứa slide nào hoặc không thể kết xuất nội dung.');
     }
 
-    // Gợi ý tên bài học từ tên file (bỏ đuôi .pptx, bỏ các tiền tố KHBD_ nếu có)
-    let suggestedTitle = path.basename(originalName, ext)
-      .replace(/^KHBD[_-]/i, '')
-      .replace(/^[A-Z0-9]+[_-]/i, '')
-      .trim();
-
-    if (!suggestedTitle) suggestedTitle = path.basename(originalName, ext);
+    // Gợi ý tên bài học: ưu tiên đọc từ slide 1, fallback qua tên file
+    const slide1Title = extractSlide1Title(buffer, originalName);
+    const fileTitle = extractTitleFromFileName(originalName);
+    let suggestedTitle = slide1Title || fileTitle || path.basename(originalName, ext);
 
     const slides = renderResult.slides.map((s) => ({
       index: s.index,
@@ -970,6 +969,7 @@ export function extractPptxMinimalMetadata(buffer, originalName = '') {
   let slideFilesCount = 0;
   let appXmlBuffer = null;
   let coreXmlBuffer = null;
+  let slide1XmlBuffer = null;
 
   try {
     // Tìm EOCD (End of Central Directory)
@@ -999,7 +999,7 @@ export function extractPptxMinimalMetadata(buffer, originalName = '') {
 
         const filename = buffer.toString('utf8', pos + 46, pos + 46 + nameLen);
 
-        if (filename === 'docProps/app.xml' || filename === 'docProps/core.xml') {
+        if (filename === 'docProps/app.xml' || filename === 'docProps/core.xml' || filename === 'ppt/slides/slide1.xml') {
           if (localOffset + 30 <= buffer.length && buffer.readUInt32LE(localOffset) === 0x04034b50) {
             const localNameLen = buffer.readUInt16LE(localOffset + 26);
             const localExtraLen = buffer.readUInt16LE(localOffset + 28);
@@ -1015,8 +1015,10 @@ export function extractPptxMinimalMetadata(buffer, originalName = '') {
 
             if (filename === 'docProps/app.xml') {
               appXmlBuffer = decompressed;
-            } else {
+            } else if (filename === 'docProps/core.xml') {
               coreXmlBuffer = decompressed;
+            } else if (filename === 'ppt/slides/slide1.xml') {
+              slide1XmlBuffer = decompressed;
             }
           }
         } else if (/^ppt\/slides\/slide[0-9]+\.xml$/i.test(filename)) {
@@ -1043,18 +1045,15 @@ export function extractPptxMinimalMetadata(buffer, originalName = '') {
     slideCount = 1; // Mặc định tối thiểu 1 slide
   }
 
-  // Phân tích tiêu đề bài từ tên file hoặc core.xml
-  let cleanName = '';
-  if (originalName) {
-    const ext = path.extname(originalName);
-    cleanName = path.basename(originalName, ext)
-      .replace(/^KHBD[_-]/i, '')
-      .replace(/^[A-Z0-9]+[_-]/i, '')
-      .trim();
-    if (!cleanName) cleanName = path.basename(originalName, ext);
+  // Phân tích tiêu đề bài: ưu tiên slide 1 -> fallback tên file -> core.xml
+  let suggestedTitle = '';
+  if (slide1XmlBuffer) {
+    suggestedTitle = extractTitleFromSlide1Xml(slide1XmlBuffer.toString('utf8')) || '';
+  }
+  if (!suggestedTitle && originalName) {
+    suggestedTitle = extractTitleFromFileName(originalName);
   }
 
-  let suggestedTitle = cleanName;
   if (!suggestedTitle || /^(presentation|slide|document|untitled|bai_giang)$/i.test(suggestedTitle)) {
     if (coreXmlBuffer) {
       const xml = coreXmlBuffer.toString('utf8');
@@ -1063,6 +1062,9 @@ export function extractPptxMinimalMetadata(buffer, originalName = '') {
         suggestedTitle = titleMatch[1].trim();
       }
     }
+  }
+  if (!suggestedTitle) {
+    suggestedTitle = path.basename(originalName, path.extname(originalName)) || 'Bài giảng PowerPoint';
   }
 
   const detectedGrade = detectGradeFromFileName(originalName, 3);
@@ -1074,6 +1076,52 @@ export function extractPptxMinimalMetadata(buffer, originalName = '') {
     detectedGrade,
     fileSizeBytes: buffer.length
   };
+}
+
+/**
+ * Trích xuất tiêu đề bài học từ slide 1 của buffer PPTX
+ */
+export function extractSlide1Title(buffer, originalName = '') {
+  try {
+    let eocdOffset = -1;
+    for (let i = buffer.length - 22; i >= 0; i--) {
+      if (buffer.readUInt32LE(i) === 0x06054b50) {
+        eocdOffset = i;
+        break;
+      }
+    }
+    if (eocdOffset === -1) return null;
+
+    const cdOffset = buffer.readUInt32LE(eocdOffset + 16);
+    const cdEntries = buffer.readUInt16LE(eocdOffset + 10);
+    let pos = cdOffset;
+
+    for (let i = 0; i < cdEntries; i++) {
+      if (pos + 46 > buffer.length) break;
+      if (buffer.readUInt32LE(pos) !== 0x02014b50) break;
+
+      const compSize = buffer.readUInt32LE(pos + 20);
+      const nameLen = buffer.readUInt16LE(pos + 28);
+      const extraLen = buffer.readUInt16LE(pos + 30);
+      const commentLen = buffer.readUInt16LE(pos + 32);
+      const localOffset = buffer.readUInt32LE(pos + 42);
+      const filename = buffer.toString('utf8', pos + 46, pos + 46 + nameLen);
+
+      if (filename === 'ppt/slides/slide1.xml') {
+        const localNameLen = buffer.readUInt16LE(localOffset + 26);
+        const localExtraLen = buffer.readUInt16LE(localOffset + 28);
+        const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+        const compData = buffer.subarray(dataStart, dataStart + compSize);
+        const method = buffer.readUInt16LE(pos + 10);
+        const decompressed = method === 8 ? zlib.inflateRawSync(compData) : compData;
+        return extractTitleFromSlide1Xml(decompressed.toString('utf8'));
+      }
+      pos += 46 + nameLen + extraLen + commentLen;
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
 }
 
 export function detectGradeFromFileName(fileName = '', fallbackGrade = 3) {

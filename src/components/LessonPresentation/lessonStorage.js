@@ -86,6 +86,40 @@ export function detectGradeFromFileName(fileName = '', fallbackGrade = 3) {
   return Number(fallbackGrade) || 3;
 }
 
+/**
+ * Trích xuất tiêu đề bài học từ tên file PowerPoint (fallback phía client)
+ * Nhận diện mẫu "BaiN" / "BàiN" (ví dụ: Bai2, Bai7, Bai12, Bai9A)
+ */
+export function extractTitleFromFileName(originalName = '') {
+  if (!originalName) return 'Bài giảng PowerPoint';
+  const ext = originalName.lastIndexOf('.') !== -1 ? originalName.slice(originalName.lastIndexOf('.')) : '';
+  let base = ext ? originalName.slice(0, originalName.lastIndexOf('.')) : originalName;
+
+  // Bỏ tiền tố KHBD_LQTH1_, KHBD_, GA_, v.v.
+  base = base.replace(/^KHBD[_-](?:LQTH\d+[_-])?/i, '')
+             .replace(/^GA[_-]/i, '');
+
+  // Chuẩn hóa các dạng:
+  // Bai2_TinHoc5 -> Bài 2
+  // TIN HOC 3 - BAI (1) -> Bài 1
+  // TIN HOC 4 - BAI 12B -> Bài 12B
+  const m1 = base.match(/^(?:bài|bai)[_\-\s]*(\d+[a-zA-Z]?)(?:[_\-\s]*(?:tinhoc|tin\s*học)[_\-\s]*\d*)?$/i);
+  if (m1) {
+    return `Bài ${m1[1].toUpperCase()}`;
+  }
+
+  const m2 = base.match(/^(?:tin\s*học|tinhoc)\s*\d+\s*[-_:]\s*(?:bài|bai)\s*\(?(\d+[a-zA-Z]?)\)?$/i);
+  if (m2) {
+    return `Bài ${m2[1].toUpperCase()}`;
+  }
+
+  const m3 = base.match(/^(?:bài|bai)[_\-\s]*(\d+[a-zA-Z]?)[_\-\s]+(.*)$/i);
+  if (m3) {
+    return `Bài ${m3[1].toUpperCase()} - ${m3[2].trim()}`;
+  }
+
+  return base.trim() || 'Bài giảng PowerPoint';
+}
 
 // Định nghĩa 7 loại Slide hỗ trợ trong giảng dạy Tin học
 export const SLIDE_TYPES = [

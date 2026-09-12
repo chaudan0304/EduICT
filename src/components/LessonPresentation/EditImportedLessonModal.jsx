@@ -8,6 +8,7 @@ import {
   AlertCircle 
 } from 'lucide-react';
 import { updateLessonApi, INFORMATICS_TOPICS, detectGradeFromFileName } from './lessonStorage';
+import { getTopicsByGrade, matchLessonTopic } from '../../data/ppctMapping';
 
 export default function EditImportedLessonModal({
   isOpen,
@@ -17,7 +18,7 @@ export default function EditImportedLessonModal({
 }) {
   const [title, setTitle] = useState(lesson?.title || '');
   const [grade, setGrade] = useState(lesson?.grade || 3);
-  const [topic, setTopic] = useState(lesson?.topic || 'Máy tính & Em');
+  const [topic, setTopic] = useState(lesson?.topic || '');
   const [durationMinutes, setDurationMinutes] = useState(lesson?.duration_minutes || 35);
   const [objectives, setObjectives] = useState(lesson?.objectives || '');
   const [isSaving, setIsSaving] = useState(false);
@@ -34,9 +35,15 @@ export default function EditImportedLessonModal({
       setTitle(lesson.title || fallbackTitle || 'Bài giảng PowerPoint');
 
       const detected = detectGradeFromFileName(lesson.source_file_name || lesson.title, 3);
-      setGrade(lesson.grade ? Number(lesson.grade) : detected);
+      const curGrade = lesson.grade ? Number(lesson.grade) : detected;
+      setGrade(curGrade);
 
-      setTopic(lesson.topic && lesson.topic !== 'Chung' ? lesson.topic : 'Máy tính & Em');
+      if (lesson.topic && lesson.topic !== 'Chung' && lesson.topic !== 'Máy tính & Em') {
+        setTopic(lesson.topic);
+      } else {
+        const matched = matchLessonTopic(curGrade, lesson.title || fallbackTitle);
+        setTopic(matched?.topic || lesson.topic || '');
+      }
       setDurationMinutes(lesson.duration_minutes || lesson.durationMinutes || 35);
       setObjectives(lesson.objectives || '');
       setErrorMsg(null);
@@ -217,7 +224,17 @@ export default function EditImportedLessonModal({
               </label>
               <select
                 value={grade}
-                onChange={(e) => setGrade(Number(e.target.value))}
+                onChange={(e) => {
+                  const newGrade = Number(e.target.value);
+                  setGrade(newGrade);
+                  const reMatched = matchLessonTopic(newGrade, title || lesson?.title || '');
+                  const validTopics = getTopicsByGrade(newGrade).map(t => t.id);
+                  if (reMatched?.topic) {
+                    setTopic(reMatched.topic);
+                  } else if (!validTopics.includes(topic)) {
+                    setTopic('');
+                  }
+                }}
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.85rem',
@@ -264,7 +281,7 @@ export default function EditImportedLessonModal({
 
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.35rem' }}>
-              Chủ đề môn Tin học (GDPT 2018)
+              Chương / Chủ đề môn Tin học (PPCT)
             </label>
             <select
               value={topic}
@@ -280,8 +297,9 @@ export default function EditImportedLessonModal({
                 boxSizing: 'border-box'
               }}
             >
-              {INFORMATICS_TOPICS.filter(t => t.id !== 'all').map(t => (
-                <option key={t.id} value={t.id}>{t.label}</option>
+              <option value="">-- Chưa chọn chủ đề (Chọn theo PPCT) --</option>
+              {getTopicsByGrade(grade).map(t => (
+                <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
               ))}
             </select>
           </div>

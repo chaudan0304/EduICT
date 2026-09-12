@@ -280,7 +280,7 @@ export default function StarExchangeModal({
             >
               {students.map(s => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.id}) — Hiện có {s.stars || 0}⭐ {s.stars >= 10 ? `(Đổi tối đa ${Math.floor((s.stars || 0)/10)}đ)` : '(Chưa đủ 10⭐)'}
+                  {s.name} — Hiện có {s.stars || 0}⭐ {s.stars >= 10 ? `(Đổi tối đa ${Math.floor((s.stars || 0)/10)}đ)` : '(Chưa đủ 10⭐)'}
                 </option>
               ))}
             </select>

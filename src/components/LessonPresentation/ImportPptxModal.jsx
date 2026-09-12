@@ -27,8 +27,10 @@ import {
   SIMILARITY_STATUS_LABELS,
   INFORMATICS_TOPICS,
   compareLessonTitles,
-  detectGradeFromFileName
+  detectGradeFromFileName,
+  extractTitleFromFileName
 } from './lessonStorage';
+import { getTopicsByGrade, matchLessonTopic, getCanonicalLessonTitle } from '../../data/ppctMapping';
 
 export default function ImportPptxModal({
   isOpen,
@@ -54,17 +56,11 @@ export default function ImportPptxModal({
 
   const fileInputRef = useRef(null);
 
-  // Tự động nhận diện Khối lớp và Tên bài từ tên file
+  // Tự động nhận diện Khối lớp và Tên bài từ tên file (fallback client)
   const detectGradeAndTitle = useCallback((fileName) => {
     const detectedGrade = detectGradeFromFileName(fileName, defaultGrade);
-
-    let suggestedTitle = fileName.replace(/\.pptx$/i, '')
-      .replace(/^KHBD[_-]/i, '')
-      .replace(/^[A-Z0-9]+[_-]/i, '')
-      .trim();
-
-    if (!suggestedTitle) suggestedTitle = fileName.replace(/\.pptx$/i, '');
-
+    const canonicalTitle = getCanonicalLessonTitle(detectedGrade, fileName);
+    const suggestedTitle = canonicalTitle || extractTitleFromFileName(fileName);
     return { detectedGrade, suggestedTitle };
   }, [defaultGrade]);
 
@@ -154,11 +150,20 @@ export default function ImportPptxModal({
       const items = validFiles.map((file, idx) => {
         const checkRes = results[idx] || {};
         const { detectedGrade, suggestedTitle } = detectGradeAndTitle(file.name);
-        const title = checkRes.suggestedTitle || suggestedTitle;
+        let title = checkRes.suggestedTitle || suggestedTitle;
         const grade = checkRes.detectedGrade || detectedGrade;
+
+        // Luôn đối chiếu bảng PPCT chuẩn để lấy tên đầy đủ nếu tên trích xuất bị cụt hoặc rút gọn
+        const canonical = getCanonicalLessonTitle(grade, title || file.name);
+        if (canonical && (!title || title.length <= 12 || !title.includes(':'))) {
+          title = canonical;
+        }
+
         const status = checkRes.status || 'unique';
         const similarityScore = checkRes.similarityScore || 0;
         const isExact = status === 'exact_duplicate';
+        const matchedTopicObj = matchLessonTopic(grade, title || file.name);
+        const topic = matchedTopicObj?.topic || '';
 
         return {
           id: `verify_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
@@ -166,7 +171,7 @@ export default function ImportPptxModal({
           fileName: file.name,
           lessonTitle: title,
           grade,
-          topic: 'Máy tính & Em',
+          topic,
           durationMinutes: 35,
           slideCount: checkRes.slideCount || 1,
           status,
@@ -194,13 +199,20 @@ export default function ImportPptxModal({
       // Fallback: cho phép người dùng import nếu API kiểm tra lỗi
       const fallbackItems = validFiles.map((file, idx) => {
         const { detectedGrade, suggestedTitle } = detectGradeAndTitle(file.name);
+        let title = suggestedTitle;
+        const canonical = getCanonicalLessonTitle(detectedGrade, title || file.name);
+        if (canonical && (!title || title.length <= 12 || !title.includes(':'))) {
+          title = canonical;
+        }
+        const matchedTopicObj = matchLessonTopic(detectedGrade, title || file.name);
+        const topic = matchedTopicObj?.topic || '';
         return {
           id: `verify_${Date.now()}_${idx}`,
           file,
           fileName: file.name,
-          lessonTitle: suggestedTitle,
+          lessonTitle: title,
           grade: detectedGrade,
-          topic: 'Máy tính & Em',
+          topic,
           durationMinutes: 35,
           slideCount: 1,
           status: 'unique',
@@ -1409,7 +1421,19 @@ export default function ImportPptxModal({
                         <input
                           type="text"
                           value={activeItem.lessonTitle}
-                          onChange={(e) => updateActiveItem('lessonTitle', e.target.value)}
+                          onChange={(e) => {
+                            const newTitle = e.target.value;
+                            if (!activeItem.topic) {
+                              const reMatched = matchLessonTopic(activeItem.grade, newTitle);
+                              if (reMatched?.topic) {
+                                setQueue(prev => prev.map(item => 
+                                  item.id === activeId ? { ...item, lessonTitle: newTitle, topic: reMatched.topic } : item
+                                ));
+                                return;
+                              }
+                            }
+                            updateActiveItem('lessonTitle', newTitle);
+                          }}
                           placeholder="Ví dụ: Bài 1: Làm quen với máy tính"
                           style={{
                             width: '100%',
@@ -1432,7 +1456,15 @@ export default function ImportPptxModal({
                         </label>
                         <select
                           value={activeItem.grade}
-                          onChange={(e) => updateActiveItem('grade', Number(e.target.value))}
+                          onChange={(e) => {
+                            const newGrade = Number(e.target.value);
+                            const reMatched = matchLessonTopic(newGrade, activeItem.lessonTitle || activeItem.fileName);
+                            const validTopics = getTopicsByGrade(newGrade).map(t => t.id);
+                            const newTopic = reMatched?.topic || (validTopics.includes(activeItem.topic) ? activeItem.topic : '');
+                            setQueue(prev => prev.map(item => 
+                              item.id === activeId ? { ...item, grade: newGrade, topic: newTopic } : item
+                            ));
+                          }}
                           style={{
                             width: '100%',
                             padding: '0.65rem 0.85rem',
@@ -1457,7 +1489,7 @@ export default function ImportPptxModal({
                           Chủ đề môn Tin học
                         </label>
                         <select
-                          value={activeItem.topic}
+                          value={activeItem.topic || ''}
                           onChange={(e) => updateActiveItem('topic', e.target.value)}
                           style={{
                             width: '100%',
@@ -1471,8 +1503,9 @@ export default function ImportPptxModal({
                             boxSizing: 'border-box'
                           }}
                         >
-                          {INFORMATICS_TOPICS.filter(t => t.id !== 'all').map(t => (
-                            <option key={t.id} value={t.id}>{t.label}</option>
+                          <option value="">-- Chưa chọn chủ đề (Chọn theo PPCT) --</option>
+                          {getTopicsByGrade(activeItem.grade).map(t => (
+                            <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
                           ))}
                         </select>
                       </div>

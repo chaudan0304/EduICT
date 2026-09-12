@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 import Gradebook from './components/Gradebook';
 import DuckRace from './components/DuckRace';
 import LuckyWheel from './components/LuckyWheel';
@@ -33,6 +34,19 @@ export default function App() {
   const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
   const [exchangeStudentId, setExchangeStudentId] = useState(null);
   const [dbStatus, setDbStatus] = useState({ connected: false, dbFile: 'edumaster.sqlite' });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('eduict_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('eduict_sidebar_collapsed', sidebarCollapsed);
+    } catch {}
+  }, [sidebarCollapsed]);
 
   // Tải dữ liệu từ cơ sở dữ liệu file SQLite khi ứng dụng khởi động
   useEffect(() => {
@@ -180,28 +194,41 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Navigation Header */}
-      <Navbar
-        classes={classes}
-        currentClass={currentClass}
-        onSelectClass={setClassId}
-        onAddClass={handleAddClass}
-        onDeleteClass={handleDeleteClass}
-        onRestoreClasses={handleRestoreClasses}
-        onBatchImportSuccess={handleBatchImportSuccess}
-        isProjector={isProjector}
-        onToggleProjector={() => setIsProjector(prev => !prev)}
-        soundEnabled={soundEnabled}
-        onToggleSound={() => setSoundEnabled(prev => !prev)}
+    <div className="app-root-layout" style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg-main)' }}>
+      {/* Left Sidebar Navigation */}
+      <Sidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
-        dbStatus={dbStatus}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+        currentClass={currentClass}
       />
 
-      {/* Main Content Area */}
-      <ErrorBoundary title="Đã xảy ra sự cố khi tải nội dung chức năng">
-        <main className="app-container" style={{ flex: 1, paddingTop: '1.5rem' }}>
+      {/* Main Right Column */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: '100vh' }}>
+        {/* Navigation Header */}
+        <Navbar
+          classes={classes}
+          currentClass={currentClass}
+          onSelectClass={setClassId}
+          onAddClass={handleAddClass}
+          onDeleteClass={handleDeleteClass}
+          onRestoreClasses={handleRestoreClasses}
+          onBatchImportSuccess={handleBatchImportSuccess}
+          isProjector={isProjector}
+          onToggleProjector={() => setIsProjector(prev => !prev)}
+          soundEnabled={soundEnabled}
+          onToggleSound={() => setSoundEnabled(prev => !prev)}
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          dbStatus={dbStatus}
+          onToggleSidebar={() => setSidebarCollapsed(prev => !prev)}
+          isSidebarCollapsed={sidebarCollapsed}
+        />
+
+        {/* Main Content Area */}
+        <ErrorBoundary title="Đã xảy ra sự cố khi tải nội dung chức năng">
+          <main className="app-container" style={{ flex: 1, paddingTop: '1.25rem', width: '100%' }}>
           {activeTab === 'home' && (
             <HomeDashboard
               currentClass={currentClass}
@@ -331,6 +358,7 @@ export default function App() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

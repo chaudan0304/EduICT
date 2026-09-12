@@ -933,11 +933,24 @@ export default function SeatingChart({
                   onChange={(e) => handleSetStudentAtSlot(activeMachineNum, e.target.value, 0)}
                 >
                   <option value="">-- Chưa có học sinh 1 (Bấm chọn) --</option>
-                  {students.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.id}) {s.machineNumber ? `[Đang ở Máy ${s.machineNumber}]` : ''}
-                    </option>
-                  ))}
+                  {students
+                    .filter(s => {
+                      // Không cho phép chọn học sinh đang ngồi ở Slot 2 (HS2) của máy này
+                      if (activeMachineStudents[1]?.id && s.id === activeMachineStudents[1].id) {
+                        return false;
+                      }
+                      // Giữ lại học sinh đang ngồi ở Slot 1 (HS1) của máy này để xem/sửa/giữ nguyên
+                      if (activeMachineStudents[0]?.id && s.id === activeMachineStudents[0].id) {
+                        return true;
+                      }
+                      // Chỉ hiển thị học sinh chưa được xếp vào bất kỳ máy nào trong lớp
+                      return !s.machineNumber || Number(s.machineNumber) < 1 || Number(s.machineNumber) > 31;
+                    })
+                    .map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}{s.machineNumber ? ` [Đang ở Máy ${s.machineNumber}]` : ''}
+                      </option>
+                    ))}
                 </select>
 
                 {activeMachineStudents[0] && (
@@ -1103,11 +1116,24 @@ export default function SeatingChart({
                   onChange={(e) => handleSetStudentAtSlot(activeMachineNum, e.target.value, 1)}
                 >
                   <option value="">-- Chưa có bạn ngồi ghép (Chọn để thêm HS 2) --</option>
-                  {students.filter(s => s.id !== activeMachineStudents[0]?.id).map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.id}) {s.machineNumber ? `[Đang ở Máy ${s.machineNumber}]` : ''}
-                    </option>
-                  ))}
+                  {students
+                    .filter(s => {
+                      // Không cho phép chọn học sinh đang ngồi ở Slot 1 (HS1) của máy này làm HS2
+                      if (activeMachineStudents[0]?.id && s.id === activeMachineStudents[0].id) {
+                        return false;
+                      }
+                      // Giữ lại học sinh đang ngồi ở Slot 2 (HS2) của máy này để xem/sửa/giữ nguyên
+                      if (activeMachineStudents[1]?.id && s.id === activeMachineStudents[1].id) {
+                        return true;
+                      }
+                      // Chỉ hiển thị học sinh chưa được xếp vào bất kỳ máy nào trong lớp
+                      return !s.machineNumber || Number(s.machineNumber) < 1 || Number(s.machineNumber) > 31;
+                    })
+                    .map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}{s.machineNumber ? ` [Đang ở Máy ${s.machineNumber}]` : ''}
+                      </option>
+                    ))}
                 </select>
 
                 {activeMachineStudents[1] && (

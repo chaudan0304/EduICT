@@ -1,6 +1,78 @@
+import fs from 'node:fs';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import path from 'node:path';
+
+/**
+ * Cache dữ liệu bảng PPCT chuẩn (ppct-mapping.json)
+ */
+let cachedPpctMapping = null;
+export function getPpctMappingData() {
+  if (cachedPpctMapping) return cachedPpctMapping;
+  try {
+    const filePath = path.resolve(process.cwd(), 'server', 'data', 'ppct-mapping.json');
+    if (fs.existsSync(filePath)) {
+      cachedPpctMapping = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+  } catch (err) {
+    console.warn('Không thể nạp server/data/ppct-mapping.json:', err.message);
+  }
+  return cachedPpctMapping || {};
+}
+
+/**
+ * Bóc tách số/ký hiệu bài học (e.g. "3", "12B", "9A")
+ */
+export function extractLessonNumber(str = '') {
+  if (!str) return null;
+  const m = str.match(/(?:bài|bai|lesson|unit)\s*\(?(\d+[a-zA-Z]?)\)?/i);
+  if (m) return m[1].toUpperCase();
+  const m2 = str.match(/(?:^|[_\-\s])(\d+[a-zA-Z]?)(?:[_\-\s:]|$)/);
+  if (m2) return m2[1].toUpperCase();
+  return null;
+}
+
+/**
+ * Tra cứu bài học chuẩn trong bảng PPCT chuẩn dựa theo Khối lớp và tên bài / tên file
+ */
+export function getCanonicalPpctLesson(grade = 3, titleOrFileName = '') {
+  const gNum = Number(grade) || 3;
+  const gradeKey = `K${gNum}`;
+  const ppct = getPpctMappingData();
+  const list = ppct[gradeKey] || [];
+  if (!list.length) return null;
+
+  const lessonNum = extractLessonNumber(titleOrFileName);
+  if (lessonNum) {
+    const matches = list.filter(l => extractLessonNumber(l.ten_bai) === lessonNum);
+    if (matches.length === 1) return matches[0];
+    if (matches.length > 1) {
+      let best = matches[0];
+      let bestScore = -1;
+      for (const cand of matches) {
+        const score = diceBigramSimilarity(titleOrFileName, cand.ten_bai);
+        if (score > bestScore) {
+          bestScore = score;
+          best = cand;
+        }
+      }
+      return best;
+    }
+  }
+
+  // Fuzzy match nếu không có số bài (e.g. "Ôn tập", "Kiểm tra")
+  let bestMatch = null;
+  let highestSim = 0;
+  for (const item of list) {
+    const sim = diceBigramSimilarity(titleOrFileName, item.ten_bai);
+    if (sim > highestSim && sim >= 0.6) {
+      highestSim = sim;
+      bestMatch = item;
+    }
+  }
+
+  return bestMatch;
+}
 
 /**
  * Cấu hình các ngưỡng phát hiện trùng lặp (Configurable Thresholds)
@@ -58,8 +130,8 @@ export const DUPLICATE_TIERS = {
 export const SIMILARITY_STATUS = {
   UNIQUE: 'unique',
   NEAR_SIMILAR: 'near_similar',       // 60 - 80% (🟡 Tham khảo)
-  HIGH_DUPLICATE: 'high_duplicate',   // 80 - 95% (🟠 Cảnh báo)
-  EXACT_DUPLICATE: 'exact_duplicate', // 95 - 100% (🔴 Cảnh báo)
+  HIGH_DUPLICATE: 'high_duplicate',   // 80 - 95%: Trùng cao (🟠 Cảnh báo)
+  EXACT_DUPLICATE: 'exact_duplicate', // 95 - 100%: Trùng 100% (🔴 Cảnh báo)
   NEAR_DUPLICATE: 'near_duplicate'    // tương thích ngược
 };
 
@@ -188,13 +260,157 @@ export function normalizeText(str = '') {
 }
 
 /**
+ * Trích xuất tiêu đề bài học từ nội dung XML của slide 1
+ * Hỗ trợ gộp đa đoạn văn, đa text box (ví dụ text box 1: "BÀI", text box 2: "13", text box 3: "CẤU TRÚC RẼ NHÁNH")
+ * hoặc tiêu đề dài chia làm 2 dòng liên tiếp.
+ */
+export function extractTitleFromSlide1Xml(xml = '') {
+  if (!xml) return null;
+  const pMatches = xml.match(/<a:p[\s>][\s\S]*?<\/a:p>/gi) || [];
+  const lines = [];
+
+  for (const pXml of pMatches) {
+    const texts = [];
+    const re = /<a:t>([^<]+)<\/a:t>/g;
+    let m;
+    while ((m = re.exec(pXml)) !== null) {
+      texts.push(m[1]);
+    }
+    if (texts.length === 0) continue;
+
+    // Ghép thông minh các text run để tránh dính chữ giữa các run
+    let joined = '';
+    for (let j = 0; j < texts.length; j++) {
+      const t = texts[j];
+      if (!t) continue;
+      if (joined.length > 0) {
+        const lastChar = joined[joined.length - 1];
+        const firstChar = t[0];
+        if (/[A-Za-z0-9À-ỹ]/.test(lastChar) && /[A-Za-z0-9À-ỹ]/.test(firstChar)) {
+          joined += ' ';
+        }
+      }
+      joined += t;
+    }
+    joined = joined.replace(/\s+/g, ' ').trim();
+    if (!joined) continue;
+
+    // Lấy font size lớn nhất của paragraph
+    let maxSz = 0;
+    const szMatches = [...pXml.matchAll(/sz="(\d+)"/g)].map(x => parseInt(x[1], 10));
+    for (const s of szMatches) {
+      if (s > maxSz) maxSz = s;
+    }
+
+    lines.push({ text: joined, size: maxSz });
+  }
+
+  if (lines.length === 0) return null;
+
+  // Ghép các dòng bị tách rời: "BÀI" / "Bai" và số "13" -> "Bài 13"
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (/^(?:bài|bai)\s*$/i.test(lines[i].text) && /^\d+[a-zA-Z]?$/i.test(lines[i + 1].text)) {
+      lines[i].text = `Bài ${lines[i + 1].text.toUpperCase()}`;
+      lines[i + 1].text = '';
+    }
+  }
+
+  const validLines = lines.filter(l => l.text.length > 0);
+
+  // 1. Tìm dòng tiêu đề chính bắt đầu bằng "Bài X"
+  for (let i = 0; i < validLines.length; i++) {
+    const l = validLines[i];
+    const matchWithRest = l.text.match(/^(?:bài|bai)\s*(\d+[a-zA-Z]?)(?:\s*[:\-–—\.]\s*|\s+)(.*)$/i);
+    const matchOnlyBai = l.text.match(/^(?:bài|bai)\s*(\d+[a-zA-Z]?)\s*$/i);
+
+    if (matchWithRest) {
+      let fullTitle = l.text;
+      const rest = matchWithRest[2]?.trim() || '';
+
+      // Kiểm tra dòng kế tiếp: nếu dòng kế tiếp không phải metadata và phần rest còn ngắn hoặc dòng kế tiếp có cỡ chữ tương đương -> ghép vào
+      if (i + 1 < validLines.length) {
+        const nextLine = validLines[i + 1];
+        const isNotMeta = !/^(?:chủ\s*đề|tin\s*học|giáo\s*viên|trường|năm\s*học|kế\s*hoạch)/i.test(nextLine.text);
+        if (isNotMeta && (rest.length < 15 || nextLine.size >= l.size * 0.7)) {
+          fullTitle = `${fullTitle} ${nextLine.text}`;
+        }
+      }
+      return fullTitle.replace(/\s+/g, ' ').trim();
+    } else if (matchOnlyBai) {
+      const baiPart = matchOnlyBai[0];
+      // Trường hợp "BÀI 13" ở 1 text box và "CẤU TRÚC RẼ NHÁNH" ở text box kế tiếp
+      if (i + 1 < validLines.length) {
+        const nextLine = validLines[i + 1];
+        const isNotMeta = !/^(?:chủ\s*đề|tin\s*học|giáo\s*viên|trường|năm\s*học|kế\s*hoạch)/i.test(nextLine.text);
+        if (isNotMeta) {
+          return `${baiPart}: ${nextLine.text}`.replace(/\s+/g, ' ').trim();
+        }
+      }
+      return baiPart;
+    }
+  }
+
+  // 2. Trường hợp tiêu đề nằm trước hoặc sau (ví dụ: "THỰC HÀNH TẠO ĐỒ DÙNG..." và ở dưới có "Bài 9B")
+  const baiLine = validLines.find(l => /^(?:bài|bai)\s*\d+[a-zA-Z]?/i.test(l.text));
+  if (baiLine) {
+    const contentLines = validLines.filter(l => 
+      l !== baiLine && 
+      !/^(?:chủ\s*đề|tin\s*học|giáo\s*viên|trường|năm\s*học|kế\s*hoạch|\d+$)/i.test(l.text)
+    );
+    if (contentLines.length > 0) {
+      contentLines.sort((a, b) => b.size - a.size);
+      return `${baiLine.text}: ${contentLines[0].text}`.replace(/\s+/g, ' ').trim();
+    }
+    return baiLine.text;
+  }
+
+  return null;
+}
+
+/**
+ * Trích xuất tiêu đề bài học từ tên file PowerPoint (fallback)
+ * Nhận diện mẫu "BaiN" / "BàiN" (ví dụ: Bai2, Bai7, Bai12, Bai9A)
+ */
+export function extractTitleFromFileName(originalName = '') {
+  if (!originalName) return 'Bài giảng PowerPoint';
+  const ext = path.extname(originalName);
+  let base = path.basename(originalName, ext);
+
+  // Bỏ tiền tố KHBD_LQTH1_, KHBD_, GA_, v.v.
+  base = base.replace(/^KHBD[_-](?:LQTH\d+[_-])?/i, '')
+             .replace(/^GA[_-]/i, '');
+
+  // Chuẩn hóa các dạng:
+  // Bai2_TinHoc5 -> Bài 2
+  // TIN HOC 3 - BAI (1) -> Bài 1
+  // TIN HOC 4 - BAI 12B -> Bài 12B
+  const m1 = base.match(/^(?:bài|bai)[_\-\s]*(\d+[a-zA-Z]?)(?:[_\-\s]*(?:tinhoc|tin\s*học)[_\-\s]*\d*)?$/i);
+  if (m1) {
+    return `Bài ${m1[1].toUpperCase()}`;
+  }
+
+  const m2 = base.match(/^(?:tin\s*học|tinhoc)\s*\d+\s*[-_:]\s*(?:bài|bai)\s*\(?(\d+[a-zA-Z]?)\)?$/i);
+  if (m2) {
+    return `Bài ${m2[1].toUpperCase()}`;
+  }
+
+  const m3 = base.match(/^(?:bài|bai)[_\-\s]*(\d+[a-zA-Z]?)[_\-\s]+(.*)$/i);
+  if (m3) {
+    return `Bài ${m3[1].toUpperCase()} - ${m3[2].trim()}`;
+  }
+
+  return base.trim() || 'Bài giảng PowerPoint';
+}
+
+/**
  * Làm sạch tiêu đề (bỏ các hậu tố bản sao, tiền tố KHBD_...)
+ * KHÔNG xóa tiền tố BaiN/BàiN để tránh mất thông tin bài học
  */
 export function cleanLessonTitle(title = '') {
   let cleaned = (title || '')
     .replace(/\.pptx$/i, '')
-    .replace(/^KHBD[_-]/i, '')
-    .replace(/^[A-Z0-9]+[_-]/i, '')
+    .replace(/^KHBD[_-](?:LQTH\d+[_-])?/i, '')
+    .replace(/^GA[_-]/i, '')
     .replace(/\s*\(copy\)/gi, '')
     .replace(/\s*\(bản sao\)/gi, '')
     .replace(/\s*\(bản copy\)/gi, '')
@@ -311,14 +527,25 @@ export function extractPptxContentFingerprint(buffer, originalName = '') {
 
   // Xác định tiêu đề gợi ý
   let suggestedTitle = '';
-  if (originalName) {
-    const ext = path.extname(originalName);
-    suggestedTitle = path.basename(originalName, ext)
-      .replace(/^KHBD[_-]/i, '')
-      .replace(/^[A-Z0-9]+[_-]/i, '')
-      .trim();
+
+  // 1. Ưu tiên đọc từ Slide 1
+  if (slideXmlEntries.length > 0) {
+    try {
+      const slide1Buffer = decompressZipEntry(buffer, slideXmlEntries[0]);
+      if (slide1Buffer) {
+        suggestedTitle = extractTitleFromSlide1Xml(slide1Buffer.toString('utf8')) || '';
+      }
+    } catch (err) {
+      // Bỏ qua lỗi decompress slide 1
+    }
   }
 
+  // 2. Fallback trích xuất từ tên file nhận diện mẫu BaiN/BàiN
+  if (!suggestedTitle && originalName) {
+    suggestedTitle = extractTitleFromFileName(originalName);
+  }
+
+  // 3. Fallback core.xml nếu tiêu đề còn rỗng hoặc quá chung chung
   if (!suggestedTitle || /^(presentation|slide|document|untitled|bai_giang)$/i.test(suggestedTitle)) {
     if (coreXmlBuffer) {
       const xml = coreXmlBuffer.toString('utf8');
@@ -333,6 +560,20 @@ export function extractPptxContentFingerprint(buffer, originalName = '') {
   }
 
   const detectedGrade = detectGradeFromFileName(originalName, 3);
+
+  // 4. Đối chiếu chuẩn hóa với bảng PPCT Chuẩn (ppct-mapping.json)
+  const canonicalPpct = getCanonicalPpctLesson(detectedGrade, suggestedTitle || originalName);
+  let canonicalTopic = '';
+  if (canonicalPpct && canonicalPpct.ten_bai) {
+    canonicalTopic = canonicalPpct.chuong_chu_de || '';
+    // Nếu tiêu đề hiện tại quá ngắn (ví dụ chỉ có số bài: "Bài 3", "Bài 10", "Bai13") hoặc trích xuất chưa đầy đủ
+    const isTruncatedOrShort = !suggestedTitle || 
+                               suggestedTitle.length < 15 || 
+                               /^(?:bài|bai)\s*\(?(\d+[a-zA-Z]?)\)?$/i.test(suggestedTitle.trim());
+    if (isTruncatedOrShort) {
+      suggestedTitle = canonicalPpct.ten_bai;
+    }
+  }
 
   // Trích xuất text và tiêu đề slide từ các slide XML (tối đa 30 slide đầu để tối ưu tốc độ < 5ms)
   const slideHeadings = [];
@@ -369,6 +610,7 @@ export function extractPptxContentFingerprint(buffer, originalName = '') {
     slideCount,
     suggestedTitle,
     detectedGrade,
+    canonicalTopic,
     slideHeadings,
     fullText,
     contentFingerprint,

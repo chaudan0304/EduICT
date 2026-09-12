@@ -319,7 +319,7 @@ export default function LuckyWheel({
                 {selectedWinner.name}
               </h3>
               <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                Mã số: {selectedWinner.id} • Hiện có: {selectedWinner.stars || 0} ⭐
+                {selectedWinner.machineNumber ? `Máy ${selectedWinner.machineNumber} • ` : (selectedWinner.id && !String(selectedWinner.id).startsWith('hs_') ? `Mã: ${selectedWinner.id} • ` : '')}Hiện có: {selectedWinner.stars || 0} ⭐
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -372,7 +372,7 @@ export default function LuckyWheel({
                       #{calledHistory.length - idx}. {s.name}
                     </span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                      {s.id}
+                      {s.machineNumber ? `Máy ${s.machineNumber}` : (s.id && !String(s.id).startsWith('hs_') ? s.id : `${s.stars || 0} ⭐`)}
                     </span>
                   </div>
                 ))}

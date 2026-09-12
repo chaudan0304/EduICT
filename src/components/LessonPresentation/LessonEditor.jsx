@@ -25,6 +25,7 @@ import {
   updateLessonApi,
   createLessonApi
 } from './lessonStorage';
+import { getTopicsByGrade } from '../../data/ppctMapping';
 
 export default function LessonEditor({
   initialLesson,
@@ -980,7 +981,15 @@ export default function LessonEditor({
                   </label>
                   <select
                     value={lessonData.grade}
-                    onChange={(e) => setLessonData(prev => ({ ...prev, grade: Number(e.target.value) }))}
+                    onChange={(e) => {
+                      const newGrade = Number(e.target.value);
+                      const validTopics = getTopicsByGrade(newGrade).map(t => t.id);
+                      setLessonData(prev => ({
+                        ...prev,
+                        grade: newGrade,
+                        topic: validTopics.includes(prev.topic) ? prev.topic : (validTopics[0] || '')
+                      }));
+                    }}
                     className="input-field"
                     style={{ width: '100%' }}
                   >
@@ -1006,7 +1015,7 @@ export default function LessonEditor({
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                  Chủ Đề GDPT 2018:
+                  Chương / Chủ Đề (PPCT):
                 </label>
                 <select
                   value={lessonData.topic}
@@ -1014,8 +1023,9 @@ export default function LessonEditor({
                   className="input-field"
                   style={{ width: '100%' }}
                 >
-                  {INFORMATICS_TOPICS.filter(t => t.id !== 'all').map(t => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
+                  <option value="">-- Chọn Chương / Chủ đề theo PPCT --</option>
+                  {getTopicsByGrade(lessonData.grade).map(t => (
+                    <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
                   ))}
                 </select>
               </div>

@@ -1,0 +1,522 @@
+{
+  "K1": [
+    {
+      "ten_bai": "Bài 1: Làm quen với máy tính",
+      "chuong_chu_de": "Chương 1: Máy tính - Người bạn mới",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 2: Làm quen với chuột máy tính",
+      "chuong_chu_de": "Chương 1: Máy tính - Người bạn mới",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 3: Thao tác nháy chuột",
+      "chuong_chu_de": "Chương 1: Máy tính - Người bạn mới",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 4: Thao tác kéo thả chuột",
+      "chuong_chu_de": "Chương 1: Máy tính - Người bạn mới",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 5: Thao tác nháy đúp chuột",
+      "chuong_chu_de": "Chương 1: Máy tính - Người bạn mới",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 6: Luyện tập các thao tác với chuột qua phần mềm CuuLongedu",
+      "chuong_chu_de": "Chương 1: Máy tính - Người bạn mới",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 7: Vui học bảng chữ cái cùng máy tính",
+      "chuong_chu_de": "Chương 2: Vui học cùng máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 8: Vui học Toán cùng máy tính",
+      "chuong_chu_de": "Chương 2: Vui học cùng máy tính",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 9: Vui học Tiếng Anh cùng máy tính",
+      "chuong_chu_de": "Chương 2: Vui học cùng máy tính",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 10: Vẽ hình cùng máy tính",
+      "chuong_chu_de": "Chương 2: Vui học cùng máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 11: Bài tập thực hành",
+      "chuong_chu_de": "Chương 2: Vui học cùng máy tính",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Ôn tập + Kiểm tra học kì I",
+      "chuong_chu_de": "Chương 2: Vui học cùng máy tính",
+      "loai": null
+    },
+    {
+      "ten_bai": "Bài 12: Em lập trình hoạt hình",
+      "chuong_chu_de": "Chương 3: Học tập trực tuyến",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 13: Di chuyển nhân vật",
+      "chuong_chu_de": "Chương 3: Học tập trực tuyến",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 14: Làm quen với phần mềm Paint",
+      "chuong_chu_de": "Chương 4: Tập làm họa sĩ cùng Paint",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 15: Sử dụng công cụ vẽ đơn giản",
+      "chuong_chu_de": "Chương 4: Tập làm họa sĩ cùng Paint",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 16: Thực hành: Vẽ cái bàn",
+      "chuong_chu_de": "Chương 4: Tập làm họa sĩ cùng Paint",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 17: Thực hành: Vẽ ngôi nhà",
+      "chuong_chu_de": "Chương 4: Tập làm họa sĩ cùng Paint",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 18: Thực hành: Vẽ cột cờ Tổ quốc",
+      "chuong_chu_de": "Chương 4: Tập làm họa sĩ cùng Paint",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Kiểm tra học kì II",
+      "chuong_chu_de": "Chương 4: Tập làm họa sĩ cùng Paint",
+      "loai": null
+    }
+  ],
+  "K2": [
+    {
+      "ten_bai": "Bài 1: Làm quen với bàn phím máy tính",
+      "chuong_chu_de": "Chương 1: Trở lại với máy tính",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 2: Hàng phím cơ sở",
+      "chuong_chu_de": "Chương 1: Trở lại với máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 3: Hàng phím trên",
+      "chuong_chu_de": "Chương 1: Trở lại với máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 4: Hàng phím dưới",
+      "chuong_chu_de": "Chương 1: Trở lại với máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 5: Kết hợp các hàng phím với phím Shift",
+      "chuong_chu_de": "Chương 1: Trở lại với máy tính",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 6: Vui học Toán cùng máy tính",
+      "chuong_chu_de": "Chương 2: Vui học cùng máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 7: Vui học Tiếng Anh cùng máy tính",
+      "chuong_chu_de": "Chương 2: Vui học cùng máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 8: Em lập trình hoạt hình",
+      "chuong_chu_de": "Chương 3: Học tập trực tuyến",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 9: Di chuyển nhân vật",
+      "chuong_chu_de": "Chương 3: Học tập trực tuyến",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Ôn tập + Kiểm tra học kì I",
+      "chuong_chu_de": "Chương 3: Học tập trực tuyến",
+      "loai": null
+    },
+    {
+      "ten_bai": "Bài 10: Giới thiệu phần mềm Wordpad",
+      "chuong_chu_de": "Chương 4: Trải nghiệm cùng Wordpad",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 11: Tập gõ chữ cùng Wordpad",
+      "chuong_chu_de": "Chương 4: Trải nghiệm cùng Wordpad",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 12: Thay đổi cỡ chữ và màu trong Wordpad",
+      "chuong_chu_de": "Chương 4: Trải nghiệm cùng Wordpad",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 13: Canh chỉnh lề trong Wordpad",
+      "chuong_chu_de": "Chương 4: Trải nghiệm cùng Wordpad",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 14: Chèn hình vẽ trong Wordpad",
+      "chuong_chu_de": "Chương 4: Trải nghiệm cùng Wordpad",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 15: Lưu bài trong Wordpad",
+      "chuong_chu_de": "Chương 4: Trải nghiệm cùng Wordpad",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 16: Snipping Tool",
+      "chuong_chu_de": "Chương 5: Ứng dụng trong Windows",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 17: Steps Recorder",
+      "chuong_chu_de": "Chương 5: Ứng dụng trong Windows",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 18: Windows Media Player",
+      "chuong_chu_de": "Chương 5: Ứng dụng trong Windows",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Kiểm tra học kì II",
+      "chuong_chu_de": "Chương 5: Ứng dụng trong Windows",
+      "loai": null
+    }
+  ],
+  "K3": [
+    {
+      "ten_bai": "Bài 1: Thông tin và quyết định",
+      "chuong_chu_de": "Chương 1: Máy tính và em",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 2: Xử lí thông tin",
+      "chuong_chu_de": "Chương 1: Máy tính và em",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 3: Máy tính và em",
+      "chuong_chu_de": "Chương 1: Máy tính và em",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 4: Làm việc với máy tính",
+      "chuong_chu_de": "Chương 1: Máy tính và em",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 5: Sử dụng bàn phím",
+      "chuong_chu_de": "Chương 1: Máy tính và em",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 6: Khám phá thông tin trên Internet",
+      "chuong_chu_de": "Chương 2: Mạng máy tính và Internet",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 7: Sắp xếp để dễ tìm",
+      "chuong_chu_de": "Chương 3: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Kiểm tra cuối học kì I",
+      "chuong_chu_de": "Chương 3: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+      "loai": null
+    },
+    {
+      "ten_bai": "Bài 8: Sơ đồ hình cây. Tổ chức thông tin trong máy tính",
+      "chuong_chu_de": "Chương 3: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 9: Thực hành vớ tệp và thư mục trong máy tính",
+      "chuong_chu_de": "Chương 3: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 10: Bảo vệ thông tin khi dùng máy tính",
+      "chuong_chu_de": "Chương 4: Đạo đức, pháp luật và văn hóa trong môi trường số",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 11: Bài trình chiếu của em",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 12: Tìm hiểu về thế giới tự nhiên",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 13: Luyện tập sử dụng chuột",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": null
+    },
+    {
+      "ten_bai": "Bài 14: Em thực hiện công việc như thế nào?",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 15: Công việc được thực hiện theo điều kiện",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 16: Công việc của em và sự trợ giúp của máy tính",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Ôn tập",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": null
+    },
+    {
+      "ten_bai": "Kiểm tra cuối học kì II",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": null
+    }
+  ],
+  "K4": [
+    {
+      "ten_bai": "Bài 1: Phần cứng và phần mềm máy tính",
+      "chuong_chu_de": "Chương 1: Máy tính và em",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 2: Gõ bàn phím đúng cách",
+      "chuong_chu_de": "Chương 1: Máy tính và em",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 3: Thông tin trên trang web",
+      "chuong_chu_de": "Chương 2: Mạng máy tính và Internet",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 4: Tìm kiếm thông tin trên Internet",
+      "chuong_chu_de": "Chương 3: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 5: Thao tác với tệp và thư mục",
+      "chuong_chu_de": "Chương 3: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 6: Sử dụng phần mềm khi được phép",
+      "chuong_chu_de": "Chương 4: Đạo đức, pháp luật và văn hóa trong môi trường số",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 7: Tạo bài trình chiếu",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 8: Định dạng văn bản trên trang chiếu",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 9: Hiệu ứng chuyển trang(tiết 1)",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Ôn tập",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": null
+    },
+    {
+      "ten_bai": "Kiểm tra cuối học kì I",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": null
+    },
+    {
+      "ten_bai": "Bài 9: Hiệu ứng chuyển trang(tiết 2)",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 10: Phần mềm soạn thảo văn bản",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 11: Chỉnh sửa văn bản",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 12B: Phần mềm luyện gõ bàn phím",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 13: Chơi với máy tính",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 14: Khám phá môi trường lập trình trực quan",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 15: Tạo chương trình máy tính để diễn tả ý tưởng",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 16: Chương trình của em",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Ôn tập",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": null
+    },
+    {
+      "ten_bai": "Kiểm tra cuối học kì II",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": null
+    }
+  ],
+  "K5": [
+    {
+      "ten_bai": "Bài 1: Em có thể làm gì với máy tính",
+      "chuong_chu_de": "Chương 1: Máy tính và em",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 2: Tìm kiếm thông tin trên website",
+      "chuong_chu_de": "Chương 2: Mạng máy tính và Internet",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 3: Tìm kiếm thông tin trong giải quyết vấn đề",
+      "chuong_chu_de": "Chương 3: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 4: Cây thư mục",
+      "chuong_chu_de": "Chương 3: Tổ chức lưu trữ, tìm kiếm và trao đổi thông tin",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 5: Bản quyền nội dung thông tin",
+      "chuong_chu_de": "Chương 4: Đạo đức, pháp luật và văn hóa trong môi trường số",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 6: Định dạng kí tự và bố trí hình ảnh trong văn bản",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 7: Thực hành soạn thảo văn bản",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 8A: Làm quen với phần mềm sử dụng đồ họa",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 8B: Sử dụng công cụ đa phương tiện hỗ trợ tạo sản phẩm đơn giản",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Ôn tập",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": null
+    },
+    {
+      "ten_bai": "Kiểm tra học kì I",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": null
+    },
+    {
+      "ten_bai": "Bài 9A: Sử dụng phần mềm đồ họa tạo sản phẩm số",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 9B: Thực hành tạo đồ dùng gia đình theo video hướng dẫn",
+      "chuong_chu_de": "Chương 5: Ứng dụng tin học",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 10: Cấu trúc tuần tự",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 11: Cấu trúc lặp",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết"
+    },
+    {
+      "ten_bai": "Bài 12: Thực hành sử dụng lệnh lặp",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Thực hành"
+    },
+    {
+      "ten_bai": "Bài 13: Cấu trúc rẽ nhánh",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 14: Sử dụng biến trong chương trình",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 15: Sử dụng biểu thức trong chương trình",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Bài 16: Từ kịch bản đến chương trình",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": "Lí thuyết - Thực hành"
+    },
+    {
+      "ten_bai": "Ôn tập",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": null
+    },
+    {
+      "ten_bai": "Kiểm tra học kì II",
+      "chuong_chu_de": "Chương 6: Giải quyết vấn đề với sự trợ giúp của máy tính",
+      "loai": null
+    }
+  ]
+}

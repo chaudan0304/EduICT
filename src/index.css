@@ -408,3 +408,57 @@ body {
 .pulse-card {
   animation: pulseGlow 2s infinite;
 }
+
+/* Slide Preview 16:9 Hover Effect */
+.slide-preview-container {
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.slide-preview-container:hover {
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.25);
+}
+
+.slide-preview-container:hover .slide-preview-img {
+  transform: scale(1.03);
+}
+
+.slide-preview-container:hover .slide-hover-overlay {
+  opacity: 1 !important;
+}
+
+/* Navbar Responsive Priority Controls (Huong A) */
+@media (max-width: 1380px) {
+  .navbar-btn-inline-secondary {
+    display: none !important;
+  }
+  .navbar-more-dropdown-wrapper {
+    display: inline-flex !important;
+  }
+}
+
+@media (min-width: 1381px) {
+  .navbar-btn-inline-secondary {
+    display: inline-flex !important;
+  }
+  .navbar-more-dropdown-wrapper {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1150px) {
+  .navbar-btn-add-class-inline {
+    display: none !important;
+  }
+  .navbar-menu-item-add-class {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 1151px) {
+  .navbar-btn-add-class-inline {
+    display: inline-flex !important;
+  }
+  .navbar-menu-item-add-class {
+    display: none !important;
+  }
+}

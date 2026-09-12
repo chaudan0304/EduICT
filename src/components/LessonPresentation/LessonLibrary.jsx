@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   ChevronRight,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  MoreVertical
 } from 'lucide-react';
 import { 
   fetchLessonsApi, 
@@ -33,8 +34,11 @@ import {
   retryLessonThumbnailApi,
   DUPLICATE_TIERS
 } from './lessonStorage';
+import { getTopicsByGrade } from '../../data/ppctMapping';
+import { detectGradeFromName } from '../../utils/storage';
 import ImportPptxModal from './ImportPptxModal';
 import EditImportedLessonModal from './EditImportedLessonModal';
+import DuplicateComparisonModal from './DuplicateComparisonModal';
 import ErrorBoundary from '../ErrorBoundary';
 import AiLessonAnalysisModal from '../AI/AiLessonAnalysisModal';
 import AiQuestionGeneratorModal from '../AI/AiQuestionGeneratorModal';
@@ -44,11 +48,15 @@ export default function LessonLibrary({
   onOpenPresentation,
   currentClass
 }) {
+  // Nguồn sự thật duy nhất cho Khối Lớp: đồng bộ trực tiếp từ Header (currentClass)
+  const currentGrade = useMemo(() => {
+    return currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
+  }, [currentClass]);
+
   const [lessons, setLessons] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [launchingId, setLaunchingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGrade, setSelectedGrade] = useState(() => currentClass?.grade || 'all');
   const [selectedTopic, setSelectedTopic] = useState('all');
   const [similarityFilter, setSimilarityFilter] = useState('all'); // 'all' | 'unique' | 'exact_duplicate' | 'high_duplicate' | 'near_similar'
   const [sortBy, setSortBy] = useState('lesson_order'); // 'lesson_order' | 'title_asc' | 'title_desc' | 'recent'
@@ -65,12 +73,28 @@ export default function LessonLibrary({
   const [aiAnalysisLesson, setAiAnalysisLesson] = useState(null);
   const [aiQuestionGenLessonId, setAiQuestionGenLessonId] = useState(null);
   const [isAiQuestionGenOpen, setIsAiQuestionGenOpen] = useState(false);
+  const [activeMenuLessonId, setActiveMenuLessonId] = useState(null);
 
-  // Load danh sách bài học
+  // Đóng dropdown menu khi click ra ngoài
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveMenuLessonId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  // Tự động kiểm tra và reset chủ đề nếu không tồn tại trong Khối lớp mới
+  useEffect(() => {
+    const validTopics = getTopicsByGrade(currentGrade).map(t => t.id);
+    if (selectedTopic !== 'all' && !validTopics.includes(selectedTopic)) {
+      setSelectedTopic('all');
+    }
+  }, [currentGrade]);
+
+  // Load danh sách bài học theo Khối lớp đồng bộ từ Header
   useEffect(() => {
     let ignore = false;
     fetchLessonsApi({
-      grade: selectedGrade,
+      grade: currentGrade,
       topic: selectedTopic,
       search: searchTerm,
       similarity_status: similarityFilter
@@ -91,7 +115,7 @@ export default function LessonLibrary({
     return () => {
       ignore = true;
     };
-  }, [selectedGrade, selectedTopic, searchTerm, similarityFilter]);
+  }, [currentGrade, selectedTopic, searchTerm, similarityFilter]);
 
   const [retryingThumbnailIds, setRetryingThumbnailIds] = useState(new Set());
 
@@ -294,9 +318,7 @@ export default function LessonLibrary({
   // Tìm kiếm tức thời phía client & Sắp xếp bài học chuẩn xác
   const filteredLessons = useMemo(() => {
     let list = [...lessons];
-    if (selectedGrade !== 'all') {
-      list = list.filter(l => Number(l.grade) === Number(selectedGrade));
-    }
+    list = list.filter(l => Number(l.grade) === Number(currentGrade));
     if (selectedTopic !== 'all') {
       list = list.filter(l => l.topic === selectedTopic);
     }
@@ -334,16 +356,7 @@ export default function LessonLibrary({
     }
 
     list.sort((a, b) => {
-      // 1. Nếu xem tất cả khối lớp, sắp xếp theo Khối 1 -> 2 -> 3 -> 4 -> 5 trước
-      if (selectedGrade === 'all') {
-        const gradeA = Number(a.grade) || 0;
-        const gradeB = Number(b.grade) || 0;
-        if (gradeA !== gradeB) {
-          return gradeA - gradeB;
-        }
-      }
-
-      // 2. Sắp xếp theo tiêu chí người dùng chọn
+      // Sắp xếp theo tiêu chí người dùng chọn
       if (sortBy === 'recent') {
         const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
         const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
@@ -361,7 +374,7 @@ export default function LessonLibrary({
     });
 
     return list;
-  }, [lessons, selectedGrade, selectedTopic, searchTerm, sortBy, similarityFilter, scanReport]);
+  }, [lessons, currentGrade, selectedTopic, searchTerm, sortBy, similarityFilter, scanReport]);
 
   // Xóa bài học
   const handleDeleteLesson = async (lesson, e) => {
@@ -643,49 +656,26 @@ export default function LessonLibrary({
         flexWrap: 'wrap',
         gap: '1rem'
       }}>
-        {/* Bộ lọc nhanh 5 Khối lớp */}
+        {/* Hiển thị Khối Lớp đồng bộ từ Header (Single Source of Truth - Hướng A) */}
         <div style={{
-          display: 'flex',
+          display: 'inline-flex',
           alignItems: 'center',
-          background: 'var(--surface-secondary)',
-          padding: '0.25rem',
+          gap: '0.6rem',
+          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(56, 189, 248, 0.05) 100%)',
+          border: '1px solid rgba(2, 132, 199, 0.3)',
+          padding: '0.45rem 0.95rem',
           borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--surface-border)',
-          flexWrap: 'wrap'
+          color: '#0284c7',
+          fontWeight: 800,
+          fontSize: '0.875rem'
         }}>
-          <button
-            onClick={() => setSelectedGrade('all')}
-            style={{
-              padding: '0.35rem 0.85rem',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              background: selectedGrade === 'all' ? '#0284c7' : 'transparent',
-              color: selectedGrade === 'all' ? '#fff' : 'var(--text-main)',
-              fontWeight: 700,
-              fontSize: '0.8125rem',
-              cursor: 'pointer'
-            }}
-          >
-            Tất Cả Khối
-          </button>
-          {[1, 2, 3, 4, 5].map(g => (
-            <button
-              key={g}
-              onClick={() => setSelectedGrade(g)}
-              style={{
-                padding: '0.35rem 0.85rem',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                background: Number(selectedGrade) === g ? '#0284c7' : 'transparent',
-                color: Number(selectedGrade) === g ? '#fff' : 'var(--text-main)',
-                fontWeight: 700,
-                fontSize: '0.8125rem',
-                cursor: 'pointer'
-              }}
-            >
-              Khối {g}
-            </button>
-          ))}
+          <BookOpen size={18} color="#0284c7" />
+          <span>Đang xem: <strong>Khối {currentGrade}</strong></span>
+          {currentClass?.name && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>
+              • Lớp {currentClass.name}
+            </span>
+          )}
         </div>
 
         {/* Lọc theo Chủ đề & Ô tìm kiếm */}
@@ -694,9 +684,10 @@ export default function LessonLibrary({
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
             className="input-field"
-            style={{ minWidth: 200, fontSize: '0.875rem', fontWeight: 600 }}
+            style={{ minWidth: 220, fontSize: '0.875rem', fontWeight: 600 }}
           >
-            {INFORMATICS_TOPICS.map(t => (
+            <option value="all">📂 Tất Cả Chủ Đề (Khối {currentGrade})</option>
+            {getTopicsByGrade(currentGrade).map(t => (
               <option key={t.id} value={t.id}>
                 {t.icon} {t.label}
               </option>
@@ -867,25 +858,61 @@ export default function LessonLibrary({
                 <div>
                   {/* Thumbnail Slide 1 hoặc placeholder */}
                   {lesson.thumbnail_url ? (
-                    <div style={{
-                      width: '100%',
-                      aspectRatio: '16/9',
-                      background: '#090d16',
-                      borderRadius: 'var(--radius-lg)',
-                      overflow: 'hidden',
-                      marginBottom: '0.85rem',
-                      position: 'relative',
-                      border: '1px solid var(--surface-border)'
-                    }}>
+                    <div
+                      className="slide-preview-container"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLaunchPresentation(lesson, e);
+                      }}
+                      title="Bấm để bắt đầu trình chiếu toàn màn hình"
+                      style={{
+                        width: '100%',
+                        aspectRatio: '16/9',
+                        background: '#090d16',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden',
+                        marginBottom: '0.85rem',
+                        position: 'relative',
+                        border: '1px solid var(--surface-border)',
+                        cursor: 'pointer'
+                      }}
+                    >
                       <img
+                        className="slide-preview-img"
                         src={lesson.thumbnail_url}
                         alt={lesson.title}
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: 'contain'
+                          objectFit: 'contain',
+                          transition: 'transform 0.25s ease'
                         }}
                       />
+                      <div className="slide-hover-overlay" style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(2, 132, 199, 0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0,
+                        transition: 'opacity 0.2s ease',
+                        backdropFilter: 'blur(2px)'
+                      }}>
+                        <div style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: '50%',
+                          background: 'rgba(255, 255, 255, 0.95)',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#0284c7'
+                        }}>
+                          <Play size={20} fill="#0284c7" style={{ marginLeft: 2 }} />
+                        </div>
+                      </div>
                       <div style={{
                         position: 'absolute',
                         bottom: 6,
@@ -896,7 +923,8 @@ export default function LessonLibrary({
                         fontWeight: 700,
                         padding: '0.15rem 0.5rem',
                         borderRadius: '999px',
-                        backdropFilter: 'blur(4px)'
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 2
                       }}>
                         Slide 1
                       </div>
@@ -1258,31 +1286,9 @@ export default function LessonLibrary({
                     <span>{slideCount} slides</span>
                   </div>
 
-                  {isImported ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAiAnalysisLesson(lesson);
-                        }}
-                        className="btn btn-secondary"
-                        style={{
-                          padding: '0.35rem 0.65rem',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          color: '#0284c7',
-                          borderColor: 'rgba(2, 132, 199, 0.35)',
-                          background: 'rgba(2, 132, 199, 0.08)'
-                        }}
-                        title="✨ AI Phân tích bài giảng & gợi ý chuẩn GDPT 2018"
-                      >
-                        <Sparkles size={14} color="#0284c7" />
-                        <span>AI Phân tích</span>
-                      </button>
-
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', position: 'relative' }}>
+                    {/* Nút Phụ 2: Thông tin / Sửa */}
+                    {isImported ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1290,77 +1296,22 @@ export default function LessonLibrary({
                         }}
                         className="btn btn-secondary"
                         style={{
-                          padding: '0.35rem 0.65rem',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
+                          padding: '0.35rem 0.55rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.3rem'
+                          gap: '0.25rem',
+                          color: 'var(--text-muted)',
+                          background: 'transparent',
+                          border: '1px solid var(--surface-border)'
                         }}
                         title="Xem & sửa thông tin bài giảng"
                       >
-                        <Edit3 size={14} />
+                        <Edit3 size={13} />
                         <span>Thông tin</span>
                       </button>
-
-                      <button
-                        onClick={(e) => handleDeleteLesson(lesson, e)}
-                        className="btn btn-icon"
-                        style={{ width: 32, height: 32, color: '#ef4444' }}
-                        title="Xóa bài học"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-
-                      <button
-                        onClick={(e) => handleLaunchPresentation(lesson, e)}
-                        disabled={launchingId === lesson.id}
-                        className="btn btn-primary"
-                        style={{
-                          padding: '0.4rem 0.95rem',
-                          fontSize: '0.825rem',
-                          fontWeight: 800,
-                          background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                          boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)'
-                        }}
-                        title="Bắt đầu trình chiếu bài PowerPoint này"
-                      >
-                        {launchingId === lesson.id ? (
-                          <Loader2 size={15} className="animate-spin" />
-                        ) : (
-                          <Play size={15} fill="#fff" />
-                        )}
-                        <span>📺 Trình Chiếu</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAiAnalysisLesson(lesson);
-                        }}
-                        className="btn btn-secondary"
-                        style={{
-                          padding: '0.35rem 0.65rem',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          color: '#0284c7',
-                          borderColor: 'rgba(2, 132, 199, 0.35)',
-                          background: 'rgba(2, 132, 199, 0.08)'
-                        }}
-                        title="✨ AI Phân tích bài giảng & gợi ý chuẩn GDPT 2018"
-                      >
-                        <Sparkles size={14} color="#0284c7" />
-                        <span>AI Phân tích</span>
-                      </button>
-
+                    ) : (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1368,62 +1319,172 @@ export default function LessonLibrary({
                         }}
                         className="btn btn-secondary"
                         style={{
-                          padding: '0.35rem 0.65rem',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
+                          padding: '0.35rem 0.55rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.3rem'
+                          gap: '0.25rem',
+                          color: 'var(--text-muted)',
+                          background: 'transparent',
+                          border: '1px solid var(--surface-border)'
                         }}
                         title="Chỉnh sửa nội dung và slides"
                       >
-                        <Edit3 size={14} />
+                        <Edit3 size={13} />
                         <span>Sửa</span>
                       </button>
+                    )}
 
-                      <button
-                        onClick={(e) => handleDuplicateLesson(lesson, e)}
-                        className="btn btn-icon"
-                        style={{ width: 32, height: 32 }}
-                        title="Nhân bản bài học"
-                      >
-                        <Copy size={15} />
-                      </button>
+                    {/* Nút Phụ 1: AI Phân tích */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAiAnalysisLesson(lesson);
+                      }}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '0.35rem 0.65rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        color: '#0284c7',
+                        borderColor: 'rgba(2, 132, 199, 0.35)',
+                        background: 'rgba(2, 132, 199, 0.08)'
+                      }}
+                      title="✨ AI Phân tích bài giảng & gợi ý chuẩn GDPT 2018"
+                    >
+                      <Sparkles size={13} color="#0284c7" />
+                      <span>AI Phân tích</span>
+                    </button>
 
+                    {/* Menu "..." More actions (Nhân bản, Xóa) */}
+                    <div style={{ position: 'relative' }}>
                       <button
-                        onClick={(e) => handleDeleteLesson(lesson, e)}
-                        className="btn btn-icon"
-                        style={{ width: 32, height: 32, color: '#ef4444' }}
-                        title="Xóa bài học"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-
-                      <button
-                        onClick={(e) => handleLaunchPresentation(lesson, e)}
-                        disabled={launchingId === lesson.id}
-                        className="btn btn-primary"
-                        style={{
-                          padding: '0.4rem 0.95rem',
-                          fontSize: '0.825rem',
-                          fontWeight: 800,
-                          background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                          boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuLessonId(activeMenuLessonId === lesson.id ? null : lesson.id);
                         }}
-                        title="Bắt đầu trình chiếu toàn màn hình bài học này"
+                        className="btn btn-icon"
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 'var(--radius-sm)',
+                          color: activeMenuLessonId === lesson.id ? 'var(--primary-color)' : 'var(--text-muted)',
+                          background: activeMenuLessonId === lesson.id ? 'var(--surface-secondary)' : 'transparent',
+                          border: '1px solid var(--surface-border)'
+                        }}
+                        title="Thao tác khác"
                       >
-                        {launchingId === lesson.id ? (
-                          <Loader2 size={15} className="animate-spin" />
-                        ) : (
-                          <Play size={15} fill="#fff" />
-                        )}
-                        <span>📺 Trình Chiếu</span>
+                        <MoreVertical size={15} />
                       </button>
+
+                      {activeMenuLessonId === lesson.id && (
+                        <div 
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: 'absolute',
+                            bottom: '100%',
+                            right: 0,
+                            marginBottom: '0.35rem',
+                            background: 'var(--surface-card)',
+                            border: '1px solid var(--surface-border)',
+                            borderRadius: 'var(--radius-md)',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+                            padding: '0.35rem',
+                            minWidth: '145px',
+                            zIndex: 70,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.2rem'
+                          }}
+                        >
+                          {!isImported && (
+                            <button
+                              onClick={(e) => {
+                                setActiveMenuLessonId(null);
+                                handleDuplicateLesson(lesson, e);
+                              }}
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.45rem 0.65rem',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-color)',
+                                cursor: 'pointer',
+                                textAlign: 'left'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <Copy size={14} />
+                              <span>Nhân bản</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              setActiveMenuLessonId(null);
+                              handleDeleteLesson(lesson, e);
+                            }}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              padding: '0.45rem 0.65rem',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              textAlign: 'left'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <Trash2 size={14} color="#ef4444" />
+                            <span>Xóa bài học</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Nút Chính (Primary): Trình Chiếu */}
+                    <button
+                      onClick={(e) => handleLaunchPresentation(lesson, e)}
+                      disabled={launchingId === lesson.id}
+                      className="btn btn-primary"
+                      style={{
+                        padding: '0.42rem 0.9rem',
+                        fontSize: '0.825rem',
+                        fontWeight: 800,
+                        background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
+                        whiteSpace: 'nowrap'
+                      }}
+                      title={isImported ? "Bắt đầu trình chiếu bài PowerPoint này" : "Bắt đầu trình chiếu toàn màn hình bài học này"}
+                    >
+                      {launchingId === lesson.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Play size={14} fill="#fff" />
+                      )}
+                      <span>Trình Chiếu</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -1450,12 +1511,11 @@ export default function LessonLibrary({
               return [...reallyNew, ...updated];
             });
 
-            // Tự động chuyển bộ lọc về 'all' để giáo viên thấy ngay bài vừa import
-            setSelectedGrade('all');
+            // Tự động chuyển bộ lọc chủ đề về 'all' và xóa tìm kiếm để giáo viên thấy ngay bài vừa import
             setSelectedTopic('all');
             setSearchTerm('');
           }}
-          defaultGrade={currentClass?.grade || 3}
+          defaultGrade={currentGrade}
         />
       </ErrorBoundary>
 
@@ -1474,207 +1534,13 @@ export default function LessonLibrary({
 
       {/* Modal Chi Tiết Đối Chiếu Trùng Lặp */}
       {duplicateDetailModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '1.5rem'
-        }}>
-          <div style={{
-            background: 'var(--surface-card)',
-            border: '1px solid var(--surface-border)',
-            borderRadius: 'var(--radius-xl)',
-            width: '100%',
-            maxWidth: 680,
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              padding: '1.25rem 1.5rem',
-              borderBottom: '1px solid var(--surface-border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: 'var(--surface-secondary)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <AlertTriangle size={20} color="#f59e0b" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-                  Chi Tiết Đối Chiếu Trùng Lặp Bài Giảng
-                </h3>
-              </div>
-              <button
-                onClick={() => setDuplicateDetailModal(null)}
-                className="btn btn-icon"
-                style={{ width: 32, height: 32 }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div style={{
-                padding: '0.75rem 1rem',
-                borderRadius: 'var(--radius-md)',
-                background: duplicateDetailModal.lesson.similarity_status === 'exact_duplicate' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                border: duplicateDetailModal.lesson.similarity_status === 'exact_duplicate' ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: duplicateDetailModal.lesson.similarity_status === 'exact_duplicate' ? '#ef4444' : '#d97706' }}>
-                    {duplicateDetailModal.lesson.similarity_status === 'exact_duplicate' ? 'Trùng lặp hoàn toàn (SHA-256)' : 'Nội dung gần giống'}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {duplicateDetailModal.lesson.source_filename ? `Tệp gốc: ${duplicateDetailModal.lesson.source_filename}` : 'Đã phát hiện đối sánh trong cơ sở dữ liệu'}
-                  </div>
-                </div>
-                <div style={{
-                  fontSize: '1.35rem',
-                  fontWeight: 900,
-                  color: duplicateDetailModal.lesson.similarity_status === 'exact_duplicate' ? '#ef4444' : '#d97706'
-                }}>
-                  {duplicateDetailModal.lesson.similarity_score || (duplicateDetailModal.lesson.similarity_status === 'exact_duplicate' ? 100 : 85)}%
-                </div>
-              </div>
-
-              {/* So sánh hai bên */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                {/* Bài giảng này */}
-                <div style={{
-                  background: 'var(--surface-secondary)',
-                  border: '1px solid var(--surface-border)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '1rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem'
-                }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>
-                    Bài giảng này
-                  </span>
-                  {duplicateDetailModal.lesson.thumbnail_url ? (
-                    <img
-                      src={duplicateDetailModal.lesson.thumbnail_url}
-                      alt="Thumbnail bài này"
-                      style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }}
-                    />
-                  ) : (
-                    <div style={{ width: '100%', aspectRatio: '16/9', background: '#090d16', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.75rem' }}>
-                      Slide 1
-                    </div>
-                  )}
-                  <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0.25rem 0', color: 'var(--text-main)' }}>
-                    {duplicateDetailModal.lesson.title}
-                  </h4>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Khối: {duplicateDetailModal.lesson.grade} • Số slide: {duplicateDetailModal.lesson.slide_count || 0}
-                  </div>
-                </div>
-
-                {/* Bài đã tồn tại */}
-                <div style={{
-                  background: 'var(--surface-secondary)',
-                  border: '1px solid var(--surface-border)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '1rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem'
-                }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#8b5cf6', textTransform: 'uppercase' }}>
-                    Bài đã có trong thư viện
-                  </span>
-                  {duplicateDetailModal.matchedLesson?.thumbnail_url ? (
-                    <img
-                      src={duplicateDetailModal.matchedLesson.thumbnail_url}
-                      alt="Thumbnail bài gốc"
-                      style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }}
-                    />
-                  ) : (
-                    <div style={{ width: '100%', aspectRatio: '16/9', background: '#090d16', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.75rem' }}>
-                      Slide 1
-                    </div>
-                  )}
-                  <h4 style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0.25rem 0', color: 'var(--text-main)' }}>
-                    {duplicateDetailModal.matchedLesson?.title || 'Bài giảng gốc'}
-                  </h4>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Khối: {duplicateDetailModal.matchedLesson?.grade || duplicateDetailModal.lesson.grade} • Số slide: {duplicateDetailModal.matchedLesson?.slide_count || duplicateDetailModal.lesson.slide_count || 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{
-              padding: '1rem 1.5rem',
-              borderTop: '1px solid var(--surface-border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.75rem',
-              background: 'var(--surface-secondary)'
-            }}>
-              <button
-                onClick={() => setDuplicateDetailModal(null)}
-                className="btn btn-secondary"
-                style={{ padding: '0.5rem 1.25rem', fontSize: '0.875rem' }}
-              >
-                Đóng
-              </button>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                <button
-                  onClick={() => handleKeepLesson(duplicateDetailModal.lesson.id)}
-                  className="btn btn-secondary"
-                  style={{
-                    padding: '0.5rem 1.25rem',
-                    fontSize: '0.875rem',
-                    fontWeight: 700,
-                    borderColor: '#10b981',
-                    color: '#10b981',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem'
-                  }}
-                  title="Xác nhận bài học hợp lệ và giữ lại trong thư viện"
-                >
-                  <ShieldCheck size={16} />
-                  <span>🛡️ Giữ lại bài</span>
-                </button>
-
-                <button
-                  onClick={() => handleDeleteDuplicateLesson(duplicateDetailModal.lesson)}
-                  className="btn btn-primary"
-                  style={{
-                    padding: '0.5rem 1.25rem',
-                    fontSize: '0.875rem',
-                    fontWeight: 700,
-                    background: '#ef4444',
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)'
-                  }}
-                  title="Xóa vĩnh viễn bài giảng trùng này khỏi thư viện"
-                >
-                  <Trash2 size={16} />
-                  <span>🗑️ Xóa bài trùng</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DuplicateComparisonModal
+          isOpen={!!duplicateDetailModal}
+          data={duplicateDetailModal}
+          onClose={() => setDuplicateDetailModal(null)}
+          onKeepLesson={handleKeepLesson}
+          onDeleteDuplicateLesson={handleDeleteDuplicateLesson}
+        />
       )}
 
       {/* Modal Tự Động Quét & Quản Lý Toàn Bộ Bài Giảng Trùng Lặp */}

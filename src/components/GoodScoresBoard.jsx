@@ -642,7 +642,7 @@ export default function GoodScoresBoard({
               <thead>
                 <tr>
                   <th style={{ width: 60, textAlign: 'center' }}>Hạng</th>
-                  <th style={{ width: 85 }}>Mã HS</th>
+                  <th style={{ width: 85, textAlign: 'center' }}>Số Máy</th>
                   <th style={{ minWidth: 200 }}>Họ và Tên</th>
                   <th style={{ width: 140, textAlign: 'center', color: '#d97706' }}>Sao Thi Đua</th>
                   <th style={{ width: 120, textAlign: 'center', color: '#10b981' }}>Điểm Tốt (+)</th>
@@ -665,8 +665,8 @@ export default function GoodScoresBoard({
                         <td style={{ textAlign: 'center', fontWeight: 800 }}>
                           {isTop1 ? '🥇 1' : (isTop2 ? '🥈 2' : (isTop3 ? '🥉 3' : idx + 1))}
                         </td>
-                        <td style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                          {s.id}
+                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                          {s.machineNumber ? `M.${s.machineNumber}` : (s.id && !String(s.id).startsWith('hs_') ? s.id : '--')}
                         </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -838,7 +838,7 @@ export default function GoodScoresBoard({
               <thead>
                 <tr>
                   <th style={{ width: 105 }}>Ngày Ghi</th>
-                  <th style={{ width: 85 }}>Mã HS</th>
+                  <th style={{ width: 85, textAlign: 'center' }}>Số Máy</th>
                   <th style={{ width: 190 }}>Học Sinh</th>
                   <th style={{ width: 140, textAlign: 'center' }}>Loại</th>
                   <th style={{ minWidth: 240 }}>Nội Quy / Hoạt Động</th>
@@ -857,13 +857,14 @@ export default function GoodScoresBoard({
                 ) : (
                   filteredRecords.map((record) => {
                     const isPos = record.type !== 'negative';
+                    const targetStudent = students.find(s => s.id === record.studentId);
                     return (
                       <tr key={record.id}>
                         <td style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
                           {record.date}
                         </td>
-                        <td style={{ fontWeight: 600, fontSize: '0.8125rem' }}>
-                          {record.studentId}
+                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                          {targetStudent?.machineNumber ? `M.${targetStudent.machineNumber}` : (record.studentId && !String(record.studentId).startsWith('hs_') ? record.studentId : '--')}
                         </td>
                         <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>
                           {record.studentName}
@@ -1317,7 +1318,7 @@ export default function GoodScoresBoard({
                 >
                   {students.map(s => (
                     <option key={s.id} value={s.id}>
-                      {s.name} ({s.id}) • Đang có {s.stars || 0} ⭐
+                      {s.name}{s.machineNumber ? ` [Máy ${s.machineNumber}]` : ''} • Đang có {s.stars || 0} ⭐
                     </option>
                   ))}
                 </select>
