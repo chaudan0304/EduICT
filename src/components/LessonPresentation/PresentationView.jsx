@@ -115,7 +115,7 @@ export default function PresentationView({
         img.src = url;
       }
     });
-  }, [currentIndex, slides.length, activeLesson?.id]);
+  }, [currentIndex, slides, activeLesson?.id]);
 
   // Tự động polling cập nhật nếu bài học đang ở trạng thái render slide nền
   useEffect(() => {
@@ -360,8 +360,8 @@ export default function PresentationView({
     );
   }
 
-  // 2.5 Màn hình Đang Xử Lý Slide Nền (Background Processing)
-  if (activeLesson?.render_status === 'processing') {
+  // 2.5 Màn hình Đang Xử Lý Slide Nền (Background Processing - chỉ chặn nếu chưa có slide nào sẵn sàng)
+  if (activeLesson?.render_status === 'processing' && (!slides || slides.length === 0 || !slides.some(s => s.render_status === 'ready' && (s.image_url || s.imageUrl)))) {
     return (
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -604,6 +604,22 @@ export default function PresentationView({
                 isProjector={true} 
                 isPresentation={true}
                 onAwardStar={() => setShowStarModal(true)}
+                lessonId={activeLesson?.id}
+                sourceFilePath={activeLesson?.source_file_path}
+                onSlideUpdated={(updatedSlide) => {
+                  setActiveLesson(prev => {
+                    if (!prev) return prev;
+                    const nextSlides = (prev.slides || []).map(s => 
+                      (s.id === updatedSlide.id || s.order_index === updatedSlide.order_index) 
+                        ? { ...s, ...updatedSlide } 
+                        : s
+                    );
+                    return {
+                      ...prev,
+                      slides: nextSlides
+                    };
+                  });
+                }}
               />
             </div>
           </main>

@@ -13,13 +13,18 @@ import {
   Trash2,
   Check,
   Sparkles,
-  Sliders
+  Sliders,
+  AlertTriangle,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { 
   fastImportPptxApi, 
   fetchLessonRenderStatusApi, 
   updateLessonApi, 
   deleteLessonApi,
+  checkLessonsDuplicateApi,
+  SIMILARITY_STATUS_LABELS,
   INFORMATICS_TOPICS,
   compareLessonTitles,
   detectGradeFromFileName
@@ -41,6 +46,11 @@ export default function ImportPptxModal({
   const [zoomedSlideIndex, setZoomedSlideIndex] = useState(null);
   const [applyAllToast, setApplyAllToast] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
+
+  // Danh sách kiểm tra trùng lặp trước khi import (Verification List)
+  const [verifyList, setVerifyList] = useState([]);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+  const [comparisonModal, setComparisonModal] = useState(null); // { item, matchedLesson, similarityScore, details }
 
   const fileInputRef = useRef(null);
 
@@ -66,7 +76,11 @@ export default function ImportPptxModal({
         grade: item.grade,
         topic: item.topic,
         durationMinutes: item.durationMinutes,
-        description: item.description
+        description: item.description,
+        allowDuplicate: item.allowDuplicate || item.status === 'exact_duplicate',
+        similarity_status: item.status || item.similarity_status,
+        similarity_score: item.similarityScore,
+        duplicate_of_id: item.matchedLesson?.id
       });
 
       const lesson = data.lesson;
@@ -104,11 +118,11 @@ export default function ImportPptxModal({
     }
   }, [onImportSuccess]);
 
-  // Xử lý khi người dùng chọn một hoặc nhiều file
-  const handleAddFiles = useCallback((files) => {
+  // Xử lý khi người dùng chọn một hoặc nhiều file: Chạy kiểm tra trùng lặp siêu tốc (< 25ms, không render)
+  const handleAddFiles = useCallback(async (files) => {
     if (!files || files.length === 0) return;
 
-    const newItems = [];
+    const validFiles = [];
     const rejectedFiles = [];
 
     Array.from(files).forEach((file) => {
@@ -120,25 +134,7 @@ export default function ImportPptxModal({
         rejectedFiles.push(`${file.name} (>100MB)`);
         return;
       }
-
-      const id = `item_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-      const { detectedGrade, suggestedTitle } = detectGradeAndTitle(file.name);
-
-      newItems.push({
-        id,
-        file,
-        status: 'processing',
-        lesson: null,
-        slideCount: 0,
-        renderStatus: 'pending',
-        lessonTitle: suggestedTitle,
-        grade: detectedGrade,
-        topic: 'Máy tính & Em',
-        durationMinutes: 35,
-        description: `Bài giảng PowerPoint được import từ tệp "${file.name}".`,
-        errorMsg: null,
-        isCached: false
-      });
+      validFiles.push(file);
     });
 
     if (rejectedFiles.length > 0) {
@@ -147,35 +143,163 @@ export default function ImportPptxModal({
       setGlobalError(null);
     }
 
-    if (newItems.length > 0) {
-      // Sắp xếp các file theo đúng thứ tự tên bài học (Bài 1 -> Bài 10)
-      newItems.sort((a, b) => {
+    if (validFiles.length === 0) return;
+
+    setIsCheckingDuplicates(true);
+
+    try {
+      // 1. Gọi API kiểm tra trùng lặp (SHA-256 + In-batch check + Text similarity < 20ms)
+      const results = await checkLessonsDuplicateApi(validFiles);
+
+      const items = validFiles.map((file, idx) => {
+        const checkRes = results[idx] || {};
+        const { detectedGrade, suggestedTitle } = detectGradeAndTitle(file.name);
+        const title = checkRes.suggestedTitle || suggestedTitle;
+        const grade = checkRes.detectedGrade || detectedGrade;
+        const status = checkRes.status || 'unique';
+        const similarityScore = checkRes.similarityScore || 0;
+        const isExact = status === 'exact_duplicate';
+
+        return {
+          id: `verify_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
+          file,
+          fileName: file.name,
+          lessonTitle: title,
+          grade,
+          topic: 'Máy tính & Em',
+          durationMinutes: 35,
+          slideCount: checkRes.slideCount || 1,
+          status,
+          similarityScore,
+          message: checkRes.message || (isExact ? 'Trùng file bài giảng' : 'Bài mới'),
+          matchedLesson: checkRes.matchedLesson || null,
+          inBatchDuplicate: !!checkRes.inBatchDuplicate,
+          duplicateOfFileName: checkRes.duplicateOfFileName || '',
+          details: checkRes.details || null,
+          isSelected: !isExact, // Mặc định: bỏ chọn bài trùng hoàn toàn, chọn bài mới và bài gần trùng
+          allowDuplicate: false,
+          isEditingTitle: false
+        };
+      });
+
+      // Sắp xếp các bài theo khối lớp và thứ tự tự nhiên
+      items.sort((a, b) => {
         if (a.grade !== b.grade) return a.grade - b.grade;
         return compareLessonTitles(a.lessonTitle, b.lessonTitle);
       });
 
-      setQueue((prev) => {
-        const updated = [...prev, ...newItems];
-        updated.sort((a, b) => {
-          if (a.grade !== b.grade) return a.grade - b.grade;
-          return compareLessonTitles(a.lessonTitle, b.lessonTitle);
-        });
-        if (!activeId && updated.length > 0) {
-          setActiveId(updated[0].id);
-        }
-        return updated;
+      setVerifyList(items);
+    } catch (err) {
+      console.error('Lỗi khi kiểm tra duplicate:', err);
+      // Fallback: cho phép người dùng import nếu API kiểm tra lỗi
+      const fallbackItems = validFiles.map((file, idx) => {
+        const { detectedGrade, suggestedTitle } = detectGradeAndTitle(file.name);
+        return {
+          id: `verify_${Date.now()}_${idx}`,
+          file,
+          fileName: file.name,
+          lessonTitle: suggestedTitle,
+          grade: detectedGrade,
+          topic: 'Máy tính & Em',
+          durationMinutes: 35,
+          slideCount: 1,
+          status: 'unique',
+          similarityScore: 0,
+          message: 'Bài mới',
+          matchedLesson: null,
+          isSelected: true,
+          allowDuplicate: false,
+          isEditingTitle: false
+        };
       });
+      setVerifyList(fallbackItems);
+    } finally {
+      setIsCheckingDuplicates(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [detectGradeAndTitle]);
 
-      // Bắt đầu import nhanh theo đúng thứ tự bài học
-      newItems.forEach(item => {
-        processFile(item);
-      });
+  // Xác nhận tiến hành Import các file đã chọn từ danh sách kiểm tra
+  const handleProceedImport = () => {
+    const selectedItems = verifyList.filter(v => v.isSelected);
+    if (selectedItems.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 bài giảng để tiến hành import!');
+      return;
     }
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [activeId, detectGradeAndTitle, processFile]);
+    const newQueueItems = selectedItems.map(item => ({
+      id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      file: item.file,
+      status: 'processing',
+      lesson: null,
+      slideCount: item.slideCount,
+      renderStatus: 'pending',
+      lessonTitle: item.lessonTitle,
+      grade: item.grade,
+      topic: item.topic,
+      durationMinutes: item.durationMinutes,
+      description: `Bài giảng PowerPoint gồm ${item.slideCount} slides được import từ tệp "${item.fileName}".`,
+      errorMsg: null,
+      isCached: false,
+      similarity_status: item.status,
+      similarity_score: item.similarityScore,
+      duplicate_of_id: item.matchedLesson?.id,
+      allowDuplicate: item.allowDuplicate || item.status === 'exact_duplicate'
+    }));
+
+    setVerifyList([]); // Đóng màn hình kiểm tra
+
+    setQueue(prev => {
+      const updated = [...prev, ...newQueueItems];
+      updated.sort((a, b) => {
+        if (a.grade !== b.grade) return a.grade - b.grade;
+        return compareLessonTitles(a.lessonTitle, b.lessonTitle);
+      });
+      if (!activeId && updated.length > 0) {
+        setActiveId(updated[0].id);
+      }
+      return updated;
+    });
+
+    // Bắt đầu import theo hàng đợi
+    newQueueItems.forEach(item => {
+      processFile(item);
+    });
+  };
+
+  // Bật/tắt chọn một bài trong verifyList
+  const handleToggleSelectVerify = (id) => {
+    setVerifyList(prev => prev.map(item => 
+      item.id === id ? { ...item, isSelected: !item.isSelected } : item
+    ));
+  };
+
+  // Chọn tất cả
+  const handleSelectAllVerify = () => {
+    setVerifyList(prev => prev.map(item => ({ ...item, isSelected: true })));
+  };
+
+  // Bỏ qua tất cả các bài bị trùng (chỉ giữ lại bài mới)
+  const handleDeselectDuplicates = () => {
+    setVerifyList(prev => prev.map(item => ({
+      ...item,
+      isSelected: item.status === 'unique'
+    })));
+  };
+
+  // Đổi tên bài học trong danh sách kiểm tra
+  const handleUpdateVerifyTitle = (id, newTitle) => {
+    setVerifyList(prev => prev.map(item => 
+      item.id === id ? { ...item, lessonTitle: newTitle } : item
+    ));
+  };
+
+  // Xóa 1 bài khỏi danh sách kiểm tra
+  const handleRemoveVerifyItem = (id) => {
+    setVerifyList(prev => prev.filter(item => item.id !== id));
+  };
 
   // Polling tự động cập nhật trạng thái render nền cho các item đang 'processing'
   useEffect(() => {
@@ -519,8 +643,327 @@ export default function ImportPptxModal({
 
         {/* 2. Thân Modal */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {/* TRƯỜNG HỢP 1: CHƯA CÓ FILE NÀO TRONG HÀNG ĐỢI (MÀN HÌNH CHỌN FILE BAN ĐẦU) */}
-          {queue.length === 0 ? (
+          {/* TRƯỜNG HỢP 0: ĐANG KIỂM TRA TRÙNG LẶP */}
+          {isCheckingDuplicates ? (
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '3rem',
+              gap: '1.25rem'
+            }}>
+              <div style={{
+                width: 68,
+                height: 68,
+                borderRadius: '50%',
+                background: 'rgba(168, 85, 247, 0.12)',
+                color: '#a855f7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Loader2 size={36} className="animate-spin" />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 0.4rem 0' }}>
+                  Đang kiểm tra trùng lặp bài giảng...
+                </h3>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Tính mã băm SHA-256 trực tiếp và so khớp nội dung slide (&lt; 25ms, không render nặng)
+                </p>
+              </div>
+            </div>
+          ) : verifyList.length > 0 ? (
+            /* TRƯỜNG HỢP 1: DANH SÁCH KIỂM TRA BÀI GIẢNG TRƯỚC KHI IMPORT (REQUIREMENT 6) */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {/* Header thanh công cụ kiểm tra */}
+              <div style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid var(--surface-border)',
+                background: 'var(--surface-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1rem'
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <h2 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
+                      Kiểm tra bài giảng trước khi import
+                    </h2>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: 999,
+                      background: 'rgba(168, 85, 247, 0.15)',
+                      color: '#a855f7'
+                    }}>
+                      {verifyList.length} bài
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.25rem 0 0 0' }}>
+                    Hệ thống tự động phát hiện bài giảng trùng hoàn toàn (SHA-256) hoặc gần giống nội dung.
+                  </p>
+                </div>
+
+                {/* Các nút hành động chính */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleSelectAllVerify}
+                    className="btn btn-secondary"
+                    style={{ padding: '0.5rem 0.85rem', fontSize: '0.825rem', fontWeight: 700 }}
+                  >
+                    Chọn tất cả
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDeselectDuplicates}
+                    className="btn btn-secondary"
+                    style={{ padding: '0.5rem 0.85rem', fontSize: '0.825rem', fontWeight: 700, color: '#f59e0b' }}
+                  >
+                    Bỏ qua bài trùng
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVerifyList([])}
+                    className="btn btn-secondary"
+                    style={{ padding: '0.5rem 0.85rem', fontSize: '0.825rem' }}
+                  >
+                    Hủy
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleProceedImport}
+                    className="btn btn-primary"
+                    disabled={verifyList.filter(v => v.isSelected).length === 0}
+                    style={{
+                      padding: '0.55rem 1.25rem',
+                      fontSize: '0.875rem',
+                      fontWeight: 800,
+                      background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+                      boxShadow: '0 4px 14px rgba(168, 85, 247, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <Check size={16} />
+                    <span>Tiến hành Import ({verifyList.filter(v => v.isSelected).length} bài)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Bảng danh sách bài kiểm tra */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {verifyList.map((item) => {
+                    const statusMeta = SIMILARITY_STATUS_LABELS[item.status] || SIMILARITY_STATUS_LABELS.unique;
+                    const isExact = item.status === 'exact_duplicate';
+                    const isNear = item.status === 'near_duplicate';
+
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          background: 'var(--surface-card)',
+                          border: `1px solid ${item.isSelected ? (isExact ? 'rgba(239, 68, 68, 0.4)' : isNear ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)') : 'var(--surface-border)'}`,
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '1rem 1.25rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '1rem',
+                          transition: 'all 0.15s ease',
+                          boxShadow: item.isSelected ? 'var(--shadow-sm)' : 'none',
+                          opacity: item.isSelected ? 1 : 0.65
+                        }}
+                      >
+                        {/* Checkbox + Info */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSelectVerify(item.id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: 0,
+                              color: item.isSelected ? '#a855f7' : 'var(--text-muted)',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            {item.isSelected ? <CheckSquare size={22} color="#a855f7" /> : <Square size={22} />}
+                          </button>
+
+                          <div style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 'var(--radius-md)',
+                            background: statusMeta.bg,
+                            color: statusMeta.color,
+                            border: `1px solid ${statusMeta.border}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {isExact || isNear ? <AlertTriangle size={20} /> : <FileText size={20} />}
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                              {/* Tên bài editable inline */}
+                              <input
+                                type="text"
+                                value={item.lessonTitle}
+                                onChange={(e) => handleUpdateVerifyTitle(item.id, e.target.value)}
+                                style={{
+                                  fontSize: '0.95rem',
+                                  fontWeight: 800,
+                                  color: 'var(--text-main)',
+                                  background: 'transparent',
+                                  border: '1px solid transparent',
+                                  borderRadius: 'var(--radius-sm)',
+                                  padding: '0.15rem 0.35rem',
+                                  maxWidth: '380px',
+                                  width: '100%'
+                                }}
+                                onFocus={(e) => {
+                                  e.target.style.background = 'var(--surface-secondary)';
+                                  e.target.style.borderColor = 'var(--surface-border)';
+                                }}
+                                onBlur={(e) => {
+                                  e.target.style.background = 'transparent';
+                                  e.target.style.borderColor = 'transparent';
+                                }}
+                              />
+
+                              <span style={{
+                                fontSize: '0.725rem',
+                                background: 'rgba(2, 132, 199, 0.12)',
+                                color: '#0284c7',
+                                padding: '0.1rem 0.5rem',
+                                borderRadius: 999,
+                                fontWeight: 700
+                              }}>
+                                Khối {item.grade}
+                              </span>
+
+                              <span style={{
+                                fontSize: '0.725rem',
+                                color: 'var(--text-muted)'
+                              }}>
+                                • {item.slideCount} slides
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              <span style={{ fontFamily: 'monospace' }}>{item.fileName}</span>
+                              {item.inBatchDuplicate && (
+                                <span style={{ color: '#ef4444', fontWeight: 700 }}>
+                                  (Trùng với "{item.duplicateOfFileName}" trong danh sách tải lên)
+                                </span>
+                              )}
+                              {!item.inBatchDuplicate && item.matchedLesson && (
+                                <span style={{ color: isExact ? '#ef4444' : '#f59e0b', fontWeight: 700 }}>
+                                  {isExact ? `Trùng với bài: "${item.matchedLesson.title}"` : `Gần giống bài: "${item.matchedLesson.title}"`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Badge + Action Buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                          {/* Badge trạng thái */}
+                          <span style={{
+                            padding: '0.3rem 0.75rem',
+                            borderRadius: 999,
+                            fontSize: '0.775rem',
+                            fontWeight: 800,
+                            background: statusMeta.bg,
+                            color: statusMeta.color,
+                            border: `1px solid ${statusMeta.border}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}>
+                            <span>{statusMeta.icon}</span>
+                            <span>{isNear ? `${statusMeta.label} (${item.similarityScore}%)` : statusMeta.label}</span>
+                          </span>
+
+                          {/* Nút Xem đối chiếu */}
+                          {(isExact || isNear) && item.matchedLesson && (
+                            <button
+                              type="button"
+                              onClick={() => setComparisonModal({ item, matchedLesson: item.matchedLesson, similarityScore: item.similarityScore, details: item.details })}
+                              className="btn btn-secondary"
+                              style={{
+                                padding: '0.35rem 0.75rem',
+                                fontSize: '0.775rem',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.3rem'
+                              }}
+                            >
+                              <Eye size={14} />
+                              <span>Xem đối chiếu</span>
+                            </button>
+                          )}
+
+                          {/* Nút Vẫn import nếu chưa chọn */}
+                          {(isExact || isNear) && !item.isSelected && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleToggleSelectVerify(item.id);
+                                setVerifyList(prev => prev.map(v => v.id === item.id ? { ...v, isSelected: true, allowDuplicate: true } : v));
+                              }}
+                              className="btn btn-secondary"
+                              style={{
+                                padding: '0.35rem 0.75rem',
+                                fontSize: '0.775rem',
+                                fontWeight: 700,
+                                color: '#f59e0b'
+                              }}
+                            >
+                              Vẫn import
+                            </button>
+                          )}
+
+                          {/* Xóa khỏi danh sách */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveVerifyItem(item.id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: 'var(--text-muted)',
+                              padding: '0.3rem'
+                            }}
+                            title="Bỏ file này"
+                          >
+                            <X size={17} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : queue.length === 0 ? (
             <div style={{ padding: '2.5rem', overflowY: 'auto' }}>
               <div
                 onDragEnter={handleDrag}
@@ -1369,6 +1812,273 @@ export default function ImportPptxModal({
                   background: '#090d16'
                 }}
               />
+            </div>
+          </div>
+        )}
+
+        {/* MODAL ĐỐI CHIẾU CHI TIẾT BÀI GIẢNG TRÙNG LẶP (REQUIREMENT 11) */}
+        {comparisonModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1200,
+            padding: '1.5rem'
+          }}>
+            <div style={{
+              background: 'var(--surface-card)',
+              border: '1px solid var(--surface-border)',
+              borderRadius: 'var(--radius-xl)',
+              maxWidth: 860,
+              width: '100%',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
+              overflow: 'hidden'
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid var(--surface-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--surface-secondary)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 'var(--radius-md)',
+                    background: comparisonModal.item?.status === 'exact_duplicate' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                    color: comparisonModal.item?.status === 'exact_duplicate' ? '#ef4444' : '#f59e0b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                      Chi tiết đối chiếu bài giảng trùng lặp
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {comparisonModal.item?.status === 'exact_duplicate'
+                        ? 'Phát hiện file trùng hoàn toàn qua mã băm SHA-256'
+                        : `Nội dung tương đồng ${comparisonModal.item?.similarityScore || 0}%`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setComparisonModal(null)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Body: Side by side cards + Middle match summary */}
+              <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Similarity Score bar */}
+                <div style={{
+                  background: 'var(--surface-secondary)',
+                  border: '1px solid var(--surface-border)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '1rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '1rem'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                      Mức độ tương đồng
+                    </div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: comparisonModal.item?.status === 'exact_duplicate' ? '#ef4444' : '#f59e0b' }}>
+                      {comparisonModal.item?.similarityScore || 0}%
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.825rem' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Tiêu đề: </span>
+                      <strong style={{ color: 'var(--text-main)' }}>{comparisonModal.item?.details?.titleSimilarity ?? (comparisonModal.item?.status === 'exact_duplicate' ? 100 : '-')}%</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Số slide: </span>
+                      <strong style={{ color: 'var(--text-main)' }}>
+                        {comparisonModal.item?.slideCount} / {comparisonModal.item?.matchedLesson?.slide_count || comparisonModal.item?.slideCount}
+                      </strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Nội dung slide: </span>
+                      <strong style={{ color: 'var(--text-main)' }}>{comparisonModal.item?.details?.textSimilarity ?? (comparisonModal.item?.status === 'exact_duplicate' ? 100 : '-')}%</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2 cards side by side */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                  {/* Card Left: Current Upload */}
+                  <div style={{
+                    border: '1px solid rgba(168, 85, 247, 0.3)',
+                    background: 'rgba(168, 85, 247, 0.04)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#a855f7', textTransform: 'uppercase' }}>
+                        Bài đang tải lên (Mới)
+                      </span>
+                      <span style={{ fontSize: '0.75rem', background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7', padding: '0.15rem 0.5rem', borderRadius: 999, fontWeight: 700 }}>
+                        Khối {comparisonModal.item?.grade}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Tên bài giảng:</label>
+                      <input
+                        type="text"
+                        value={comparisonModal.item?.lessonTitle || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setVerifyList(prev => prev.map(v => v.id === comparisonModal.item.id ? { ...v, lessonTitle: val } : v));
+                          setComparisonModal(prev => ({ ...prev, item: { ...prev.item, lessonTitle: val } }));
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '0.45rem 0.65rem',
+                          fontSize: '0.9rem',
+                          fontWeight: 700,
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--surface-border)',
+                          background: 'var(--surface-card)',
+                          color: 'var(--text-main)'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <div><strong>File:</strong> {comparisonModal.item?.fileName}</div>
+                      <div><strong>Số slide:</strong> {comparisonModal.item?.slideCount} slides</div>
+                    </div>
+                  </div>
+
+                  {/* Card Right: Matched Lesson */}
+                  <div style={{
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    background: 'rgba(239, 68, 68, 0.04)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase' }}>
+                        Bài đã tồn tại trong thư viện
+                      </span>
+                      <span style={{ fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '0.15rem 0.5rem', borderRadius: 999, fontWeight: 700 }}>
+                        Khối {comparisonModal.item?.matchedLesson?.grade || comparisonModal.item?.grade}
+                      </span>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tên bài giảng đã có:</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', marginTop: 2 }}>
+                        {comparisonModal.item?.matchedLesson?.title || 'Chưa đặt tên'}
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <div><strong>File gốc:</strong> {comparisonModal.item?.matchedLesson?.source_file_name || comparisonModal.item?.matchedLesson?.source_filename || 'original.pptx'}</div>
+                      <div><strong>Số slide:</strong> {comparisonModal.item?.matchedLesson?.slide_count || comparisonModal.item?.slideCount} slides</div>
+                    </div>
+
+                    {/* Thumbnail Slide 1 của bài đã có */}
+                    {comparisonModal.item?.matchedLesson?.thumbnail_url && (
+                      <div style={{
+                        width: '100%',
+                        aspectRatio: '16/9',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden',
+                        background: '#090d16',
+                        border: '1px solid var(--surface-border)',
+                        marginTop: '0.25rem'
+                      }}>
+                        <img
+                          src={comparisonModal.item.matchedLesson.thumbnail_url}
+                          alt="Slide 1"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                padding: '1rem 1.5rem',
+                borderTop: '1px solid var(--surface-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--surface-secondary)'
+              }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    // Bỏ qua bài này
+                    setVerifyList(prev => prev.map(v => v.id === comparisonModal.item.id ? { ...v, isSelected: false } : v));
+                    setComparisonModal(null);
+                  }}
+                  style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                >
+                  Bỏ qua bài này
+                </button>
+
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      // Vẫn import
+                      setVerifyList(prev => prev.map(v => v.id === comparisonModal.item.id ? { ...v, isSelected: true, allowDuplicate: true } : v));
+                      setComparisonModal(null);
+                    }}
+                    style={{
+                      padding: '0.5rem 1.25rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 800,
+                      background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                    }}
+                  >
+                    Vẫn import bài này
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setComparisonModal(null)}
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

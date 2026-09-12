@@ -1,4 +1,13 @@
 import * as XLSX from 'xlsx';
+export {
+  parseExcelWorkbook,
+  exportAllClassesToExcel,
+  downloadSampleExcelTemplate,
+  parseExcelDate,
+  normalizeGender,
+  normalizeClassName,
+  normalizeStudentName
+} from './excelImport';
 
 const STORAGE_KEY = 'edumaster_classes_data_v2';
 const CURRENT_CLASS_KEY = 'edumaster_current_class_id';
@@ -273,6 +282,7 @@ export function exportToExcel(students, className, grade = 3) {
       'STT': idx + 1,
       'Mã HS': s.id,
       'Họ và Tên': s.name,
+      'Ngày sinh': s.dob || '',
       'Giới tính': s.gender || 'Nam',
       'Máy Số': s.machineNumber || '',
       'Kỹ năng Chuột (T/H/C)': s.skill_mouse || 'H',
@@ -289,6 +299,7 @@ export function exportToExcel(students, className, grade = 3) {
         'STT': idx + 1,
         'Mã HS': s.id,
         'Họ và Tên': s.name,
+        'Ngày sinh': s.dob || '',
         'Giới tính': s.gender || 'Nam',
         'Máy Số': s.machineNumber || '',
         'Đánh Giá Thường Xuyên (T/H/C)': s.eval_regular || 'T',
@@ -325,7 +336,8 @@ export function importFromExcel(file, callback) {
         return {
           id: row['Mã HS'] || row['MaHS'] || `HS${String(idx + 1).padStart(3, '0')}`,
           name: row['Họ và Tên'] || row['Họ và tên'] || row['HoTen'] || row['Tên'] || `Học sinh ${idx + 1}`,
-          gender: row['Giới tính'] || row['GioiTinh'] || 'Nam',
+          dob: parseExcelDate(row['Ngày sinh'] || row['NgaySinh'] || row['DOB'] || row['SinhNgày'] || ''),
+          gender: normalizeGender(row['Giới tính'] || row['GioiTinh']).value || 'Nam',
           machineNumber: parseInt(row['Máy Số'] || row['MaySo'] || (idx + 1 <= 31 ? idx + 1 : Math.floor((idx + 1) / 2)), 10) || null,
           eval_regular: row['Đánh Giá Thường Xuyên (T/H/C)'] || row['DanhGia'] || 'T',
           score_hk1: row['Điểm Thực Hành HK1'] || row['HK1'] || null,
@@ -393,6 +405,24 @@ export async function syncStudentsToSqlite(classId, students) {
     });
   } catch (e) {
     console.warn('Failed to sync students to SQLite:', e);
+  }
+}
+
+export async function batchImportClassesToSqlite(payload) {
+  try {
+    const res = await fetch('/api/classes/batch-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Lỗi máy chủ (${res.status})`);
+  } catch (e) {
+    console.error('Failed to batch import classes to SQLite:', e);
+    throw e;
   }
 }
 

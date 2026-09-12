@@ -15,7 +15,8 @@ import {
   AlertCircle,
   FileCode2,
   FileText,
-  HardDrive
+  HardDrive,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   exportAllBackupData, 
@@ -24,8 +25,11 @@ import {
   detectGradeFromName,
   downloadSqliteDatabaseFile,
   downloadSqlScriptFile,
-  importSqlScriptFile
+  importSqlScriptFile,
+  exportAllClassesToExcel,
+  downloadSampleExcelTemplate
 } from '../utils/storage';
+import ImportExcelModal from './ImportExcelModal';
 
 export default function Navbar({ 
   classes, 
@@ -34,6 +38,7 @@ export default function Navbar({
   onAddClass, 
   onDeleteClass, 
   onRestoreClasses,
+  onBatchImportSuccess,
   isProjector, 
   onToggleProjector, 
   soundEnabled, 
@@ -44,6 +49,8 @@ export default function Navbar({
 }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [showImportExcelModal, setShowImportExcelModal] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(true);
   const [newClassName, setNewClassName] = useState('');
   const [newClassGrade, setNewClassGrade] = useState(3);
   const [newClassSubject, setNewClassSubject] = useState('Tin Học');
@@ -422,7 +429,7 @@ export default function Navbar({
       {/* Modal Quản Lý & Thêm Lớp Học (Sử dụng React Portal) */}
       {showAddModal && typeof document !== 'undefined' && createPortal(
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal-content" style={{ maxWidth: 540, width: '92%' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: 640, width: '94%' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
                 🏫 Thêm & Quản Lý Lớp Tin Học
@@ -436,67 +443,131 @@ export default function Navbar({
               </button>
             </div>
 
-            {/* Form Thêm Lớp Mới với Khối 1 - 5 */}
-            <form onSubmit={handleCreateClass} style={{
-              background: 'var(--surface-secondary)',
-              padding: '1rem',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--surface-border)',
+            {/* Thanh công cụ 4 chức năng chính: Thêm lớp, Import Excel, Xuất Excel, Tải mẫu */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+              gap: '0.5rem',
               marginBottom: '1.25rem'
             }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>
-                ➕ Thêm Lớp Học Mới
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem', marginBottom: '0.75rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
-                    Khối lớp (*)
-                  </label>
-                  <select
-                    className="input-field"
-                    value={newClassGrade}
-                    onChange={(e) => setNewClassGrade(Number(e.target.value))}
-                  >
-                    <option value={1}>Khối 1 (Làm quen)</option>
-                    <option value={2}>Khối 2 (Luyện phím)</option>
-                    <option value={3}>Khối 3 (GDPT 2018)</option>
-                    <option value={4}>Khối 4 (GDPT 2018)</option>
-                    <option value={5}>Khối 5 (GDPT 2018)</option>
-                  </select>
+              <button
+                type="button"
+                className={`btn btn-sm ${showCreateForm ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setShowCreateForm(prev => !prev)}
+                style={{ fontSize: '0.8125rem' }}
+                title="Bật / tắt biểu mẫu tạo lớp thủ công"
+              >
+                <PlusCircle size={15} />
+                <span>➕ Thêm Lớp</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => setShowImportExcelModal(true)}
+                style={{
+                  fontSize: '0.8125rem',
+                  borderColor: 'var(--primary)',
+                  color: 'var(--primary)',
+                  background: 'rgba(2, 132, 199, 0.06)'
+                }}
+                title="Nhập 1 file Excel gồm nhiều sheet, mỗi sheet là 1 lớp học"
+              >
+                <FileSpreadsheet size={15} />
+                <span>📥 Import Excel</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => exportAllClassesToExcel(classes)}
+                style={{
+                  fontSize: '0.8125rem',
+                  borderColor: '#10b981',
+                  color: '#059669',
+                  background: 'rgba(16, 185, 129, 0.06)'
+                }}
+                title="Xuất toàn bộ các lớp học vào 1 file Excel (mỗi lớp 1 sheet riêng biệt)"
+              >
+                <Download size={15} />
+                <span>📤 Xuất Excel</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={downloadSampleExcelTemplate}
+                style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}
+                title="Tải file Excel mẫu gồm các sheet 1A, 1B, 2A và Sheet Hướng dẫn"
+              >
+                <FileText size={15} />
+                <span>📄 Tải Excel mẫu</span>
+              </button>
+            </div>
+
+            {/* Form Thêm Lớp Mới với Khối 1 - 5 */}
+            {showCreateForm && (
+              <form onSubmit={handleCreateClass} style={{
+                background: 'var(--surface-secondary)',
+                padding: '1rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--surface-border)',
+                marginBottom: '1.25rem'
+              }}>
+                <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>
+                  ➕ Thêm Lớp Học Mới
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
-                    Tên lớp (*)
-                  </label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    value={newClassName}
-                    onChange={(e) => setNewClassName(e.target.value)}
-                    placeholder="VD: 3A2, 4B..."
-                    required
-                    autoFocus
-                  />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem', marginBottom: '0.75rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
+                      Khối lớp (*)
+                    </label>
+                    <select
+                      className="input-field"
+                      value={newClassGrade}
+                      onChange={(e) => setNewClassGrade(Number(e.target.value))}
+                    >
+                      <option value={1}>Khối 1 (Làm quen)</option>
+                      <option value={2}>Khối 2 (Luyện phím)</option>
+                      <option value={3}>Khối 3 (GDPT 2018)</option>
+                      <option value={4}>Khối 4 (GDPT 2018)</option>
+                      <option value={5}>Khối 5 (GDPT 2018)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
+                      Tên lớp (*)
+                    </label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={newClassName}
+                      onChange={(e) => setNewClassName(e.target.value)}
+                      placeholder="VD: 3A2, 4B..."
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
+                      Môn học
+                    </label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={newClassSubject}
+                      onChange={(e) => setNewClassSubject(e.target.value)}
+                      placeholder="VD: Tin Học..."
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
-                    Môn học
-                  </label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    value={newClassSubject}
-                    onChange={(e) => setNewClassSubject(e.target.value)}
-                    placeholder="VD: Tin Học..."
-                  />
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary btn-sm">
+                    <PlusCircle size={15} /> Tạo Lớp
+                  </button>
                 </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button type="submit" className="btn btn-primary btn-sm">
-                  <PlusCircle size={15} /> Tạo Lớp
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
 
             {/* Danh Sách Lớp Hiện Có */}
             <div>
@@ -607,6 +678,19 @@ export default function Navbar({
         </div>,
         document.body
       )}
+
+      {/* Modal Import Danh Sách Lớp & Học Sinh Từ Excel (Nhiều Sheet = Nhiều Lớp) */}
+      <ImportExcelModal
+        isOpen={showImportExcelModal}
+        onClose={() => setShowImportExcelModal(false)}
+        existingClasses={classes}
+        onImportSuccess={(updatedClasses, targetClassId) => {
+          onBatchImportSuccess?.(updatedClasses, targetClassId);
+          setShowImportExcelModal(false);
+          setShowAddModal(false);
+        }}
+        soundEnabled={soundEnabled}
+      />
 
       {/* Modal Cơ Sở Dữ Liệu SQL & Sao Lưu Toàn Diện */}
       {showBackupModal && typeof document !== 'undefined' && createPortal(

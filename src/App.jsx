@@ -167,6 +167,18 @@ export default function App() {
     }
   };
 
+  // Xử lý khi Batch Import từ Excel thành công (1 file nhiều sheet)
+  const handleBatchImportSuccess = (updatedClasses, targetClassId) => {
+    if (updatedClasses && Array.isArray(updatedClasses) && updatedClasses.length > 0) {
+      setClasses(updatedClasses);
+      saveClasses(updatedClasses);
+      if (targetClassId) {
+        setClassId(targetClassId);
+        setCurrentClassId(targetClassId);
+      }
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Navigation Header */}
@@ -177,6 +189,7 @@ export default function App() {
         onAddClass={handleAddClass}
         onDeleteClass={handleDeleteClass}
         onRestoreClasses={handleRestoreClasses}
+        onBatchImportSuccess={handleBatchImportSuccess}
         isProjector={isProjector}
         onToggleProjector={() => setIsProjector(prev => !prev)}
         soundEnabled={soundEnabled}

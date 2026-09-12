@@ -5,6 +5,7 @@ import {
   saveOrUpdateClass, 
   deleteClassById, 
   saveStudentsForClass, 
+  batchImportClassesAndStudents,
   getDbBrokenMachines, 
   saveDbBrokenMachines, 
   generateSqlScriptDump, 
@@ -35,15 +36,19 @@ import {
   createQuizSession,
   getQuizSessionById,
   updateQuizSession,
-  saveQuizResults
+  saveQuizResults,
+  getClassStats
 } from './db.js';
 import {
   processPptxUploadPreview,
   commitImportedPptx,
   cancelImportSession,
   deleteLessonPresentationsDir,
-  fastImportPptx
+  fastImportPptx,
+  retrySingleSlideRender,
+  ensureLessonThumbnail
 } from './pptxService.js';
+import { checkDuplicateBatch, scanLibraryDuplicates } from './duplicateDetector.js';
 
 const DB_PATH = path.resolve(process.cwd(), 'edumaster.sqlite');
 
@@ -84,6 +89,7 @@ function parseMultipart(buffer, boundary) {
   let start = 0;
   let fileName = 'presentation.pptx';
   let fileBuffer = null;
+  const files = [];
   const fields = {};
 
   while (true) {
@@ -109,16 +115,21 @@ function parseMultipart(buffer, boundary) {
       const filenameMatch = match.match(/filename="?([^";\r\n]+)"?/i);
       const nameMatch = match.match(/name="?([^";\r\n]+)"?/i);
 
+      let currentFileName = null;
       if (filenameStarMatch) {
         try {
-          fileName = decodeURIComponent(filenameStarMatch[1]);
+          currentFileName = decodeURIComponent(filenameStarMatch[1]);
         } catch {
-          fileName = filenameStarMatch[1];
+          currentFileName = filenameStarMatch[1];
         }
-        fileBuffer = partData;
       } else if (filenameMatch) {
-        fileName = filenameMatch[1].trim();
+        currentFileName = filenameMatch[1].trim();
+      }
+
+      if (currentFileName) {
+        fileName = currentFileName;
         fileBuffer = partData;
+        files.push({ name: currentFileName, buffer: partData });
       } else if (nameMatch) {
         fields[nameMatch[1]] = partData.toString('utf-8');
       }
@@ -127,7 +138,7 @@ function parseMultipart(buffer, boundary) {
     start = nextBoundaryIdx;
   }
 
-  return { fileName, fileBuffer, fields };
+  return { fileName, fileBuffer, files, fields };
 }
 
 export async function handleApiRequest(req, res) {
@@ -180,6 +191,18 @@ export async function handleApiRequest(req, res) {
       const body = await parseJsonBody(req);
       saveOrUpdateClass(body);
       sendJson(res, 201, { success: true });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
+  // 3b. Import hàng loạt nhiều lớp từ Excel (POST /api/classes/batch-import)
+  if (pathname === '/api/classes/batch-import' && method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const result = batchImportClassesAndStudents(body);
+      sendJson(res, 200, result);
     } catch (err) {
       sendJson(res, 500, { error: err.message });
     }
@@ -430,7 +453,8 @@ export async function handleApiRequest(req, res) {
       const grade = url.searchParams.get('grade');
       const topic = url.searchParams.get('topic');
       const search = url.searchParams.get('search');
-      const lessons = getAllLessons({ grade, topic, search });
+      const similarity_status = url.searchParams.get('similarity_status');
+      const lessons = getAllLessons({ grade, topic, search, similarity_status });
       sendJson(res, 200, lessons);
     } catch (err) {
       sendJson(res, 500, { error: err.message });
@@ -563,6 +587,97 @@ export async function handleApiRequest(req, res) {
     return true;
   }
 
+  // 11.2.3.1 POST /api/lessons/check-duplicates (Kiểm tra trùng lặp siêu tốc cho 1 hoặc nhiều file PPTX)
+  if (pathname === '/api/lessons/check-duplicates' && method === 'POST') {
+    try {
+      const rawBuffer = await parseRequestBodyBuffer(req);
+      const contentType = req.headers['content-type'] || '';
+      let filesToCheck = [];
+
+      if (contentType.includes('multipart/form-data')) {
+        const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
+        if (!boundaryMatch) {
+          sendJson(res, 400, { error: 'Thiếu boundary trong multipart request' });
+          return true;
+        }
+        const parsed = parseMultipart(rawBuffer, boundaryMatch[1].trim());
+        if (parsed.files && parsed.files.length > 0) {
+          filesToCheck = parsed.files;
+        } else if (parsed.fileBuffer) {
+          filesToCheck = [{ name: parsed.fileName, buffer: parsed.fileBuffer }];
+        }
+      } else if (contentType.includes('application/json')) {
+        const json = JSON.parse(rawBuffer.toString('utf-8'));
+        if (Array.isArray(json.files)) {
+          filesToCheck = json.files.map(f => ({
+            name: f.name || f.fileName || 'bai_giang.pptx',
+            buffer: Buffer.from(f.fileBase64 || f.base64 || '', 'base64')
+          }));
+        } else if (json.fileBase64) {
+          filesToCheck = [{
+            name: json.fileName || 'bai_giang.pptx',
+            buffer: Buffer.from(json.fileBase64, 'base64')
+          }];
+        }
+      } else {
+        const headerFileName = req.headers['x-file-name'];
+        let name = 'bai_giang.pptx';
+        if (headerFileName) {
+          try { name = decodeURIComponent(headerFileName); } catch { name = headerFileName; }
+        }
+        filesToCheck = [{ name, buffer: rawBuffer }];
+      }
+
+      if (filesToCheck.length === 0) {
+        sendJson(res, 400, { error: 'Không tìm thấy file để kiểm tra trùng lặp.' });
+        return true;
+      }
+
+      const existingLessons = getAllLessons();
+      const results = checkDuplicateBatch({ files: filesToCheck, existingLessons });
+      sendJson(res, 200, { success: true, count: results.length, results });
+    } catch (err) {
+      console.error('Lỗi kiểm tra trùng lặp:', err);
+      sendJson(res, 500, { error: err.message || 'Lỗi kiểm tra bài giảng trùng lặp.' });
+    }
+    return true;
+  }
+
+  // 11.2.3.2 GET /api/lessons/scan-duplicates (Quét tự động toàn bộ thư viện bài giảng)
+  if (pathname === '/api/lessons/scan-duplicates' && method === 'GET') {
+    try {
+      const lessons = getAllLessons();
+      const classStats = getClassStats();
+      const report = scanLibraryDuplicates(lessons, classStats);
+      sendJson(res, 200, { success: true, ...report });
+    } catch (err) {
+      console.error('Lỗi quét trùng lặp thư viện:', err);
+      sendJson(res, 500, { error: err.message || 'Lỗi quét trùng lặp thư viện.' });
+    }
+    return true;
+  }
+
+  // 11.2.3.3 POST /api/lessons/resolve-duplicate (Giáo viên xác nhận giữ lại bài)
+  if (pathname === '/api/lessons/resolve-duplicate' && method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const { lessonId } = body;
+      if (!lessonId) {
+        sendJson(res, 400, { error: 'Thiếu lessonId' });
+        return true;
+      }
+      updateLesson(lessonId, {
+        similarity_status: 'unique',
+        duplicate_of_id: null
+      });
+      sendJson(res, 200, { success: true, message: 'Đã xác nhận giữ lại bài giảng' });
+    } catch (err) {
+      console.error('Lỗi resolve duplicate:', err);
+      sendJson(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
   // 11.2.4 POST /api/lessons/import-fast (Import nhanh PPTX < 30ms, trích xuất metadata và render nền)
   if (pathname === '/api/lessons/import-fast' && method === 'POST') {
     try {
@@ -604,6 +719,8 @@ export async function handleApiRequest(req, res) {
         return true;
       }
 
+      const allowDuplicate = fields.allowDuplicate === true || fields.allowDuplicate === 'true' || fields.allow_duplicate === true || fields.allow_duplicate === 'true';
+
       const result = await fastImportPptx({
         originalName: fileName,
         buffer: fileBuffer,
@@ -613,9 +730,18 @@ export async function handleApiRequest(req, res) {
           subject: fields.subject,
           topic: fields.topic,
           durationMinutes: fields.durationMinutes ? Number(fields.durationMinutes) : undefined,
-          description: fields.description
+          description: fields.description,
+          allowDuplicate,
+          similarity_status: fields.similarity_status || fields.similarityStatus,
+          similarity_score: fields.similarity_score !== undefined ? Number(fields.similarity_score) : (fields.similarityScore !== undefined ? Number(fields.similarityScore) : undefined),
+          duplicate_of_id: fields.duplicate_of_id || fields.duplicateOfId
         }
       });
+
+      if (result.isDuplicate && !allowDuplicate) {
+        sendJson(res, 409, result);
+        return true;
+      }
 
       sendJson(res, 201, result);
     } catch (err) {
@@ -638,13 +764,94 @@ export async function handleApiRequest(req, res) {
       sendJson(res, 200, {
         id: lesson.id,
         title: lesson.title,
-        render_status: lesson.render_status || 'ready',
-        slide_count: lesson.slide_count || (lesson.slides ? lesson.slides.length : 0),
-        thumbnail_url: lesson.thumbnail_url || '',
-        slides: lesson.slides || []
+        importStatus: lesson.importStatus || lesson.import_status || 'IMPORTED',
+        import_status: lesson.import_status || lesson.importStatus || 'IMPORTED',
+        renderStatus: lesson.renderStatus || lesson.render_status || 'ready',
+        render_status: lesson.render_status || lesson.renderStatus || 'ready',
+        renderProgress: lesson.renderProgress !== undefined ? lesson.renderProgress : (lesson.render_progress || 0),
+        render_progress: lesson.render_progress !== undefined ? lesson.render_progress : (lesson.renderProgress || 0),
+        totalSlides: lesson.totalSlides !== undefined ? lesson.totalSlides : (lesson.total_slides || lesson.slide_count || (lesson.slides ? lesson.slides.length : 0)),
+        total_slides: lesson.total_slides !== undefined ? lesson.total_slides : (lesson.totalSlides || lesson.slide_count || (lesson.slides ? lesson.slides.length : 0)),
+        renderedSlides: lesson.renderedSlides !== undefined ? lesson.renderedSlides : (lesson.rendered_slides || 0),
+        rendered_slides: lesson.rendered_slides !== undefined ? lesson.rendered_slides : (lesson.renderedSlides || 0),
+        failedSlides: lesson.failedSlides !== undefined ? lesson.failedSlides : (lesson.failed_slides || 0),
+        failed_slides: lesson.failed_slides !== undefined ? lesson.failed_slides : (lesson.failedSlides || 0),
+        slide_count: lesson.slide_count || lesson.total_slides || (lesson.slides ? lesson.slides.length : 0),
+        thumbnailUrl: lesson.thumbnailUrl || lesson.thumbnail_url || '',
+        thumbnail_url: lesson.thumbnail_url || lesson.thumbnailUrl || '',
+        slides: (lesson.slides || []).map(s => ({
+          ...s,
+          slideNumber: s.slideNumber || s.slide_number || (s.order_index !== undefined ? s.order_index + 1 : 1),
+          slide_number: s.slide_number || s.slideNumber || (s.order_index !== undefined ? s.order_index + 1 : 1),
+          status: s.status || s.render_status || 'ready',
+          render_status: s.render_status || s.status || 'ready',
+          imageUrl: s.imageUrl || s.image_url || '',
+          image_url: s.image_url || s.imageUrl || '',
+          attempts: s.attempts !== undefined ? s.attempts : (s.render_attempts || 0),
+          renderedAt: s.renderedAt || s.rendered_at || null,
+          rendered_at: s.rendered_at || s.renderedAt || null,
+          errorCode: s.errorCode || s.error_code || null,
+          error_code: s.error_code || s.errorCode || null,
+          errorMessage: s.errorMessage || s.error_message || null,
+          error_message: s.error_message || s.errorMessage || null
+        }))
       });
     } catch (err) {
       sendJson(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
+  // 11.2.6 POST /api/lessons/:lessonId/slides/:slideNumber/retry (Chuẩn theo Requirement 13)
+  const slideRetryMatch = pathname.match(/^\/api\/lessons\/([^/]+)\/slides\/(\d+)\/retry$/);
+  if (slideRetryMatch && method === 'POST') {
+    const lessonId = slideRetryMatch[1];
+    const slideNumber = Number(slideRetryMatch[2]);
+    try {
+      const lesson = getLessonById(lessonId);
+      if (!lesson) {
+        sendJson(res, 404, { error: 'Không tìm thấy bài học' });
+        return true;
+      }
+      const targetSlide = (lesson.slides || []).find(s => (s.slide_number || s.order_index + 1) === slideNumber);
+      const slideId = targetSlide ? targetSlide.id : null;
+      const result = await retrySingleSlideRender(lessonId, slideId, slideNumber);
+      sendJson(res, result.success ? 200 : 422, result);
+    } catch (err) {
+      console.error(`Lỗi khi retry slide ${slideNumber} của bài ${lessonId}:`, err);
+      sendJson(res, 500, { error: err.message || 'Lỗi xử lý kết xuất lại slide' });
+    }
+    return true;
+  }
+
+  // 11.2.7 POST /api/lessons/:id/generate-thumbnail hoặc /retry-thumbnail (Requirement 2)
+  const thumbMatch = pathname.match(/^\/api\/lessons\/([^/]+)\/(generate-thumbnail|retry-thumbnail)$/);
+  if (thumbMatch && method === 'POST') {
+    const lessonId = thumbMatch[1];
+    try {
+      const result = await ensureLessonThumbnail(lessonId);
+      sendJson(res, 200, result);
+    } catch (err) {
+      console.error(`Lỗi khi tạo thumbnail cho bài ${lessonId}:`, err);
+      sendJson(res, 500, { error: err.message || 'Không thể tạo ảnh xem trước' });
+    }
+    return true;
+  }
+
+  // 11.2.8 POST /api/lessons/retry-slide (Thử lại kết xuất hình ảnh cho một slide đơn lẻ - Tương thích ngược)
+  if (pathname === '/api/lessons/retry-slide' && method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const { lessonId, slideId, slideNumber } = body;
+      if (!lessonId || (!slideId && !slideNumber)) {
+        sendJson(res, 400, { error: 'Thiếu lessonId hoặc thông tin slide (slideId/slideNumber)' });
+        return true;
+      }
+      const result = await retrySingleSlideRender(lessonId, slideId, Number(slideNumber));
+      sendJson(res, result.success ? 200 : 422, result);
+    } catch (err) {
+      console.error('Lỗi khi retry slide:', err);
+      sendJson(res, 500, { error: err.message || 'Lỗi xử lý kết xuất lại slide' });
     }
     return true;
   }

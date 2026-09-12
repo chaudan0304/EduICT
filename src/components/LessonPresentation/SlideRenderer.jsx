@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -9,17 +9,35 @@ import {
   Sparkles, 
   ExternalLink,
   Play,
-  Lightbulb
+  Lightbulb,
+  AlertTriangle,
+  RotateCw,
+  FileText,
+  Loader2
 } from 'lucide-react';
+import { retrySlideRenderApi } from './lessonStorage';
 
 export default function SlideRenderer({ 
   slide, 
   isProjector: _isProjector = false,
   isPresentation = false,
-  onAwardStar = null
+  onAwardStar = null,
+  lessonId = null,
+  sourceFilePath = null,
+  onSlideUpdated = null
 }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryError, setRetryError] = useState(null);
+  const [localSlide, setLocalSlide] = useState(slide);
+
+  useEffect(() => {
+    setLocalSlide(slide);
+    setImageError(false);
+    setRetryError(null);
+  }, [slide?.id, slide?.order_index, slide?.image_url, slide?.render_status]);
 
   if (!slide) {
     return (
@@ -92,7 +110,253 @@ export default function SlideRenderer({
   };
 
   // 0. SLIDE: IMPORTED_SLIDE (Slide trích xuất nguyên bản từ PowerPoint)
-  if (slide.type === 'IMPORTED_SLIDE' || slide.type === 'PPTX_SLIDE' || (slide.image_url && slide.layout === 'FULL_IMAGE')) {
+  const activeSlide = localSlide || slide;
+  if (activeSlide.type === 'IMPORTED_SLIDE' || activeSlide.type === 'PPTX_SLIDE' || (activeSlide.image_url && activeSlide.layout === 'FULL_IMAGE')) {
+    const slideNum = activeSlide.order_index !== undefined ? activeSlide.order_index + 1 : (parseInt(activeSlide.title?.replace(/\D/g, ''), 10) || 1);
+    const effectiveLessonId = lessonId || activeSlide.lesson_id;
+    const effectiveSourcePath = sourceFilePath || activeSlide.source_file_path;
+
+    const statusNormalized = (activeSlide.render_status || activeSlide.status || '').toLowerCase();
+    const isProcessing = ['processing', 'pending', 'retrying'].includes(statusNormalized) && !activeSlide.image_url;
+
+    // A. Slide đang xử lý trong nền (Requirement 11)
+    if (isProcessing && !isRetrying) {
+      return (
+        <div style={{
+          height: '100%',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#090d16',
+          color: '#fff',
+          gap: '1rem',
+          padding: '2rem'
+        }}>
+          <Loader2 size={42} className="animate-spin" color="#a855f7" />
+          <h3 style={{ fontSize: '1.35rem', fontWeight: 700, margin: 0 }}>
+            Đang xử lý slide...
+          </h3>
+          <div style={{
+            display: 'inline-block',
+            background: 'rgba(168, 85, 247, 0.18)',
+            color: '#c084fc',
+            fontSize: '0.925rem',
+            fontWeight: 800,
+            padding: '0.2rem 0.85rem',
+            borderRadius: '999px',
+            border: '1px solid rgba(168, 85, 247, 0.35)'
+          }}>
+            Slide {slideNum}
+          </div>
+          <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem', margin: 0 }}>
+            Hình ảnh sẽ tự động hiển thị ngay khi hoàn tất.
+          </p>
+        </div>
+      );
+    }
+
+    // B. Nếu slide bị lỗi render hoặc ảnh lỗi (onError) hoặc không có image_url
+    const isFailed = ['failed'].includes(statusNormalized) || imageError || (!activeSlide.image_url && !isProcessing);
+    if (isFailed) {
+      return (
+        <div style={{
+          height: '100%',
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'radial-gradient(circle at center, rgba(245, 158, 11, 0.08) 0%, #090d16 75%)',
+          padding: '2rem',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{
+            background: 'rgba(18, 24, 38, 0.95)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            borderRadius: '1.25rem',
+            padding: isPresentation ? '2.75rem 2.5rem' : '2rem',
+            maxWidth: 580,
+            width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 25px rgba(245, 158, 11, 0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1.25rem',
+            backdropFilter: 'blur(16px)'
+          }}>
+            <div style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              color: '#f59e0b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 25px rgba(245, 158, 11, 0.2)'
+            }}>
+              <AlertTriangle size={38} />
+            </div>
+
+            <div>
+              <h3 style={{
+                fontSize: isPresentation ? '1.75rem' : '1.35rem',
+                fontWeight: 800,
+                color: '#fff',
+                marginBottom: '0.4rem',
+                letterSpacing: '-0.02em'
+              }}>
+                ⚠ Slide không thể kết xuất hình ảnh
+              </h3>
+              <div style={{
+                display: 'inline-block',
+                background: 'rgba(245, 158, 11, 0.18)',
+                color: '#fbbf24',
+                fontSize: '0.925rem',
+                fontWeight: 800,
+                padding: '0.2rem 0.85rem',
+                borderRadius: '999px',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                marginBottom: '0.75rem'
+              }}>
+                Slide {slideNum}
+              </div>
+              <p style={{
+                fontSize: isPresentation ? '1.05rem' : '0.9rem',
+                color: 'rgba(255, 255, 255, 0.72)',
+                lineHeight: 1.6,
+                margin: 0
+              }}>
+                Slide này tạm thời chưa kết xuất được hình ảnh. Các slide khác trong bài vẫn hoạt động bình thường.
+              </p>
+              {activeSlide.error_message && (
+                <div style={{
+                  fontSize: '0.775rem',
+                  color: '#fbbf24',
+                  marginTop: '0.65rem',
+                  fontFamily: 'monospace',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  wordBreak: 'break-word'
+                }}>
+                  {activeSlide.error_code || 'CONVERSION_FAILED'}: {activeSlide.error_message}
+                </div>
+              )}
+              {retryError && (
+                <div style={{
+                  fontSize: '0.825rem',
+                  color: '#ef4444',
+                  marginTop: '0.5rem',
+                  fontWeight: 600
+                }}>
+                  ❌ {retryError}
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '0.85rem',
+              justifyContent: 'center',
+              width: '100%',
+              marginTop: '0.35rem'
+            }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!effectiveLessonId || isRetrying) return;
+                  setIsRetrying(true);
+                  setRetryError(null);
+                  try {
+                    const res = await retrySlideRenderApi(effectiveLessonId, activeSlide.id, slideNum);
+                    if (res.success && res.slide) {
+                      setLocalSlide(res.slide);
+                      setImageError(false);
+                      setRetryError(null);
+                      if (onSlideUpdated) {
+                        try {
+                          onSlideUpdated(res.slide);
+                        } catch (parentErr) {
+                          console.warn('Lỗi callback onSlideUpdated:', parentErr);
+                        }
+                      }
+                    } else {
+                      setRetryError(res.error || 'Thử lại chưa thành công.');
+                    }
+                  } catch (err) {
+                    setRetryError(err.message || 'Lỗi khi gọi API thử lại.');
+                  } finally {
+                    setIsRetrying(false);
+                  }
+                }}
+                disabled={isRetrying}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.4rem',
+                  borderRadius: '0.75rem',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: isPresentation ? '1rem' : '0.9rem',
+                  border: 'none',
+                  cursor: isRetrying ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 15px rgba(37, 99, 235, 0.35)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {isRetrying ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Đang kết xuất lại...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCw size={18} />
+                    <span>Thử kết xuất lại</span>
+                  </>
+                )}
+              </button>
+
+              {effectiveSourcePath && (
+                <a
+                  href={effectiveSourcePath}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.3rem',
+                    borderRadius: '0.75rem',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#fff',
+                    fontWeight: 600,
+                    fontSize: isPresentation ? '1rem' : '0.9rem',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <FileText size={18} />
+                  <span>Mở file PowerPoint</span>
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // C. Slide bình thường
     return (
       <div style={{
         height: '100%',
@@ -104,24 +368,19 @@ export default function SlideRenderer({
         overflow: 'hidden',
         position: 'relative'
       }}>
-        {slide.image_url ? (
-          <img 
-            src={slide.image_url} 
-            alt={slide.title || `Slide ${slide.order_index !== undefined ? slide.order_index + 1 : ''}`} 
-            style={{
-              maxWidth: '100%',
-              maxHeight: '100%',
-              objectFit: 'contain',
-              aspectRatio: '16/9',
-              display: 'block',
-              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)'
-            }}
-          />
-        ) : (
-          <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>
-            <p>Không tìm thấy hình ảnh kết xuất của slide này.</p>
-          </div>
-        )}
+        <img 
+          src={activeSlide.image_url} 
+          alt={activeSlide.title || `Slide ${slideNum}`} 
+          onError={() => setImageError(true)}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            objectFit: 'contain',
+            aspectRatio: '16/9',
+            display: 'block',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)'
+          }}
+        />
       </div>
     );
   }

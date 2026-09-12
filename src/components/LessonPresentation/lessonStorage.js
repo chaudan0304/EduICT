@@ -299,6 +299,7 @@ export async function fetchLessonsApi(filters = {}) {
     const params = new URLSearchParams();
     if (filters.grade && filters.grade !== 'all') params.append('grade', filters.grade);
     if (filters.topic && filters.topic !== 'all') params.append('topic', filters.topic);
+    if (filters.similarity_status && filters.similarity_status !== 'all') params.append('similarity_status', filters.similarity_status);
     if (filters.search && filters.search.trim()) params.append('search', filters.search.trim());
 
     const res = await fetch(`/api/lessons?${params.toString()}`);
@@ -318,6 +319,9 @@ export async function fetchLessonsApi(filters = {}) {
   }
   if (filters.topic && filters.topic !== 'all') {
     cached = cached.filter(l => l.topic === filters.topic);
+  }
+  if (filters.similarity_status && filters.similarity_status !== 'all') {
+    cached = cached.filter(l => l.similarity_status === filters.similarity_status);
   }
   if (filters.search && filters.search.trim()) {
     const s = filters.search.trim().toLowerCase();
@@ -533,6 +537,10 @@ export async function fastImportPptxApi(file, options = {}) {
   if (options.topic) formData.append('topic', options.topic);
   if (options.durationMinutes) formData.append('durationMinutes', options.durationMinutes);
   if (options.description) formData.append('description', options.description);
+  if (options.allowDuplicate) formData.append('allowDuplicate', 'true');
+  if (options.similarity_status) formData.append('similarity_status', options.similarity_status);
+  if (options.similarity_score !== undefined) formData.append('similarity_score', options.similarity_score);
+  if (options.duplicate_of_id) formData.append('duplicate_of_id', options.duplicate_of_id);
 
   const res = await fetch('/api/lessons/import-fast', {
     method: 'POST',
@@ -541,7 +549,11 @@ export async function fastImportPptxApi(file, options = {}) {
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error || 'Không thể import nhanh file PowerPoint.');
+    const err = new Error(data.error || 'Không thể import nhanh file PowerPoint.');
+    err.status = res.status;
+    err.isDuplicate = data.isDuplicate;
+    err.matchedLesson = data.matchedLesson;
+    throw err;
   }
   return data; // { success: true, lesson, isCached }
 }
@@ -558,4 +570,185 @@ export async function fetchLessonRenderStatusApi(lessonId) {
   }
   return null;
 }
+
+// 12b. Thử lại kết xuất hình ảnh cho một slide đơn lẻ (Retry Pipeline - Requirement 13)
+export async function retrySlideRenderApi(lessonId, slideId, slideNumber) {
+  const targetSlideNum = Number(slideNumber) || 1;
+  try {
+    const res = await fetch(`/api/lessons/${lessonId}/slides/${targetSlideNum}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slideId })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('Fallback sang /api/lessons/retry-slide:', err.message);
+  }
+
+  // Fallback endpoint
+  const resFallback = await fetch('/api/lessons/retry-slide', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lessonId, slideId, slideNumber: targetSlideNum })
+  });
+  const data = await resFallback.json();
+  if (!resFallback.ok) {
+    throw new Error(data.error || 'Không thể thử lại kết xuất slide.');
+  }
+  return data; // { success: true, slide, lessonStatus }
+}
+
+// 12c. Thử lại hoặc tạo ảnh xem trước cho bài giảng (Thumbnail Pipeline - Requirement 2)
+export async function retryLessonThumbnailApi(lessonId) {
+  const res = await fetch(`/api/lessons/${lessonId}/retry-thumbnail`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Không thể tạo ảnh xem trước bài học.');
+  }
+  return data;
+}
+
+// 13. Kiểm tra bài giảng trùng lặp (Batch pre-check < 25ms không render)
+export async function checkLessonsDuplicateApi(files) {
+  const formData = new FormData();
+  const fileList = Array.isArray(files) ? files : [files];
+  fileList.forEach(f => {
+    formData.append('files', f);
+  });
+
+  const res = await fetch('/api/lessons/check-duplicates', {
+    method: 'POST',
+    body: formData
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Lỗi kiểm tra bài giảng trùng lặp.');
+  }
+  return data.results || [];
+}
+
+// 14. Tự động quét toàn bộ thư viện bài giảng để tìm bài trùng lặp
+export async function scanLibraryDuplicatesApi() {
+  const res = await fetch('/api/lessons/scan-duplicates');
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Lỗi quét trùng lặp thư viện bài giảng.');
+  }
+  return data;
+}
+
+// 15. Giáo viên xác nhận giữ lại bài giảng (bỏ qua cảnh báo trùng)
+export async function resolveDuplicateApi(lessonId) {
+  const res = await fetch('/api/lessons/resolve-duplicate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lessonId })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Không thể xác nhận giữ lại bài giảng.');
+  }
+  return data;
+}
+
+// Cấu hình các ngưỡng phát hiện trùng lặp
+export const DUPLICATE_THRESHOLDS = {
+  EXACT_MATCH: 100,            // 95 - 100%: Trùng 100% (🔴 Cảnh báo)
+  NEAR_DUPLICATE_HIGH: 95,     // 95 - 100%
+  NEAR_DUPLICATE_LIKELY: 80,   // 80 - 95%: Trùng cao (🟠 Cảnh báo)
+  NEAR_DUPLICATE_SIMILAR: 60,  // 60 - 80%: Gần giống (🟡 Tham khảo)
+  SAFE_DIFFERENT: 60           // < 60%: Khác biệt an toàn
+};
+
+// Cấu hình 3 mức độ trùng lặp theo sơ đồ kiến trúc
+export const DUPLICATE_TIERS = {
+  exact: {
+    id: 'exact',
+    range: '95-100%',
+    title: 'Trùng 100%',
+    badge: '🔴 Cảnh báo',
+    badgeText: '🔴 Trùng 100%',
+    color: '#ef4444',
+    bg: 'rgba(239, 68, 68, 0.12)',
+    border: 'rgba(239, 68, 68, 0.35)',
+    actionHint: 'Nên kiểm tra và xóa bài trùng'
+  },
+  high: {
+    id: 'high',
+    range: '80-95%',
+    title: 'Trùng cao',
+    badge: '🟠 Cảnh báo',
+    badgeText: '🟠 Trùng cao',
+    color: '#f97316',
+    bg: 'rgba(249, 115, 22, 0.12)',
+    border: 'rgba(249, 115, 22, 0.35)',
+    actionHint: 'Có thể cân nhắc giữ lại hoặc xóa bớt'
+  },
+  reference: {
+    id: 'reference',
+    range: '60-80%',
+    title: 'Gần giống',
+    badge: '🟡 Tham khảo',
+    badgeText: '🟡 Gần giống',
+    color: '#eab308',
+    bg: 'rgba(234, 179, 8, 0.12)',
+    border: 'rgba(234, 179, 8, 0.35)',
+    actionHint: 'Nội dung tương tự để tham khảo'
+  }
+};
+
+// Nhãn và màu sắc hiển thị trạng thái trùng lặp trên giao diện
+export const SIMILARITY_STATUS_LABELS = {
+  unique: { 
+    label: 'Bài mới', 
+    badgeText: '✓ Bài mới',
+    color: '#10b981', 
+    bg: 'rgba(16, 185, 129, 0.12)', 
+    border: 'rgba(16, 185, 129, 0.35)', 
+    icon: '✓' 
+  },
+  exact_duplicate: { 
+    label: 'Trùng 100%', 
+    badgeText: '🔴 Trùng 100%',
+    badgeAlert: '🔴 Cảnh báo',
+    color: '#ef4444', 
+    bg: 'rgba(239, 68, 68, 0.14)', 
+    border: 'rgba(239, 68, 68, 0.4)', 
+    icon: '🔴' 
+  },
+  high_duplicate: { 
+    label: 'Trùng cao', 
+    badgeText: '🟠 Trùng cao',
+    badgeAlert: '🟠 Cảnh báo',
+    color: '#f97316', 
+    bg: 'rgba(249, 115, 22, 0.14)', 
+    border: 'rgba(249, 115, 22, 0.4)', 
+    icon: '🟠' 
+  },
+  near_similar: { 
+    label: 'Gần giống', 
+    badgeText: '🟡 Gần giống',
+    badgeAlert: '🟡 Tham khảo',
+    color: '#eab308', 
+    bg: 'rgba(234, 179, 8, 0.14)', 
+    border: 'rgba(234, 179, 8, 0.4)', 
+    icon: '🟡' 
+  },
+  near_duplicate: { 
+    label: 'Có khả năng trùng', 
+    badgeText: '🟠 Trùng cao',
+    badgeAlert: '🟠 Cảnh báo',
+    color: '#f97316', 
+    bg: 'rgba(249, 115, 22, 0.14)', 
+    border: 'rgba(249, 115, 22, 0.4)', 
+    icon: '🟠' 
+  }
+};
+
 

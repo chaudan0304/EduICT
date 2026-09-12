@@ -45,6 +45,7 @@ export default function Gradebook({
   // Form thêm học sinh mới
   const [newStudent, setNewStudent] = useState({
     name: '',
+    dob: '',
     gender: 'Nam',
     machineNumber: students.length + 1 <= 31 ? students.length + 1 : 1,
     skill_mouse: 'T',
@@ -190,6 +191,7 @@ export default function Gradebook({
     const studentToAdd = {
       id: nextId,
       name: newStudent.name.trim(),
+      dob: newStudent.dob?.trim() || '',
       gender: newStudent.gender,
       machineNumber: parseInt(newStudent.machineNumber, 10) || null,
       skill_mouse: newStudent.skill_mouse,
@@ -206,6 +208,7 @@ export default function Gradebook({
     onUpdateStudents([...students, studentToAdd]);
     setNewStudent({
       name: '',
+      dob: '',
       gender: 'Nam',
       machineNumber: students.length + 2 <= 31 ? students.length + 2 : 1,
       skill_mouse: 'T',
@@ -564,7 +567,7 @@ export default function Gradebook({
                               {student.name}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              {student.id}
+                              {student.id}{student.dob ? ` • 🎂 ${student.dob}` : ''}
                             </div>
                           </div>
                         </div>
@@ -844,7 +847,7 @@ export default function Gradebook({
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.65rem', marginBottom: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
                     Giới tính
@@ -861,7 +864,20 @@ export default function Gradebook({
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
-                    Số máy tính phòng máy
+                    Ngày sinh (dd/mm/yyyy)
+                  </label>
+                  <input 
+                    type="text" 
+                    className="input-field"
+                    value={newStudent.dob}
+                    onChange={(e) => setNewStudent({ ...newStudent, dob: e.target.value })}
+                    placeholder="VD: 10/10/2019"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                    Số máy phòng máy
                   </label>
                   <input 
                     type="number" 
