@@ -22,9 +22,11 @@ export default function SeatingDisplayMode({
   machineStudentMap,
   brokenMachines = [],
   teacherSide = 'right',
+  initialPerspective = 'student',
   onClose
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [perspective, setPerspective] = useState(initialPerspective);
 
   // Xử lý Fullscreen API khi mở và lắng nghe phím tắt Esc
   useEffect(() => {
@@ -89,12 +91,11 @@ export default function SeatingDisplayMode({
   const allAssigned = Object.values(machineStudentMap).flat();
   const sharedCount = Object.values(machineStudentMap).filter(list => list.length === 2).length;
 
-  // BIẾN ĐỔI 180° BỐ CỤC KHÔNG GIAN CHO GÓC NHÌN HỌC SINH (Student Perspective):
-  // 1. Thứ tự cột từ Trái sang Phải: Dãy 1 -> Dãy 2 -> Dãy 3 -> Dãy 4 -> Dãy 5 (ngược với trang quản trị)
-  // 2. Trong mỗi dãy, số máy GIẢM DẦN từ trên xuống dưới (Máy số lớn trên cùng gần bảng -> máy số nhỏ dưới cùng)
-  // 3. Vị trí nhãn: Bàn giáo viên (góc trên-trái); Bảng & tivi (giữa trên); Cửa ra vào (góc trên-phải)
+  // 1. BIẾN ĐỔI 180° BỐ CỤC KHÔNG GIAN CHO GÓC NHÌN HỌC SINH (Student Perspective):
+  // - Thứ tự cột từ Trái sang Phải: Dãy 1 -> Dãy 2 -> Dãy 3 -> Dãy 4 -> Dãy 5 (ngược với trang quản trị)
+  // - Trong mỗi dãy, số máy GIẢM DẦN từ trên xuống dưới (Máy số lớn trên cùng gần bảng -> máy số nhỏ dưới cùng)
+  // - Vị trí nhãn: Bàn giáo viên (góc trên-trái); Bảng & tivi (giữa trên); Cửa ra vào (góc trên-phải)
   const studentRows = React.useMemo(() => {
-    // Sắp xếp Dãy 1 -> Dãy 5 theo id tăng dần (1, 2, 3, 4, 5)
     return [...labLayout].sort((a, b) => a.id - b.id).map(row => {
       const [start, end] = row.machineRange;
       const isTeacherSide = row.id === 1;
@@ -119,6 +120,28 @@ export default function SeatingDisplayMode({
     });
   }, [labLayout]);
 
+  // 2. GÓC NHÌN GIÁO VIÊN (Teacher Perspective):
+  // - Thứ tự cột: Giữ nguyên theo labLayout của trang quản trị (Dãy 5 -> Dãy 1 khi Bàn GV bên phải)
+  // - Trong mỗi dãy, số máy TĂNG DẦN từ trên xuống dưới (Máy số nhỏ trên cùng -> máy số lớn dưới cùng)
+  const teacherRows = React.useMemo(() => {
+    return labLayout.map(row => {
+      const [start, end] = row.machineRange;
+      return {
+        ...row,
+        rangeLabel: `Máy ${String(start).padStart(2, '0')} – ${String(end).padStart(2, '0')}`,
+        getMachineNumbers: () => {
+          const nums = [];
+          for (let m = start; m <= end; m++) {
+            nums.push(m);
+          }
+          return nums;
+        }
+      };
+    });
+  }, [labLayout]);
+
+  const activeRows = perspective === 'student' ? studentRows : teacherRows;
+
   return (
     <div 
       className="seating-display-mode-root"
@@ -142,7 +165,7 @@ export default function SeatingDisplayMode({
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. HEADER TRÌNH CHIẾU CHO HỌC SINH & THANH CÔNG CỤ THOÁT */}
+      {/* 1. HEADER TRÌNH CHIẾU VỚI BỘ CHỌN 2 GÓC NHÌN & CÔNG CỤ */}
       <header style={{
         display: 'flex',
         alignItems: 'center',
@@ -161,12 +184,16 @@ export default function SeatingDisplayMode({
             width: 44,
             height: 44,
             borderRadius: '10px',
-            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+            background: perspective === 'student' 
+              ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' 
+              : 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
             color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
+            boxShadow: perspective === 'student' 
+              ? '0 2px 8px rgba(2, 132, 199, 0.35)' 
+              : '0 2px 8px rgba(79, 70, 229, 0.35)',
             flexShrink: 0
           }}>
             <Monitor size={24} />
@@ -186,15 +213,15 @@ export default function SeatingDisplayMode({
               <span style={{
                 fontSize: '0.75rem',
                 fontWeight: 800,
-                background: '#e0f2fe',
-                color: '#0284c7',
+                background: perspective === 'student' ? '#e0f2fe' : '#ede9fe',
+                color: perspective === 'student' ? '#0284c7' : '#6366f1',
                 padding: '0.2rem 0.6rem',
                 borderRadius: '6px',
-                border: '1px solid #bae6fd',
+                border: `1px solid ${perspective === 'student' ? '#bae6fd' : '#c7d2fe'}`,
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em'
               }}>
-                Góc Nhìn Học Sinh
+                {perspective === 'student' ? '🧑‍🎓 Góc Nhìn Học Sinh' : '👨‍🏫 Góc Nhìn Giáo Viên'}
               </span>
             </div>
             <p style={{
@@ -227,6 +254,60 @@ export default function SeatingDisplayMode({
 
         {/* Nút hành động góc phải */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {/* Bộ chọn 2 góc nhìn: Học sinh & Giáo viên */}
+          <div style={{
+            display: 'inline-flex',
+            background: '#f1f5f9',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1.5px solid #cbd5e1'
+          }}>
+            <button
+              type="button"
+              onClick={() => setPerspective('student')}
+              style={{
+                padding: '0.45rem 0.85rem',
+                borderRadius: '7px',
+                border: 'none',
+                fontWeight: 800,
+                fontSize: '0.825rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                background: perspective === 'student' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent',
+                color: perspective === 'student' ? '#ffffff' : '#475569',
+                boxShadow: perspective === 'student' ? '0 2px 6px rgba(2, 132, 199, 0.3)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Góc nhìn Học sinh (đứng từ cửa/cuối phòng nhìn lên bảng, xoay 180°)"
+            >
+              <span>🧑‍🎓 Góc Nhìn Học Sinh</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPerspective('teacher')}
+              style={{
+                padding: '0.45rem 0.85rem',
+                borderRadius: '7px',
+                border: 'none',
+                fontWeight: 800,
+                fontSize: '0.825rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                background: perspective === 'teacher' ? 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)' : 'transparent',
+                color: perspective === 'teacher' ? '#ffffff' : '#475569',
+                boxShadow: perspective === 'teacher' ? '0 2px 6px rgba(79, 70, 229, 0.3)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Góc nhìn Giáo viên (nhìn từ bục giảng/bàn giáo viên xuống phòng máy)"
+            >
+              <span>👨‍🏫 Góc Nhìn Giáo Viên</span>
+            </button>
+          </div>
+
           {/* Nút Toàn Màn Hình F11 */}
           <button
             type="button"
@@ -278,93 +359,180 @@ export default function SeatingDisplayMode({
         </div>
       </header>
 
-      {/* 2. ĐỊNH HƯỚNG KHÔNG GIAN PHÍA TRƯỚC (GÓC NHÌN HỌC SINH NHÌN LÊN BẢNG / MÀN CHIẾU) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))',
-        gap: '0.85rem',
-        alignItems: 'stretch',
-        marginBottom: '0.85rem',
-        flexShrink: 0
-      }}>
-        {/* Góc trên - trái (Thẳng hàng Dãy 1): Bàn Giáo Viên */}
+      {/* 2. ĐỊNH HƯỚNG KHÔNG GIAN PHÍA TRÊN */}
+      {perspective === 'student' ? (
         <div style={{
-          gridColumn: '1 / 2',
-          padding: '0.65rem 0.85rem',
-          background: 'linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%)',
-          border: '2px solid #f59e0b',
-          borderRadius: '10px',
-          textAlign: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.45rem',
-          boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))',
+          gap: '0.85rem',
+          alignItems: 'stretch',
+          marginBottom: '0.85rem',
+          flexShrink: 0
         }}>
-          <Server size={20} color="#d97706" />
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>
-              Phía Trước Bên Trái
+          {/* Góc trên - trái (Thẳng hàng Dãy 1): Bàn Giáo Viên */}
+          <div style={{
+            gridColumn: '1 / 2',
+            padding: '0.65rem 0.85rem',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%)',
+            border: '2px solid #f59e0b',
+            borderRadius: '10px',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.45rem',
+            boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
+          }}>
+            <Server size={20} color="#d97706" />
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>
+                Phía Trước Bên Trái
+              </div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#b45309' }}>
+                💻 BÀN GIÁO VIÊN
+              </div>
             </div>
-            <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#b45309' }}>
-              💻 BÀN GIÁO VIÊN
+          </div>
+
+          {/* Giữa phía trên (Thẳng hàng Dãy 2, 3, 4): Bảng và Tivi / Màn chiếu chính */}
+          <div style={{
+            gridColumn: '2 / 5',
+            textAlign: 'center',
+            padding: '0.65rem 1rem',
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+            borderRadius: '10px',
+            border: '2px solid #334155',
+            color: '#f8fafc',
+            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem'
+          }}>
+            <span style={{ fontSize: '1.3rem' }}>📺</span>
+            <div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.02em', color: '#38bdf8' }}>
+                BẢNG VÀ TIVI / MÀN CHIẾU CHÍNH (HƯỚNG NHÌN LÊN)
+              </div>
+              <div style={{ fontSize: '0.775rem', fontWeight: 600, color: '#94a3b8' }}>
+                Các em nhìn theo hướng bảng: Dãy 1 (Bên trái) → Dãy 5 (Bên phải gần cửa ra vào)
+              </div>
+            </div>
+          </div>
+
+          {/* Góc trên - phải (Thẳng hàng Dãy 5): Cửa Ra Vào */}
+          <div style={{
+            gridColumn: '5 / 6',
+            padding: '0.65rem 0.85rem',
+            background: 'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
+            border: '2px solid #0284c7',
+            borderRadius: '10px',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.45rem',
+            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.12)'
+          }}>
+            <DoorOpen size={20} color="#0284c7" />
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>
+                Phía Trước Bên Phải
+              </div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#0284c7' }}>
+                🚪 CỬA RA VÀO
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Giữa phía trên (Thẳng hàng Dãy 2, 3, 4): Bảng và Tivi / Màn chiếu chính */}
+      ) : (
         <div style={{
-          gridColumn: '2 / 5',
-          textAlign: 'center',
-          padding: '0.65rem 1rem',
-          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-          borderRadius: '10px',
-          border: '2px solid #334155',
-          color: '#f8fafc',
-          boxShadow: '0 4px 12px rgba(15, 23, 42, 0.25)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.75rem'
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))',
+          gap: '0.85rem',
+          alignItems: 'stretch',
+          marginBottom: '0.85rem',
+          flexShrink: 0
         }}>
-          <span style={{ fontSize: '1.3rem' }}>📺</span>
-          <div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.02em', color: '#38bdf8' }}>
-              BẢNG VÀ TIVI / MÀN CHIẾU CHÍNH (HƯỚNG NHÌN LÊN)
+          {/* Góc trên - trái (Phía Dãy 5): Cửa ra vào */}
+          <div style={{
+            gridColumn: '1 / 2',
+            padding: '0.65rem 0.85rem',
+            background: 'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
+            border: '2px solid #0284c7',
+            borderRadius: '10px',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.45rem',
+            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.12)'
+          }}>
+            <DoorOpen size={20} color="#0284c7" />
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>
+                Phía Dãy 5 Bên Trái
+              </div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#0284c7' }}>
+                🚪 CỬA RA VÀO
+              </div>
             </div>
-            <div style={{ fontSize: '0.775rem', fontWeight: 600, color: '#94a3b8' }}>
-              Các em nhìn theo hướng bảng: Dãy 1 (Bên trái) → Dãy 5 (Bên phải gần cửa ra vào)
+          </div>
+
+          {/* Giữa phía trên: Hướng cuối phòng máy */}
+          <div style={{
+            gridColumn: '2 / 5',
+            textAlign: 'center',
+            padding: '0.65rem 1rem',
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+            borderRadius: '10px',
+            border: '2px solid #334155',
+            color: '#f8fafc',
+            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem'
+          }}>
+            <span style={{ fontSize: '1.3rem' }}>🪟</span>
+            <div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.02em', color: '#a5b4fc' }}>
+                HƯỚNG CUỐI PHÒNG MÁY / CỬA SỔ (GÓC NHÌN GIÁO VIÊN)
+              </div>
+              <div style={{ fontSize: '0.775rem', fontWeight: 600, color: '#94a3b8' }}>
+                Thầy/Cô nhìn từ bục giảng xuống: Dãy 5 (Bên trái) → Dãy 1 (Bên phải gần Bàn GV)
+              </div>
+            </div>
+          </div>
+
+          {/* Góc trên - phải (Phía Dãy 1): Bàn Giáo Viên */}
+          <div style={{
+            gridColumn: '5 / 6',
+            padding: '0.65rem 0.85rem',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%)',
+            border: '2px solid #f59e0b',
+            borderRadius: '10px',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.45rem',
+            boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
+          }}>
+            <Server size={20} color="#d97706" />
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>
+                Phía Dãy 1 Trong Cùng
+              </div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#b45309' }}>
+                📍 BÀN GIÁO VIÊN
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Góc trên - phải (Thẳng hàng Dãy 5): Cửa Ra Vào */}
-        <div style={{
-          gridColumn: '5 / 6',
-          padding: '0.65rem 0.85rem',
-          background: 'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
-          border: '2px solid #0284c7',
-          borderRadius: '10px',
-          textAlign: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.45rem',
-          boxShadow: '0 2px 6px rgba(2, 132, 199, 0.12)'
-        }}>
-          <DoorOpen size={20} color="#0284c7" />
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>
-              Phía Trước Bên Phải
-            </div>
-            <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#0284c7' }}>
-              🚪 CỬA RA VÀO
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. KHÔNG GIAN CHÍNH: 5 DÃY MÁY TÍNH (XOAY 180° THEO GÓC NHÌN HỌC SINH: DÃY 1 -> DÃY 5) */}
+      {/* 3. KHÔNG GIAN CHÍNH: 5 DÃY MÁY TÍNH THEO GÓC NHÌN ĐANG CHỌN */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))',
@@ -372,8 +540,8 @@ export default function SeatingDisplayMode({
         flex: 1,
         alignItems: 'start'
       }}>
-        {studentRows.map(row => {
-          // Trong mỗi dãy: Số máy giảm dần từ trên xuống dưới (máy lớn ở trên gần bảng -> máy nhỏ ở dưới)
+        {activeRows.map(row => {
+          // Số máy hiển thị theo góc nhìn đang chọn
           const machineNumbers = row.getMachineNumbers();
 
           let borderColor = '#cbd5e1';
@@ -656,7 +824,7 @@ export default function SeatingDisplayMode({
         })}
       </div>
 
-      {/* 4. PHÍA CUỐI PHÒNG: CỬA SỔ & CUỐI PHÒNG THỰC HÀNH */}
+      {/* 4. PHÍA CUỐI MÀN HÌNH TÙY GÓC NHÌN */}
       <footer style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -671,9 +839,19 @@ export default function SeatingDisplayMode({
         marginTop: '0.85rem',
         flexShrink: 0
       }}>
-        <span style={{ color: '#d97706' }}>📍 PHÍA TRONG CÙNG (CUỐI DÃY 1)</span>
-        <span>🪟 HƯỚNG CUỐI PHÒNG MÁY / CỬA SỔ THÔNG THOÁNG</span>
-        <span style={{ color: '#0284c7' }}>🚪 CỬA RA VÀO PHÍA SAU (CUỐI DÃY 5)</span>
+        {perspective === 'student' ? (
+          <>
+            <span style={{ color: '#d97706' }}>📍 PHÍA TRONG CÙNG (CUỐI DÃY 1)</span>
+            <span>🪟 HƯỚNG CUỐI PHÒNG MÁY / CỬA SỔ THÔNG THOÁNG</span>
+            <span style={{ color: '#0284c7' }}>🚪 CỬA RA VÀO PHÍA SAU (CUỐI DÃY 5)</span>
+          </>
+        ) : (
+          <>
+            <span style={{ color: '#0284c7' }}>🚪 CỬA RA VÀO CHÍNH</span>
+            <span style={{ color: '#4f46e5' }}>📺 BẢNG LỚP HỌC & MÀN CHIẾU TRUNG TÂM (HƯỚNG BỤC GIẢNG)</span>
+            <span style={{ color: '#d97706' }}>💻 BÀN GIÁO VIÊN & MÁY CHỦ</span>
+          </>
+        )}
       </footer>
     </div>
   );
