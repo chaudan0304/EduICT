@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowLeftRight,
-  Users
+  Users,
+  Maximize2
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
 import { 
@@ -23,6 +24,7 @@ import {
   syncBrokenMachinesToSqlite,
   getClassroomRules
 } from '../utils/storage';
+import SeatingDisplayMode from './SeatingDisplayMode';
 
 export default function SeatingChart({ 
   currentClass, 
@@ -33,6 +35,9 @@ export default function SeatingChart({
   const students = currentClass?.students || [];
   const grade = currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
   const isGrade1or2 = (grade === 1 || grade === 2);
+
+  // Chế độ trình chiếu chỗ ngồi riêng cho học sinh trên màn chiếu lớn
+  const [isDisplayMode, setIsDisplayMode] = useState(false);
 
   // Vị trí của Bàn Giáo Viên & Dãy 1 (mặc định 'right')
   const [teacherSide, setTeacherSide] = useState('right'); // 'right' | 'left'
@@ -351,6 +356,29 @@ export default function SeatingChart({
                 <Wrench size={16} /> {brokenMachines.length} Máy hỏng
               </span>
             </div>
+
+            {/* Nút Chiếu Sơ Đồ Chỗ Ngồi cho học sinh */}
+            <button 
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setIsDisplayMode(true)}
+              title="Bật Chế độ trình chiếu chỗ ngồi để chiếu lên màn hình lớn/máy chiếu cho học sinh xem"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
+                padding: '0.35rem 0.85rem',
+                cursor: 'pointer'
+              }}
+            >
+              <Maximize2 size={15} />
+              <span>Chiếu Sơ Đồ Chỗ Ngồi</span>
+            </button>
 
             {/* Đổi hướng phòng */}
             <button 
@@ -1286,6 +1314,18 @@ export default function SeatingChart({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Chế độ trình chiếu chỗ ngồi riêng cho học sinh trên màn chiếu lớn */}
+      {isDisplayMode && (
+        <SeatingDisplayMode
+          currentClass={currentClass}
+          labLayout={labLayout}
+          machineStudentMap={machineStudentMap}
+          brokenMachines={brokenMachines}
+          teacherSide={teacherSide}
+          onClose={() => setIsDisplayMode(false)}
+        />
       )}
     </div>
   );
