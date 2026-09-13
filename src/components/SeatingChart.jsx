@@ -50,6 +50,17 @@ export default function SeatingChart({
   const rules = React.useMemo(() => getClassroomRules(), [activeMachineNum]);
   const [quickRuleFeedback, setQuickRuleFeedback] = useState(null);
 
+  // Thông báo khi tự động xếp lại chỗ do báo máy hỏng
+  const [reassignAlerts, setReassignAlerts] = useState(null);
+
+  React.useEffect(() => {
+    if (!reassignAlerts) return;
+    const timer = setTimeout(() => {
+      setReassignAlerts(null);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [reassignAlerts]);
+
   // Hàm cộng / trừ sao và ghi nhận nội quy phòng máy cho học sinh
   const handleAwardStudent = (studentId, pointsDelta, ruleObj = null) => {
     const targetStudent = students.find(s => s.id === studentId);
@@ -138,9 +149,12 @@ export default function SeatingChart({
     const assignedIds = new Set();
     students.forEach(s => {
       if (s.machineNumber && s.machineNumber >= 1 && s.machineNumber <= 31) {
-        if (map[s.machineNumber].length < 2) {
-          map[s.machineNumber].push(s);
-          assignedIds.add(s.id);
+        // Tuyệt đối không nhận học sinh vào máy đang báo hỏng
+        if (!brokenMachines.includes(s.machineNumber)) {
+          if (map[s.machineNumber].length < 2) {
+            map[s.machineNumber].push(s);
+            assignedIds.add(s.id);
+          }
         }
       }
     });
@@ -257,15 +271,145 @@ export default function SeatingChart({
     if (soundEnabled) soundEffects.playStarDing();
   };
 
-  // Bật/tắt máy hỏng dùng chung toàn trường
+  // Bật/tắt máy hỏng dùng chung toàn trường & tự động chuyển chỗ ngồi cho học sinh
   const toggleBrokenMachine = (machineNum) => {
-    setBrokenMachines(prev => {
-      const next = prev.includes(machineNum) ? prev.filter(m => m !== machineNum) : [...prev, machineNum];
-      saveGlobalBrokenMachines(next);
-      syncBrokenMachinesToSqlite(next);
-      return next;
+    const isCurrentlyBroken = brokenMachines.includes(machineNum);
+
+    if (isCurrentlyBroken) {
+      // 1. GIÁO VIÊN HỦY BÁO HỎNG (máy đã sửa xong, đưa về hoạt động bình thường)
+      const nextBroken = brokenMachines.filter(m => m !== machineNum);
+      setBrokenMachines(nextBroken);
+      saveGlobalBrokenMachines(nextBroken);
+      syncBrokenMachinesToSqlite(nextBroken);
+
+      // Máy trở về trạng thái trống bình thường, KHÔNG tự động kéo học sinh về để tránh xáo trộn
+      setReassignAlerts({
+        type: 'info',
+        title: `Đã Hủy Báo Hỏng Máy ${String(machineNum).padStart(2, '0')}`,
+        items: [
+          {
+            type: 'info',
+            text: `Máy ${String(machineNum).padStart(2, '0')} đã sẵn sàng hoạt động bình thường (ở trạng thái trống). Thầy/Cô có thể xếp học sinh thủ công nếu muốn dùng lại máy này.`
+          }
+        ]
+      });
+
+      if (soundEnabled) soundEffects.playTick();
+      return;
+    }
+
+    // 2. GIÁO VIÊN BÁO MÁY HỎNG
+    const nextBroken = [...brokenMachines, machineNum];
+    setBrokenMachines(nextBroken);
+    saveGlobalBrokenMachines(nextBroken);
+    syncBrokenMachinesToSqlite(nextBroken);
+
+    // a. Lấy danh sách học sinh đang gán ở máy vừa bị đánh dấu hỏng (cả HS1 và HS2 nếu có)
+    const currentOnBroken = machineStudentMap[machineNum] || [];
+    const displacedStudents = students.filter(
+      s => Number(s.machineNumber) === machineNum || currentOnBroken.some(c => c.id === s.id)
+    );
+
+    if (displacedStudents.length === 0) {
+      // Máy đang trống, không có học sinh bị ảnh hưởng
+      setReassignAlerts({
+        type: 'warning',
+        title: `Đã Báo Hỏng Máy ${String(machineNum).padStart(2, '0')}`,
+        items: [
+          {
+            type: 'warning',
+            text: `Máy ${String(machineNum).padStart(2, '0')} đã được đánh dấu Hỏng (máy đang trống, không có học sinh bị ảnh hưởng).`
+          }
+        ]
+      });
+      if (soundEnabled) soundEffects.playBuzzer();
+      return;
+    }
+
+    // b. Xác định các máy hoạt động còn lại
+    const workingMachines = [];
+    for (let m = 1; m <= 31; m++) {
+      if (!nextBroken.includes(m)) {
+        workingMachines.push(m);
+      }
+    }
+
+    // c. Tính toán số lượng học sinh hiện có ở các máy hoạt động (loại trừ các học sinh ở máy vừa hỏng)
+    const displacedIds = new Set(displacedStudents.map(s => s.id));
+    const occupancyMap = {};
+    for (const m of workingMachines) {
+      const seated = (machineStudentMap[m] || []).filter(s => !displacedIds.has(s.id));
+      occupancyMap[m] = [...seated];
+    }
+
+    const notices = [];
+    const updatedStudents = [...students];
+
+    // d. Duyệt qua từng học sinh bị ảnh hưởng để tìm máy phù hợp theo đúng logic ghép đôi
+    for (const student of displacedStudents) {
+      let targetMachine = null;
+
+      // ƯU TIÊN 1: Tìm máy hoạt động còn trống hoàn toàn (0 học sinh)
+      for (const m of workingMachines) {
+        if (occupancyMap[m].length === 0) {
+          targetMachine = m;
+          break;
+        }
+      }
+
+      // ƯU TIÊN 2: Nếu hết máy trống hoàn toàn, tìm máy đang có đúng 1 học sinh (ghép đôi slot 2)
+      if (!targetMachine) {
+        for (const m of workingMachines) {
+          if (occupancyMap[m].length === 1) {
+            targetMachine = m;
+            break;
+          }
+        }
+      }
+
+      const sIdx = updatedStudents.findIndex(s => s.id === student.id);
+
+      if (targetMachine) {
+        // Gán học sinh vào targetMachine và cập nhật occupancy
+        occupancyMap[targetMachine].push(student);
+        const isPaired = occupancyMap[targetMachine].length === 2;
+
+        if (sIdx !== -1) {
+          updatedStudents[sIdx] = { ...updatedStudents[sIdx], machineNumber: targetMachine };
+        }
+
+        notices.push({
+          type: 'success',
+          text: `Đã tự động chuyển ${student.name} từ Máy ${String(machineNum).padStart(2, '0')} (hỏng) sang Máy ${String(targetMachine).padStart(2, '0')}${isPaired ? ' (ngồi ghép đôi)' : ''}`
+        });
+      } else {
+        // Trường hợp không còn máy trống / chỗ ghép (tất cả máy hoạt động đã đủ 2 bạn)
+        // Tuyệt đối KHÔNG tự ý ghép 3 bạn vào 1 máy, chuyển về trạng thái chưa có chỗ (machineNumber = null)
+        if (sIdx !== -1) {
+          updatedStudents[sIdx] = { ...updatedStudents[sIdx], machineNumber: null };
+        }
+
+        notices.push({
+          type: 'error',
+          text: `Không đủ chỗ để tự động xếp lại cho ${student.name} — vui lòng xếp thủ công`
+        });
+      }
+    }
+
+    // Cập nhật lại dữ liệu xếp chỗ trong database cho các học sinh vừa được chuyển
+    onUpdateStudents(updatedStudents);
+
+    const hasError = notices.some(n => n.type === 'error');
+    setReassignAlerts({
+      type: hasError ? 'error' : 'success',
+      title: `Báo Hỏng Máy ${String(machineNum).padStart(2, '0')} — Tự Động Xử Lý Chỗ Ngồi`,
+      items: notices
     });
-    if (soundEnabled) soundEffects.playTick();
+
+    if (soundEnabled) {
+      if (hasError) soundEffects.playBuzzer();
+      else soundEffects.playStarDing();
+    }
   };
 
   // Gán học sinh cụ thể vào máy (Học sinh 1 hoặc Học sinh 2)
@@ -402,6 +546,70 @@ export default function SeatingChart({
           </div>
         </div>
       </div>
+
+      {/* Thông Báo Tự Động Xếp Lại Chỗ Khi Báo Máy Hỏng */}
+      {reassignAlerts && (
+        <div style={{
+          background: reassignAlerts.type === 'error' ? '#fef2f2' : (reassignAlerts.type === 'warning' ? '#fffbeb' : '#ecfdf5'),
+          border: `1.5px solid ${reassignAlerts.type === 'error' ? '#f87171' : (reassignAlerts.type === 'warning' ? '#fde047' : '#34d399')}`,
+          borderRadius: 'var(--radius-md)',
+          padding: '0.85rem 1.25rem',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          animation: 'fadeIn 0.2s ease'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+            <div style={{ fontSize: '1.35rem', lineHeight: 1 }}>
+              {reassignAlerts.type === 'error' ? '🚫' : (reassignAlerts.type === 'warning' ? '⚠️' : '✅')}
+            </div>
+            <div>
+              <div style={{
+                fontWeight: 800,
+                fontSize: '0.95rem',
+                color: reassignAlerts.type === 'error' ? '#991b1b' : (reassignAlerts.type === 'warning' ? '#854d0e' : '#065f46'),
+                marginBottom: '0.35rem'
+              }}>
+                {reassignAlerts.title}
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {reassignAlerts.items.map((it, idx) => (
+                  <li 
+                    key={idx} 
+                    style={{
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      color: it.type === 'error' ? '#b91c1c' : '#1e293b'
+                    }}
+                  >
+                    {it.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setReassignAlerts(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#64748b',
+              fontWeight: 800,
+              fontSize: '1.1rem',
+              padding: '0.1rem 0.4rem',
+              borderRadius: 4
+            }}
+            title="Đóng thông báo"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Phía cuối phòng thực hành (Tường sau / Cửa sổ) */}
       <div style={{
@@ -584,10 +792,12 @@ export default function SeatingChart({
                         </div>
                       </div>
 
-                      {/* Display warning if machine is broken with students on it */}
-                      {isBroken && assigned.length > 0 && (
+                      {/* Display warning if machine is broken */}
+                      {isBroken && (
                         <div style={{ fontSize: '0.6875rem', color: '#b45309', fontWeight: 700, background: '#fef3c7', padding: '0.25rem 0.4rem', borderRadius: 4 }}>
-                          ⚠️ Máy hỏng! Hãy chuyển học sinh sang máy khác.
+                          {assigned.length > 0 
+                            ? '⚠️ Máy hỏng! Hãy chuyển học sinh sang máy khác.' 
+                            : '⚠️ Máy hỏng - Tạm ngưng sử dụng'}
                         </div>
                       )}
 
@@ -898,15 +1108,48 @@ export default function SeatingChart({
             {brokenMachines.includes(activeMachineNum) && (
               <div style={{
                 background: '#fffbeb',
-                border: '1px solid #fde68a',
+                border: '1.5px solid #fde68a',
                 padding: '0.75rem 1rem',
                 borderRadius: 'var(--radius-md)',
                 color: '#b45309',
                 fontSize: '0.875rem',
                 fontWeight: 600,
-                marginBottom: '1rem'
+                marginBottom: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem'
               }}>
-                ⚠️ Máy này đang gặp sự cố. Bạn có thể chuyển học sinh sang máy khác để ngồi ghép đôi.
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800 }}>
+                  <AlertTriangle size={18} color="#d97706" />
+                  <span>Máy này đang gặp sự cố (Đã Báo Hỏng / Tạm Ngưng).</span>
+                </div>
+                <div style={{ fontSize: '0.8125rem', color: '#78350f' }}>
+                  Hệ thống đã tự động gỡ và xếp lại các học sinh trước đó sang máy hoạt động khác. Khi máy được sửa xong, hãy bấm "Hủy Báo Hỏng" để đưa máy trở lại sử dụng bình thường.
+                </div>
+              </div>
+            )}
+
+            {/* Thông báo kết quả tự động chuyển chỗ trong modal */}
+            {reassignAlerts && (
+              <div style={{
+                padding: '0.65rem 0.85rem',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.825rem',
+                fontWeight: 700,
+                background: reassignAlerts.type === 'error' ? '#fef2f2' : '#ecfdf5',
+                color: reassignAlerts.type === 'error' ? '#991b1b' : '#065f46',
+                border: `1px solid ${reassignAlerts.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
+                marginBottom: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.25rem'
+              }}>
+                <div style={{ fontWeight: 800 }}>{reassignAlerts.title}:</div>
+                {reassignAlerts.items.map((it, idx) => (
+                  <div key={idx} style={{ color: it.type === 'error' ? '#b91c1c' : '#1e293b' }}>
+                    • {it.text}
+                  </div>
+                ))}
               </div>
             )}
 

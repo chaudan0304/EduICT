@@ -547,7 +547,18 @@ export default function SeatingDisplayMode({
                       )}
 
                       {/* Danh sách học sinh: HIỂN THỊ ĐẦY ĐỦ 100% HỌ TÊN - KHÔNG CẮT NGẮN */}
-                      {assigned.length === 0 && !isBroken ? (
+                      {isBroken ? (
+                        <div style={{
+                          padding: '0.35rem 0.25rem',
+                          textAlign: 'center',
+                          color: '#b45309',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          fontStyle: 'italic'
+                        }}>
+                          (Đã chuyển học sinh sang máy khác)
+                        </div>
+                      ) : assigned.length === 0 ? (
                         <div style={{
                           padding: '0.35rem 0.25rem',
                           textAlign: 'center',
