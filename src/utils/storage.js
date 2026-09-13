@@ -13,7 +13,8 @@ const STORAGE_KEY = 'edumaster_classes_data_v2';
 const CURRENT_CLASS_KEY = 'edumaster_current_class_id';
 const BROKEN_MACHINES_KEY = 'edumaster_broken_machines_v1';
 
-export { compareVietnameseNames, sortStudentsVietnamese } from './vietnameseSort';
+import { compareVietnameseNames, sortStudentsVietnamese } from './vietnameseSort';
+export { compareVietnameseNames, sortStudentsVietnamese };
 
 // Học sinh mẫu chuẩn tiếng Việt cho Khối 1 (Làm quen & Kỹ năng chuột)
 const STUDENTS_GRADE_1 = [
