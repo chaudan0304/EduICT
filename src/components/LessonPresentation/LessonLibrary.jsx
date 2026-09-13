@@ -662,30 +662,8 @@ export default function LessonLibrary({
         flexWrap: 'wrap',
         gap: '1rem'
       }}>
-        {/* Hiển thị Khối Lớp đồng bộ từ Header (Single Source of Truth - Hướng A) */}
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.6rem',
-          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(56, 189, 248, 0.05) 100%)',
-          border: '1px solid rgba(2, 132, 199, 0.3)',
-          padding: '0.45rem 0.95rem',
-          borderRadius: 'var(--radius-md)',
-          color: '#0284c7',
-          fontWeight: 800,
-          fontSize: '0.875rem'
-        }}>
-          <BookOpen size={18} color="#0284c7" />
-          <span>Đang xem: <strong>Khối {currentGrade}</strong></span>
-          {currentClass?.name && (
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>
-              • Lớp {currentClass.name}
-            </span>
-          )}
-        </div>
-
         {/* Lọc theo Chủ đề & Ô tìm kiếm */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, justifyContent: 'flex-end', minWidth: 320 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, justifyContent: 'flex-start', flexWrap: 'wrap' }}>
           <select
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}

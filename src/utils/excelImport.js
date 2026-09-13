@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { compareVietnameseNames, sortStudentsVietnamese } from './vietnameseSort';
 
 // Danh sách các từ khóa tên Sheet mang tính hướng dẫn/hệ thống cần bỏ qua
 const IGNORED_SHEET_NAMES = [
@@ -445,6 +446,9 @@ export function parseExcelWorkbook(file, existingClasses = []) {
             parsedStudents.push(studentItem);
           }
 
+          // Sắp xếp danh sách học sinh của sheet theo thứ tự A - Z chuẩn tiếng Việt
+          parsedStudents.sort(compareVietnameseNames);
+
           const hasErrors = errorCount > 0;
           const sheetStatus = parsedStudents.length === 0 
             ? 'empty' 
@@ -501,7 +505,7 @@ export function exportAllClassesToExcel(classes) {
 
   for (const c of classes) {
     const isPrimaryLow = (c.grade === 1 || c.grade === 2);
-    const students = c.students || [];
+    const students = sortStudentsVietnamese(c.students || []);
 
     // Chuẩn bị tên sheet (tối đa 31 ký tự, loại bỏ ký tự cấm: \ / ? * [ ])
     let sheetName = (c.name || 'Lop')

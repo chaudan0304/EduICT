@@ -424,6 +424,9 @@ function initSchema(db) {
   if (countQB.count === 0) {
     seedInitialQuestions(db);
   }
+
+  // Đảm bảo toàn bộ học sinh trong cơ sở dữ liệu được sắp xếp theo thứ tự A-Z chuẩn tiếng Việt
+  sortAllStudentsInDatabase(db);
 }
 
 function seedInitialData(db) {
@@ -1443,8 +1446,9 @@ export function transitionSchoolYear(fromYear, toYear) {
       insertClassStmt.run(newClassId, newClassName, nextGrade, newSubject, to);
       resultSummary.classesPromoted += 1;
 
-      // Chuyển toàn bộ học sinh của lớp cũ sang lớp mới
-      const oldStudents = db.prepare('SELECT * FROM students WHERE class_id = ? ORDER BY machine_number ASC, id ASC;').all(oldClass.id);
+      // Chuyển toàn bộ học sinh của lớp cũ sang lớp mới (sắp xếp A-Z chuẩn tiếng Việt)
+      const oldStudents = db.prepare('SELECT * FROM students WHERE class_id = ?;').all(oldClass.id);
+      oldStudents.sort(compareVietnameseNames);
 
       for (const s of oldStudents) {
         insertStudentStmt.run(
@@ -1538,7 +1542,122 @@ export function transitionSchoolYear(fromYear, toYear) {
   return resultSummary;
 }
 
+// ==========================================================
+// THUẬT TOÁN SẮP XẾP DANH SÁCH HỌC SINH THEO THỨ TỰ A - Z
+// Chuẩn quy định của Bộ Giáo Dục & Đào Tạo:
+// 1. So sánh Tên (từ cuối cùng) theo bảng chữ cái Tiếng Việt
+// 2. Nếu trùng Tên -> So sánh Họ và tên đệm
+// 3. Nếu trùng cả Họ tên -> So sánh ngày sinh / id
+// ==========================================================
+export function compareVietnameseNames(a, b) {
+  const nameA = (typeof a === 'string' ? a : (a?.name || '')).trim();
+  const nameB = (typeof b === 'string' ? b : (b?.name || '')).trim();
+  if (!nameA && !nameB) return 0;
+  if (!nameA) return 1;
+  if (!nameB) return -1;
+
+  const partsA = nameA.split(/\s+/);
+  const partsB = nameB.split(/\s+/);
+
+  const firstNameA = partsA[partsA.length - 1];
+  const firstNameB = partsB[partsB.length - 1];
+
+  // 1. So sánh Tên chính theo bảng chữ cái tiếng Việt
+  const cmpFirst = firstNameA.localeCompare(firstNameB, 'vi', { numeric: true, sensitivity: 'accent' });
+  if (cmpFirst !== 0) return cmpFirst;
+
+  // 2. Cùng Tên -> So sánh Họ và tên đệm
+  const restA = partsA.slice(0, -1).join(' ');
+  const restB = partsB.slice(0, -1).join(' ');
+  const cmpRest = restA.localeCompare(restB, 'vi', { numeric: true, sensitivity: 'accent' });
+  if (cmpRest !== 0) return cmpRest;
+
+  // 3. Nếu họ tên giống nhau -> So sánh ngày sinh
+  const dobA = typeof a === 'object' && a?.dob ? String(a.dob).trim() : '';
+  const dobB = typeof b === 'object' && b?.dob ? String(b.dob).trim() : '';
+  if (dobA && dobB && dobA !== dobB) {
+    return dobA.localeCompare(dobB);
+  }
+
+  // 4. Phân định cuối cùng theo id nếu là đối tượng
+  const idA = typeof a === 'object' && a?.id ? String(a.id) : '';
+  const idB = typeof b === 'object' && b?.id ? String(b.id) : '';
+  return idA.localeCompare(idB);
+}
+
+// Sắp xếp lại học sinh của tất cả các lớp trong CSDL SQLite theo thứ tự A-Z
+export function sortAllStudentsInDatabase(customDb = null) {
+  const db = customDb || getDatabase();
+  const classes = db.prepare('SELECT id, name FROM classes;').all();
+
+  const getStudentsStmt = db.prepare('SELECT * FROM students WHERE class_id = ?;');
+  const deleteStmt = db.prepare('DELETE FROM students WHERE class_id = ?;');
+  const insertStmt = db.prepare(`
+    INSERT INTO students (
+      id, class_id, name, dob, gender, machine_number, stars, attendance,
+      skill_mouse, skill_keyboard, skill_paint, eval_regular, score_hk1, score_ck, note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  `);
+
+  db.exec('BEGIN TRANSACTION;');
+  let totalReorderedClasses = 0;
+  let totalStudentsAffected = 0;
+
+  try {
+    for (const c of classes) {
+      const students = getStudentsStmt.all(c.id);
+      if (students.length <= 1) continue;
+
+      const sorted = [...students].sort(compareVietnameseNames);
+
+      let changed = false;
+      for (let i = 0; i < students.length; i++) {
+        if (students[i].id !== sorted[i].id) {
+          changed = true;
+          break;
+        }
+      }
+
+      if (changed) {
+        deleteStmt.run(c.id);
+        for (const s of sorted) {
+          insertStmt.run(
+            s.id,
+            s.class_id,
+            s.name,
+            s.dob || '',
+            s.gender || 'Nam',
+            s.machine_number,
+            s.stars || 0,
+            s.attendance || 'present',
+            s.skill_mouse || 'T',
+            s.skill_keyboard || 'H',
+            s.skill_paint || 'T',
+            s.eval_regular || 'T',
+            s.score_hk1,
+            s.score_ck,
+            s.note || ''
+          );
+        }
+        totalReorderedClasses++;
+        totalStudentsAffected += sorted.length;
+      }
+    }
+    db.exec('COMMIT;');
+    if (totalReorderedClasses > 0) {
+      console.log(`[Database] Đã sắp xếp A-Z danh sách học sinh: ${totalReorderedClasses} lớp (${totalStudentsAffected} học sinh).`);
+    }
+  } catch (err) {
+    db.exec('ROLLBACK;');
+    console.error('[Database] Lỗi khi sắp xếp lại học sinh trong CSDL:', err);
+    throw err;
+  }
+
+  return { totalReorderedClasses, totalStudentsAffected };
+}
+
 // Lấy toàn bộ danh sách lớp kèm học sinh (hỗ trợ lọc theo năm học hoặc mặc định năm hiện tại)
+// Học sinh trong mỗi lớp luôn được sắp xếp theo thứ tự A - Z chuẩn tiếng Việt
 export function getAllClassesWithStudents(schoolYear = null) {
   const db = getDatabase();
   let yearParam = null;
@@ -1555,7 +1674,7 @@ export function getAllClassesWithStudents(schoolYear = null) {
     classes = db.prepare('SELECT * FROM classes ORDER BY grade ASC, name ASC;').all();
   }
 
-  const students = db.prepare('SELECT * FROM students ORDER BY machine_number ASC, id ASC;').all();
+  const students = db.prepare('SELECT * FROM students ORDER BY rowid ASC;').all();
 
   // Nhóm học sinh theo class_id
   const studentMap = {};
@@ -1581,14 +1700,18 @@ export function getAllClassesWithStudents(schoolYear = null) {
     });
   }
 
-  return classes.map(c => ({
-    id: c.id,
-    name: c.name,
-    grade: c.grade,
-    subject: c.subject,
-    schoolYear: c.school_year,
-    students: studentMap[c.id] || []
-  }));
+  return classes.map(c => {
+    const classStudents = studentMap[c.id] || [];
+    classStudents.sort(compareVietnameseNames);
+    return {
+      id: c.id,
+      name: c.name,
+      grade: c.grade,
+      subject: c.subject,
+      schoolYear: c.school_year,
+      students: classStudents
+    };
+  });
 }
 
 // Thêm hoặc cập nhật lớp học
@@ -1622,15 +1745,16 @@ export function deleteClassById(classId) {
   db.prepare('DELETE FROM classes WHERE id = ?;').run(classId);
 }
 
-// Cập nhật danh sách học sinh của 1 lớp
+// Cập nhật danh sách học sinh của 1 lớp (tự động sắp xếp A - Z chuẩn tiếng Việt)
 export function saveStudentsForClass(classId, studentsList) {
   const db = getDatabase();
+  const sortedList = Array.isArray(studentsList) ? [...studentsList].sort(compareVietnameseNames) : [];
   db.exec('BEGIN TRANSACTION;');
   try {
     // Xóa danh sách học sinh cũ của lớp
     db.prepare('DELETE FROM students WHERE class_id = ?;').run(classId);
 
-    // Chèn lại danh sách học sinh mới
+    // Chèn lại danh sách học sinh mới đã sắp xếp A - Z
     const insertStmt = db.prepare(`
       INSERT INTO students (
         id, class_id, name, dob, gender, machine_number, stars, attendance,
@@ -1638,7 +1762,7 @@ export function saveStudentsForClass(classId, studentsList) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `);
 
-    for (const s of studentsList) {
+    for (const s of sortedList) {
       insertStmt.run(
         s.id,
         classId,
@@ -1910,6 +2034,9 @@ export function batchImportClassesAndStudents(payload) {
 
       sheetResults.push(sheetRes);
     }
+
+    // Sắp xếp lại học sinh các lớp vừa import theo chuẩn A-Z
+    sortAllStudentsInDatabase(db);
 
     db.exec('COMMIT;');
     return {

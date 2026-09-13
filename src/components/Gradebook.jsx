@@ -11,18 +11,16 @@ import {
   Users, 
   AlertCircle,
   Sparkles,
-  ChevronDown,
-  Monitor,
   CheckCircle2,
-  ThumbsUp,
-  MessageSquare
+  ArrowUpDown
 } from 'lucide-react';
 import { 
   calculateAverage, 
   getGradeRank, 
   exportToExcel, 
   importFromExcel,
-  detectGradeFromName 
+  detectGradeFromName,
+  sortStudentsVietnamese 
 } from '../utils/storage';
 import { soundEffects } from '../utils/audio';
 import AiClassAnalysisModal from './AI/AiClassAnalysisModal';
@@ -40,9 +38,12 @@ export default function Gradebook({
   const [isAiClassModalOpen, setIsAiClassModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
+  const [sortToast, setSortToast] = useState(false);
   const grade = currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
   const isGrade1or2 = (grade === 1 || grade === 2);
-  const students = currentClass?.students || [];
+  const students = useMemo(() => {
+    return sortStudentsVietnamese(currentClass?.students || []);
+  }, [currentClass?.students]);
 
   // Form thêm học sinh mới
   const [newStudent, setNewStudent] = useState({
@@ -207,7 +208,8 @@ export default function Gradebook({
       attendance: 'present'
     };
 
-    onUpdateStudents([...students, studentToAdd]);
+    const updated = sortStudentsVietnamese([...students, studentToAdd]);
+    onUpdateStudents(updated);
     setNewStudent({
       name: '',
       dob: '',
@@ -225,6 +227,15 @@ export default function Gradebook({
     if (soundEnabled) soundEffects.playStarDing();
   };
 
+  // Sắp xếp lại danh sách học sinh theo thứ tự A - Z chuẩn tiếng Việt
+  const handleSortStudentsAZ = () => {
+    const sorted = sortStudentsVietnamese(students);
+    onUpdateStudents(sorted);
+    setSortToast(true);
+    if (soundEnabled) soundEffects.playStarDing();
+    setTimeout(() => setSortToast(false), 3000);
+  };
+
   // Xử lý Import Excel
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -237,7 +248,8 @@ export default function Gradebook({
       }
       if (importedList && importedList.length > 0) {
         if (window.confirm(`Đã tìm thấy ${importedList.length} học sinh trong file. Thầy/cô muốn nạp danh sách này vào lớp ${currentClass.name}?`)) {
-          onUpdateStudents(importedList);
+          const sorted = sortStudentsVietnamese(importedList);
+          onUpdateStudents(sorted);
           if (soundEnabled) soundEffects.playVictory();
         }
       } else {
@@ -461,7 +473,26 @@ export default function Gradebook({
             </select>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button 
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleSortStudentsAZ}
+              title="Sắp xếp lại danh sách học sinh theo thứ tự A - Z (chuẩn Bộ GD&ĐT)"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                fontWeight: 700,
+                borderColor: 'rgba(99, 102, 241, 0.35)',
+                background: 'rgba(99, 102, 241, 0.08)',
+                color: 'var(--primary)'
+              }}
+            >
+              <ArrowUpDown size={15} />
+              <span>Sắp xếp A-Z</span>
+            </button>
+
             <button 
               className="btn btn-amber btn-sm"
               onClick={() => onOpenExchangeModal?.()}
@@ -948,6 +979,29 @@ export default function Gradebook({
           onClose={() => setIsAiClassModalOpen(false)}
           currentClass={currentClass}
         />
+      )}
+
+      {/* Thông báo toast khi sắp xếp học sinh A - Z */}
+      {sortToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '1.5rem',
+          right: '1.5rem',
+          background: '#10b981',
+          color: '#ffffff',
+          padding: '0.75rem 1.25rem',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.6rem',
+          zIndex: 9999,
+          fontWeight: 700,
+          fontSize: '0.875rem'
+        }}>
+          <CheckCircle2 size={18} />
+          <span>Đã sắp xếp danh sách học sinh theo thứ tự A - Z!</span>
+        </div>
       )}
     </div>
   );

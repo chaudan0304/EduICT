@@ -398,43 +398,12 @@ export default function App() {
 
               {classes.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-                  {/* MỤC CHỌN KHỐI (Thêm mới theo yêu cầu) */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <label htmlFor="quick-grade-switcher" style={{ fontSize: '0.825rem', color: 'var(--text-muted, #64748b)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                      Chọn khối:
-                    </label>
-                    <select
-                      id="quick-grade-switcher"
-                      value={currentClass.grade || detectGradeFromName(currentClass.name) || 1}
-                      onChange={(e) => {
-                        const targetGrade = Number(e.target.value);
-                        const targetClasses = classes.filter(c => (c.grade || detectGradeFromName(c.name)) === targetGrade);
-                        if (targetClasses.length > 0) {
-                          const currentInTarget = targetClasses.find(c => c.id === currentClassId);
-                          const nextClassId = currentInTarget ? currentInTarget.id : targetClasses[0].id;
-                          setClassId(nextClassId);
-                          setCurrentClassId(nextClassId);
-                        }
-                      }}
-                      style={{
-                        padding: '0.35rem 0.65rem',
-                        fontSize: '0.85rem',
-                        fontWeight: 700,
-                        color: 'var(--text-main, #1e293b)',
-                        background: 'var(--surface-secondary, #f8fafc)',
-                        border: '1px solid var(--surface-border, #cbd5e1)',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        outline: 'none'
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5].map(g => (
-                        <option key={g} value={g}>Khối {g}</option>
-                      ))}
-                    </select>
-
-                    {/* Nút bấm nhanh K1 - K5 */}
-                    <div style={{ display: 'inline-flex', gap: '0.2rem', background: 'var(--surface-secondary, #f1f5f9)', padding: '0.15rem', borderRadius: '8px', border: '1px solid var(--surface-border, #e2e8f0)' }}>
+                  {/* MỤC CHỌN KHỐI (Hàng nút bấm nhanh K1 - K5 trực quan) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <span style={{ fontSize: '0.825rem', color: 'var(--text-muted, #64748b)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      Khối:
+                    </span>
+                    <div style={{ display: 'inline-flex', gap: '0.2rem', background: 'var(--surface-secondary, #f1f5f9)', padding: '0.15rem', borderRadius: '8px', border: '1px solid var(--surface-border, #cbd5e1)' }}>
                       {[1, 2, 3, 4, 5].map(gNum => {
                         const curG = currentClass.grade || detectGradeFromName(currentClass.name) || 1;
                         const isAct = Number(curG) === gNum;
@@ -452,7 +421,7 @@ export default function App() {
                               }
                             }}
                             style={{
-                              padding: '0.2rem 0.5rem',
+                              padding: '0.2rem 0.55rem',
                               fontSize: '0.775rem',
                               fontWeight: 800,
                               borderRadius: '6px',
@@ -463,7 +432,7 @@ export default function App() {
                               color: isAct ? '#fff' : 'var(--text-main, #334155)',
                               boxShadow: isAct ? '0 1px 4px rgba(2, 132, 199, 0.3)' : 'none'
                             }}
-                            title={`Chọn Khối ${gNum}`}
+                            title={`Chuyển sang Khối ${gNum}`}
                           >
                             K{gNum}
                           </button>

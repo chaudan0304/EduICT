@@ -6,6 +6,7 @@ import {
   saveOrUpdateClass, 
   deleteClassById, 
   saveStudentsForClass, 
+  sortAllStudentsInDatabase,
   batchImportClassesAndStudents,
   getCurrentSchoolYear,
   setCurrentSchoolYear,
@@ -348,6 +349,17 @@ export async function handleApiRequest(req, res) {
       const studentsList = Array.isArray(body) ? body : (body.students || []);
       saveStudentsForClass(classId, studentsList);
       sendJson(res, 200, { success: true });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
+  // 5b. Sắp xếp lại danh sách học sinh theo thứ tự A - Z chuẩn tiếng Việt (POST /api/classes/sort-students)
+  if (pathname === '/api/classes/sort-students' && method === 'POST') {
+    try {
+      const result = sortAllStudentsInDatabase();
+      sendJson(res, 200, { success: true, ...result });
     } catch (err) {
       sendJson(res, 500, { error: err.message });
     }

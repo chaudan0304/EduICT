@@ -13,6 +13,8 @@ const STORAGE_KEY = 'edumaster_classes_data_v2';
 const CURRENT_CLASS_KEY = 'edumaster_current_class_id';
 const BROKEN_MACHINES_KEY = 'edumaster_broken_machines_v1';
 
+export { compareVietnameseNames, sortStudentsVietnamese } from './vietnameseSort';
+
 // Học sinh mẫu chuẩn tiếng Việt cho Khối 1 (Làm quen & Kỹ năng chuột)
 const STUDENTS_GRADE_1 = [
   { id: 'HS101', name: 'Nguyễn Tuấn Anh', gender: 'Nam', machineNumber: 1, skill_mouse: 'T', skill_keyboard: 'H', skill_paint: 'T', stars: 15, note: 'Cầm chuột đúng cách, vẽ bông hoa đẹp', attendance: 'present' },
@@ -131,10 +133,11 @@ export function getStoredClasses() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Đảm bảo mọi lớp đều có thuộc tính grade
+        // Đảm bảo mọi lớp đều có thuộc tính grade và học sinh sắp xếp A - Z
         return parsed.map(c => ({
           ...c,
-          grade: c.grade || detectGradeFromName(c.name)
+          grade: c.grade || detectGradeFromName(c.name),
+          students: sortStudentsVietnamese(c.students || [])
         }));
       }
     }
@@ -142,8 +145,12 @@ export function getStoredClasses() {
     console.error('Failed to load classes from localStorage', e);
   }
   // Khởi tạo mặc định nếu chưa có
-  saveClasses(INITIAL_CLASSES);
-  return INITIAL_CLASSES;
+  const defaultClasses = INITIAL_CLASSES.map(c => ({
+    ...c,
+    students: sortStudentsVietnamese(c.students || [])
+  }));
+  saveClasses(defaultClasses);
+  return defaultClasses;
 }
 
 export function saveClasses(classes) {
@@ -475,7 +482,10 @@ export async function fetchClassesFromSqlite(schoolYear = null) {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
-        return data;
+        return data.map(c => ({
+          ...c,
+          students: sortStudentsVietnamese(c.students || [])
+        }));
       }
     }
   } catch (e) {
@@ -506,14 +516,31 @@ export async function deleteClassFromSqlite(classId) {
 
 export async function syncStudentsToSqlite(classId, students) {
   try {
+    const sorted = sortStudentsVietnamese(students);
     await fetch(`/api/classes/${classId}/students`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ students })
+      body: JSON.stringify({ students: sorted })
     });
   } catch (e) {
     console.warn('Failed to sync students to SQLite:', e);
   }
+}
+
+// Gọi API sắp xếp lại học sinh của tất cả các lớp trong SQLite theo thứ tự A - Z
+export async function sortClassStudentsInSqlite() {
+  try {
+    const res = await fetch('/api/classes/sort-students', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('Failed to sort students in SQLite:', e);
+  }
+  return null;
 }
 
 export async function batchImportClassesToSqlite(payload) {
