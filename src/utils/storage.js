@@ -361,12 +361,120 @@ export function importFromExcel(file, callback) {
 
 // --- CÁC HÀM ĐỒNG BỘ CƠ SỞ DỮ LIỆU SQLITE (FILE SQL) ---
 
-export async function fetchClassesFromSqlite() {
+// Tính toán năm học chuẩn dựa theo ngày và mốc bắt đầu của nhà trường (Section IV: Công thức)
+export function calculateAcademicYear(date = new Date(), startMonth = 9, startDay = 5) {
+  const d = (date instanceof Date && !isNaN(date.getTime())) ? date : new Date(date);
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+  const currentYear = validDate.getFullYear();
+  const currentMonth = validDate.getMonth() + 1;
+  const currentDay = validDate.getDate();
+
+  let schoolYearStart;
+  if (currentMonth > startMonth || (currentMonth === startMonth && currentDay >= startDay)) {
+    schoolYearStart = currentYear;
+  } else {
+    schoolYearStart = currentYear - 1;
+  }
+
+  return `${schoolYearStart} - ${schoolYearStart + 1}`;
+}
+
+export async function fetchAcademicYearSettings() {
   try {
-    const res = await fetch('/api/classes');
+    const res = await fetch('/api/school-year/settings');
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('Could not fetch academic year settings:', e);
+  }
+  return { startMonth: 9, startDay: 5, currentCalculatedYear: '2026 - 2027', activeCurrentYear: '2026 - 2027' };
+}
+
+export async function saveAcademicYearSettings(startMonth, startDay) {
+  const res = await fetch('/api/school-year/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ startMonth, startDay })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Lỗi máy chủ (${res.status})`);
+  }
+  return data;
+}
+
+export async function checkNewSchoolYearFromSqlite() {
+  try {
+    const res = await fetch('/api/school-year/check-new');
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('Could not check new school year:', e);
+  }
+  return { isNewYearDetected: false, newYear: '2026 - 2027', promotionCompleted: false };
+}
+
+export function calculateNextSchoolYear(yearStr) {
+  const match = (yearStr || '').match(/(\d{4})\s*-\s*(\d{4})/);
+  if (match) {
+    const y1 = parseInt(match[1], 10);
+    const y2 = parseInt(match[2], 10);
+    return `${y1 + 1} - ${y2 + 1}`;
+  }
+  const currentYearNum = new Date().getFullYear();
+  return `${currentYearNum} - ${currentYearNum + 1}`;
+}
+
+export async function fetchSchoolYearsFromSqlite() {
+  try {
+    const res = await fetch('/api/school-years');
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('Backend SQLite school-years API not reachable:', e);
+  }
+  return { currentYear: '2026 - 2027', availableYears: ['2025 - 2026', '2026 - 2027'], transitions: [] };
+}
+
+export async function setCurrentSchoolYearToSqlite(schoolYear) {
+  try {
+    const res = await fetch('/api/school-year/current', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schoolYear })
+    });
+    return res.ok;
+  } catch (e) {
+    console.warn('Failed to set current school year:', e);
+    return false;
+  }
+}
+
+export async function transitionSchoolYearInSqlite(fromYear, toYear) {
+  const res = await fetch('/api/school-year/transition', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fromYear, toYear })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Lỗi máy chủ (${res.status})`);
+  }
+  return data;
+}
+
+export async function fetchClassesFromSqlite(schoolYear = null) {
+  try {
+    const url = schoolYear && schoolYear !== 'all' 
+      ? `/api/classes?schoolYear=${encodeURIComponent(schoolYear)}`
+      : (schoolYear === 'all' ? '/api/classes?schoolYear=all' : '/api/classes');
+    const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         return data;
       }
     }
@@ -424,6 +532,22 @@ export async function batchImportClassesToSqlite(payload) {
     console.error('Failed to batch import classes to SQLite:', e);
     throw e;
   }
+}
+
+export async function fetchStudentStatisticsFromSqlite(schoolYear = null) {
+  try {
+    const url = schoolYear && schoolYear !== 'all'
+      ? `/api/statistics/students?schoolYear=${encodeURIComponent(schoolYear)}`
+      : '/api/statistics/students';
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (e) {
+    console.warn('Backend SQLite statistics API not reachable:', e);
+  }
+  return null;
 }
 
 export async function fetchBrokenMachinesFromSqlite() {

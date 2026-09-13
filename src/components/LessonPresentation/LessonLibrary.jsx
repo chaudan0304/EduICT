@@ -15,7 +15,6 @@ import {
   AlertTriangle,
   X,
   CheckCircle2,
-  ShieldCheck,
   ChevronRight,
   RefreshCw,
   Sparkles,
@@ -25,7 +24,6 @@ import {
   fetchLessonsApi, 
   deleteLessonApi, 
   duplicateLessonApi, 
-  INFORMATICS_TOPICS,
   fetchLessonDetailApi,
   fetchLessonRenderStatusApi,
   compareLessonTitles,
@@ -608,15 +606,23 @@ export default function LessonLibrary({
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap', fontSize: '0.825rem' }}>
                 <span style={{ color: '#ef4444', fontWeight: 700 }}>
-                  🔴 Trùng 100% (95-100%): <strong>{scanReport.exactCount}</strong> bài
+                  🔴 Trùng hoàn toàn (100%): <strong>{scanReport.exactCount}</strong> bài
                 </span>
+                {Boolean(scanReport.veryHighCount) && (
+                  <>
+                    <span style={{ color: 'var(--text-muted)' }}>•</span>
+                    <span style={{ color: '#ef4444', fontWeight: 700 }}>
+                      🔴 Rất giống (95-99.9%): <strong>{scanReport.veryHighCount}</strong> bài
+                    </span>
+                  </>
+                )}
                 <span style={{ color: 'var(--text-muted)' }}>•</span>
                 <span style={{ color: '#ea580c', fontWeight: 700 }}>
-                  🟠 Trùng cao (80-95%): <strong>{scanReport.highCount}</strong> bài
+                  🟠 Trùng cao (80-94.9%): <strong>{scanReport.highCount}</strong> bài
                 </span>
                 <span style={{ color: 'var(--text-muted)' }}>•</span>
                 <span style={{ color: '#b45309', fontWeight: 700 }}>
-                  🟡 Gần giống (60-80%): <strong>{scanReport.referenceCount}</strong> bài
+                  🟡 Gần giống (60-79.9%): <strong>{scanReport.referenceCount}</strong> bài
                 </span>
               </div>
             </div>
@@ -737,9 +743,9 @@ export default function LessonLibrary({
           {[
             { id: 'all', label: 'Tất cả' },
             { id: 'unique', label: '✓ Bài mới', color: '#10b981' },
-            { id: 'exact_duplicate', label: '🔴 Trùng 100% (95-100%)', color: '#ef4444', count: scanReport?.exactCount },
-            { id: 'high_duplicate', label: '🟠 Trùng cao (80-95%)', color: '#f97316', count: scanReport?.highCount },
-            { id: 'near_similar', label: '🟡 Gần giống (60-80%)', color: '#eab308', count: scanReport?.referenceCount }
+            { id: 'exact_duplicate', label: '🔴 Trùng hoàn toàn (100%)', color: '#ef4444', count: scanReport?.exactCount },
+            { id: 'high_duplicate', label: '🟠 Trùng cao (80-94.9%)', color: '#f97316', count: scanReport?.highCount },
+            { id: 'near_similar', label: '🟡 Gần giống (60-79.9%)', color: '#eab308', count: scanReport?.referenceCount }
           ].map(p => {
             const isActive = similarityFilter === p.id;
             return (
@@ -1110,7 +1116,8 @@ export default function LessonLibrary({
                         const simStatus = dupInfo ? dupInfo.status : (lesson.similarity_status || 'unique');
                         const matchedTarget = dupInfo ? dupInfo.matchedLesson : (lessons.find(l => l.id === lesson.duplicate_of_id) || { title: 'Bài giảng trùng lặp' });
 
-                        if (simStatus === 'exact_duplicate' || dupInfo?.tier === 'exact') {
+                        if (simStatus === 'exact_duplicate' || dupInfo?.tier === 'exact' || simStatus === 'very_high_duplicate' || dupInfo?.tier === 'very_high') {
+                          const is100 = simScore === 100 || (simStatus === 'exact_duplicate' && (!simScore || simScore === 100));
                           return (
                             <button
                               type="button"
@@ -1119,10 +1126,10 @@ export default function LessonLibrary({
                                 setDuplicateDetailModal({
                                   lesson,
                                   matchedLesson: matchedTarget,
-                                  score: simScore || 100,
-                                  tier: 'exact',
-                                  tierBadge: '🔴 Cảnh báo',
-                                  tierLabel: 'Trùng 100% (95-100%)',
+                                  score: simScore || (is100 ? 100 : 95),
+                                  tier: is100 ? 'exact' : 'very_high',
+                                  tierBadge: is100 ? '🔴 Trùng hoàn toàn' : '🔴 Rất giống',
+                                  tierLabel: is100 ? 'Trùng hoàn toàn (100%)' : `Rất giống (${simScore || 95}%)`,
                                   tierColor: '#ef4444'
                                 });
                               }}
@@ -1142,7 +1149,7 @@ export default function LessonLibrary({
                               title="Nhấn để xem chi tiết đối chiếu & xử lý bài trùng"
                             >
                               <span>🔴</span>
-                              <span>Trùng 100% ({simScore || 100}%)</span>
+                              <span>{is100 ? 'Trùng hoàn toàn (100%)' : `Rất giống (${simScore || 95}%)`}</span>
                             </button>
                           );
                         }
@@ -1987,9 +1994,10 @@ export default function LessonLibrary({
                   </span>
                   {[
                     { id: 'all', label: 'Tất cả các cặp', count: scanReport?.totalDuplicates || 0 },
-                    { id: 'exact', label: '🔴 Trùng 100% (95-100%)', color: '#ef4444', count: scanReport?.exactCount || 0 },
-                    { id: 'high', label: '🟠 Trùng cao (80-95%)', color: '#f97316', count: scanReport?.highCount || 0 },
-                    { id: 'reference', label: '🟡 Gần giống (60-80%)', color: '#eab308', count: scanReport?.referenceCount || 0 }
+                    { id: 'exact', label: '🔴 Trùng hoàn toàn (100%)', color: '#ef4444', count: scanReport?.exactCount || 0 },
+                    ...(scanReport?.veryHighCount > 0 ? [{ id: 'very_high', label: '🔴 Rất giống (95-99.9%)', color: '#ef4444', count: scanReport?.veryHighCount || 0 }] : []),
+                    { id: 'high', label: '🟠 Trùng cao (80-94.9%)', color: '#f97316', count: scanReport?.highCount || 0 },
+                    { id: 'reference', label: '🟡 Gần giống (60-79.9%)', color: '#eab308', count: scanReport?.referenceCount || 0 }
                   ].map(tab => {
                     const isActive = scanModalTab === tab.id;
                     return (

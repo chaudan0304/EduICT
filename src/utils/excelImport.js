@@ -330,6 +330,7 @@ export function parseExcelWorkbook(file, existingClasses = []) {
             parsedSheets.push({
               sheetName: trimmedSheetName,
               className: trimmedSheetName,
+              selected: false, // lỗi header thì mặc định không chọn
               grade: detectedGrade,
               classExists,
               targetClassId,
@@ -452,6 +453,7 @@ export function parseExcelWorkbook(file, existingClasses = []) {
           parsedSheets.push({
             sheetName: trimmedSheetName,
             className: trimmedSheetName,
+            selected: true,
             grade: detectedGrade,
             classExists,
             targetClassId,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   GraduationCap, 
   ClipboardList, 
@@ -14,14 +14,24 @@ import {
   Users, 
   CheckCircle2,
   ChevronRight,
-  Flame
+  Flame,
+  Layers,
+  BookOpen,
+  Zap,
+  Target
 } from 'lucide-react';
 
 export default function HomeDashboard({ 
+  classes = [],
   currentClass, 
+  onSelectClass,
+  studentStats,
+  _isLoadingStats,
   onSelectTab,
-  onOpenExchangeModal 
+  onOpenExchangeModal,
+  currentSchoolYear = '2026 - 2027'
 }) {
+  const [selectedGradeFilter, setSelectedGradeFilter] = useState('all');
   const students = currentClass?.students || [];
   const totalStars = students.reduce((acc, s) => acc + (s.stars || 0), 0);
   const grade = currentClass?.grade || 3;
@@ -202,7 +212,7 @@ export default function HomeDashboard({
               EduICT Hub
             </span>
             <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-              Năm học 2025 - 2026 • Môn {currentClass?.subject || 'Tin Học'}
+              Môn {currentClass?.subject || 'Tin Học Tiểu Học'}
             </span>
           </div>
 
@@ -224,7 +234,7 @@ export default function HomeDashboard({
             Hệ thống quản lý phòng máy 31 máy, sổ đánh giá kỹ năng & chuẩn Thông tư 27 cho 5 khối lớp, cộng sao 1-chạm và các mini-games tương tác sôi động cho tiết học 35 phút.
           </p>
 
-          {/* Thanh chỉ số nhanh */}
+          {/* Thanh chỉ số phòng máy và lớp */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{
               background: 'var(--surface-card)',
@@ -238,7 +248,7 @@ export default function HomeDashboard({
             }}>
               <Users size={20} color="#4f46e5" />
               <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sĩ số lớp</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sĩ số lớp đang chọn</div>
                 <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>{students.length} Học sinh</div>
               </div>
             </div>
@@ -255,7 +265,7 @@ export default function HomeDashboard({
             }}>
               <Star size={20} color="#f59e0b" />
               <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tổng sao / Điểm tốt</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tổng sao tích lũy</div>
                 <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f59e0b' }}>{totalStars} ⭐</div>
               </div>
             </div>
@@ -279,6 +289,456 @@ export default function HomeDashboard({
           </div>
         </div>
       </div>
+
+      {/* SECTION XXV & XXVI: THỐNG KÊ TOÀN TRƯỜNG & THỐNG KÊ THEO KHỐI */}
+      <div style={{
+        background: 'var(--surface-card)',
+        border: '1px solid var(--surface-border)',
+        borderRadius: 'var(--radius-xl)',
+        padding: '1.75rem',
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          marginBottom: '1.25rem',
+          borderBottom: '1px solid var(--surface-border)',
+          paddingBottom: '0.85rem'
+        }}>
+          <div>
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              color: 'var(--text-main)',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase'
+            }}>
+              <GraduationCap size={22} color="var(--primary)" />
+              <span>THỐNG KÊ SỐ LƯỢNG HỌC SINH</span>
+            </h2>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+              Số liệu thực tế trực tiếp từ cơ sở dữ liệu SQLite
+            </div>
+          </div>
+
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            background: 'rgba(2, 132, 199, 0.1)',
+            color: 'var(--primary)',
+            padding: '0.3rem 0.75rem',
+            borderRadius: '999px'
+          }}>
+            Năm học {studentStats?.schoolYear || currentSchoolYear}
+          </span>
+        </div>
+
+        {/* Grid các Cards Thống Kê: Toàn trường + 5 Khối */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '1rem'
+        }}>
+          {/* Card TOÀN TRƯỜNG (Nổi Bật) */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12) 0%, rgba(37, 99, 235, 0.08) 100%)',
+            border: '2px solid rgba(2, 132, 199, 0.4)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.25rem',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            boxShadow: '0 4px 14px rgba(2, 132, 199, 0.12)'
+          }}>
+            <div style={{
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              color: 'var(--primary)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              marginBottom: '0.35rem'
+            }}>
+              TOÀN TRƯỜNG
+            </div>
+            <div style={{ fontSize: '2.5rem', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1 }}>
+              {studentStats?.totalStudents ?? 807}
+            </div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              học sinh
+            </div>
+            <div style={{
+              marginTop: '0.65rem',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              padding: '0.25rem 0.75rem',
+              borderRadius: '999px',
+              background: 'rgba(2, 132, 199, 0.18)',
+              color: 'var(--primary)'
+            }}>
+              {studentStats?.totalClasses ?? 24} lớp
+            </div>
+          </div>
+
+          {/* 5 Cards KHỐI 1 - 5 (Lớn, rõ ràng, dễ đọc) */}
+          {[1, 2, 3, 4, 5].map(gNum => {
+            const gData = studentStats?.grades?.find(g => g.grade === gNum) || { 
+              grade: gNum, 
+              studentCount: 0, 
+              classCount: 0 
+            };
+            const isSelected = selectedGradeFilter === gNum;
+            const hasNoStudents = gData.studentCount === 0;
+
+            return (
+              <div
+                key={gNum}
+                onClick={() => setSelectedGradeFilter(selectedGradeFilter === gNum ? 'all' : gNum)}
+                style={{
+                  background: isSelected ? 'rgba(2, 132, 199, 0.12)' : 'var(--surface-secondary)',
+                  border: isSelected ? '2px solid var(--primary)' : '1px solid var(--surface-border)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '1.15rem 1.25rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  boxShadow: isSelected ? '0 4px 14px rgba(2, 132, 199, 0.18)' : 'none'
+                }}
+                title={`Bấm để lọc xem danh sách lớp Khối ${gNum}`}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                    textTransform: 'uppercase'
+                  }}>
+                    KHỐI {gNum}
+                  </span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                    {gData.classCount} lớp
+                  </span>
+                </div>
+
+                <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.1 }}>
+                  {gData.studentCount}
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '0.35rem' }}>
+                    học sinh
+                  </span>
+                </div>
+
+                <div style={{ marginTop: '0.5rem' }}>
+                  {hasNoStudents ? (
+                    <span style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      color: '#d97706',
+                      background: 'rgba(245, 158, 11, 0.12)',
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: '4px',
+                      display: 'inline-block'
+                    }}>
+                      ⚠ Chưa có danh sách
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.72rem', color: isSelected ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 600 }}>
+                      {isSelected ? '✓ Đang xem' : 'Bấm để xem lớp'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* SECTION XXII & XXIII: BỘ LỌC KHỐI & DANH SÁCH LỚP (Cấp Khối & Lớp) */}
+      <div style={{
+        background: 'var(--surface-card)',
+        border: '1px solid var(--surface-border)',
+        borderRadius: 'var(--radius-xl)',
+        padding: '1.75rem',
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        {/* Bộ Lọc Khối Rõ Ràng (Section XXII) */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          marginBottom: '1.25rem',
+          borderBottom: '1px solid var(--surface-border)',
+          paddingBottom: '1rem'
+        }}>
+          <span style={{
+            fontSize: '0.85rem',
+            fontWeight: 800,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em'
+          }}>
+            KHỐI:
+          </span>
+
+          <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+            {['all', 1, 2, 3, 4, 5].map(opt => {
+              const isAct = selectedGradeFilter === opt;
+              const label = opt === 'all' ? 'Tất cả' : `Khối ${opt}`;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setSelectedGradeFilter(opt)}
+                  className={`btn ${isAct ? 'btn-primary' : 'btn-outline'} btn-sm`}
+                  style={{
+                    fontWeight: 700,
+                    fontSize: '0.825rem',
+                    padding: '0.4rem 0.95rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: isAct ? 'linear-gradient(135deg, #0284c7, #2563eb)' : undefined
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Danh Sách Lớp Khi Chọn Khối (Section XXIII & Section 8) */}
+        <div>
+          <div style={{
+            fontSize: '0.9rem',
+            fontWeight: 800,
+            color: 'var(--text-main)',
+            marginBottom: '1rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.02em',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <span>
+              {selectedGradeFilter === 'all' ? 'TẤT CẢ CÁC LỚP HỌC' : `CÁC LỚP KHỐI ${selectedGradeFilter}`}
+            </span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+              {classes.filter(c => selectedGradeFilter === 'all' || Number(c.grade) === Number(selectedGradeFilter)).length} lớp
+            </span>
+          </div>
+
+          {classes.length === 0 ? (
+            /* Trạng thái chưa có lớp trong năm học mới (Section 17) */
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem 1.5rem',
+              background: 'var(--surface-secondary)',
+              border: '1px dashed var(--surface-border)',
+              borderRadius: 'var(--radius-lg)',
+              margin: '0.5rem 0'
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📂</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.35rem' }}>
+                Năm học {currentSchoolYear}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                Chưa có lớp học nào trong năm học này.
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: '0.85rem'
+            }}>
+              {classes
+                .filter(c => selectedGradeFilter === 'all' || Number(c.grade) === Number(selectedGradeFilter))
+                .map(c => {
+                  const isCurrent = c.id === currentClass?.id;
+                  const count = c.students?.length || 0;
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => onSelectClass?.(c.id)}
+                      style={{
+                        background: isCurrent 
+                          ? 'linear-gradient(135deg, rgba(2, 132, 199, 0.15) 0%, rgba(37, 99, 235, 0.08) 100%)' 
+                          : 'var(--surface-secondary)',
+                        border: isCurrent ? '2px solid var(--primary)' : '1px solid var(--surface-border)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '0.85rem 1.15rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        boxShadow: isCurrent ? '0 4px 12px rgba(2, 132, 199, 0.15)' : 'none'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isCurrent) e.currentTarget.style.borderColor = 'var(--primary)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isCurrent) e.currentTarget.style.borderColor = 'var(--surface-border)';
+                      }}
+                    >
+                      <div>
+                        <div style={{
+                          fontSize: '1.05rem',
+                          fontWeight: 800,
+                          color: isCurrent ? 'var(--primary)' : 'var(--text-main)'
+                        }}>
+                          {c.name} — <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>{count} học sinh</span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                          Khối {c.grade || 3} • Môn {c.subject || 'Tin Học'}
+                        </div>
+                      </div>
+
+                      {isCurrent ? (
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: '#fff',
+                          background: 'var(--primary)',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '999px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          Đang chọn
+                        </span>
+                      ) : (
+                        count === 0 && (
+                          <span style={{
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            color: '#d97706',
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            padding: '0.15rem 0.4rem',
+                            borderRadius: '4px'
+                          }}>
+                            0 HS
+                          </span>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION XXIV & SECTION 13: THÔNG TIN LỚP ĐANG CHỌN (Hiển thị ngay sau khi chọn lớp) */}
+      {currentClass && (
+        <div style={{
+          background: 'linear-gradient(135deg, var(--surface-card) 0%, rgba(2, 132, 199, 0.05) 100%)',
+          border: '1px solid var(--surface-border)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '1.5rem 1.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1.25rem',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
+              LỚP ĐANG CHỌN
+            </div>
+            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1.1, display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '1.2rem' }}>
+                Khối {currentClass.grade || 3} ›
+              </span>
+              <span>{currentClass.name}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.5rem' }}>
+              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--primary)' }}>
+                👥 {students.length} học sinh
+              </span>
+              {students.length === 0 ? (
+                <span style={{
+                  fontSize: '0.75rem',
+                  color: '#d97706',
+                  fontWeight: 700,
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '6px'
+                }}>
+                  ⚠ Chưa có danh sách học sinh
+                </span>
+              ) : (
+                <span style={{
+                  fontSize: '0.75rem',
+                  color: '#10b981',
+                  fontWeight: 700,
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '6px'
+                }}>
+                  ✓ Đã có danh sách
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => onSelectTab?.('seating')}
+              className="btn btn-outline"
+              style={{ fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <Monitor size={16} />
+              <span>Sơ Đồ Phòng Máy</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelectTab?.('gradebook')}
+              className="btn btn-outline"
+              style={{ fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <ClipboardList size={16} />
+              <span>Sổ Điểm (TT27)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelectTab?.('goodscores')}
+              className="btn btn-outline"
+              style={{ fontWeight: 700, fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <Star size={16} />
+              <span>Điểm Tốt & Sao</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSelectTab?.('sessions')}
+              className="btn btn-primary"
+              style={{
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+            >
+              <Target size={16} />
+              <span>Vào Tiết Học</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Banner Nổi Bật: Tỷ Lệ Quy Đổi Sao Sang Điểm */}
       <div style={{

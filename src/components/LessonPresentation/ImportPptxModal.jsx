@@ -25,7 +25,6 @@ import {
   deleteLessonApi,
   checkLessonsDuplicateApi,
   SIMILARITY_STATUS_LABELS,
-  INFORMATICS_TOPICS,
   compareLessonTitles,
   detectGradeFromFileName,
   extractTitleFromFileName

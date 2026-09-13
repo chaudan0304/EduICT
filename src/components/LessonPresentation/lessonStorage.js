@@ -693,47 +693,80 @@ export async function resolveDuplicateApi(lessonId) {
 
 // Cấu hình các ngưỡng phát hiện trùng lặp
 export const DUPLICATE_THRESHOLDS = {
-  EXACT_MATCH: 100,            // 95 - 100%: Trùng 100% (🔴 Cảnh báo)
-  NEAR_DUPLICATE_HIGH: 95,     // 95 - 100%
-  NEAR_DUPLICATE_LIKELY: 80,   // 80 - 95%: Trùng cao (🟠 Cảnh báo)
-  NEAR_DUPLICATE_SIMILAR: 60,  // 60 - 80%: Gần giống (🟡 Tham khảo)
-  SAFE_DIFFERENT: 60           // < 60%: Khác biệt an toàn
+  EXACT_MATCH: 100,             // 100%: Trùng hoàn toàn (🔴 Cảnh báo)
+  NEAR_DUPLICATE_VERY_HIGH: 95, // 95 - 99.9%: Rất giống (🔴 Cảnh báo)
+  NEAR_DUPLICATE_HIGH: 80,      // 80 - 94.9%: Trùng cao (🟠 Cảnh báo)
+  NEAR_DUPLICATE_SIMILAR: 60,   // 60 - 79.9%: Gần giống (🟡 Tham khảo)
+  SAFE_DIFFERENT: 60            // < 60%: Khác biệt an toàn
 };
 
-// Cấu hình 3 mức độ trùng lặp theo sơ đồ kiến trúc
+// Cấu hình các mức độ trùng lặp theo sơ đồ kiến trúc
 export const DUPLICATE_TIERS = {
   exact: {
     id: 'exact',
-    range: '95-100%',
-    title: 'Trùng 100%',
-    badge: '🔴 Cảnh báo',
-    badgeText: '🔴 Trùng 100%',
+    range: '100%',
+    title: 'Trùng hoàn toàn',
+    badge: '🔴 Trùng hoàn toàn',
+    badgeText: '🔴 Trùng hoàn toàn',
     color: '#ef4444',
     bg: 'rgba(239, 68, 68, 0.12)',
     border: 'rgba(239, 68, 68, 0.35)',
-    actionHint: 'Nên kiểm tra và xóa bài trùng'
+    actionHint: 'Trùng khớp 100% (cùng file hash hoặc nội dung). Nên xóa bản sao.'
+  },
+  very_high: {
+    id: 'very_high',
+    range: '95-99.9%',
+    title: 'Rất giống',
+    badge: '🔴 Rất giống',
+    badgeText: '🔴 Rất giống (95-99.9%)',
+    color: '#ef4444',
+    bg: 'rgba(239, 68, 68, 0.12)',
+    border: 'rgba(239, 68, 68, 0.35)',
+    actionHint: 'Nội dung gần như trùng khớp hoàn toàn, nên đối chiếu trước khi lưu.'
   },
   high: {
     id: 'high',
-    range: '80-95%',
+    range: '80-94.9%',
     title: 'Trùng cao',
     badge: '🟠 Cảnh báo',
     badgeText: '🟠 Trùng cao',
     color: '#f97316',
     bg: 'rgba(249, 115, 22, 0.12)',
     border: 'rgba(249, 115, 22, 0.35)',
-    actionHint: 'Có thể cân nhắc giữ lại hoặc xóa bớt'
+    actionHint: 'Nội dung rất giống nhau, cân nhắc giữ lại hoặc gộp bài.'
   },
   reference: {
     id: 'reference',
-    range: '60-80%',
+    range: '60-79.9%',
     title: 'Gần giống',
     badge: '🟡 Tham khảo',
     badgeText: '🟡 Gần giống',
     color: '#eab308',
     bg: 'rgba(234, 179, 8, 0.12)',
     border: 'rgba(234, 179, 8, 0.35)',
-    actionHint: 'Nội dung tương tự để tham khảo'
+    actionHint: 'Có một số nội dung tương đồng để giáo viên tham khảo.'
+  },
+  unique: {
+    id: 'unique',
+    range: '<60%',
+    title: 'Khác biệt',
+    badge: '✓ Khác biệt',
+    badgeText: '✓ Bài mới',
+    color: '#10b981',
+    bg: 'rgba(16, 185, 129, 0.12)',
+    border: 'rgba(16, 185, 129, 0.35)',
+    actionHint: 'Bài học độc lập hoặc nội dung khác biệt.'
+  },
+  insufficient_data: {
+    id: 'insufficient_data',
+    range: 'N/A',
+    title: 'Không đủ dữ liệu',
+    badge: '⚪ Không đủ dữ liệu',
+    badgeText: '⚪ Không đủ dữ liệu',
+    color: '#6b7280',
+    bg: 'rgba(107, 114, 128, 0.12)',
+    border: 'rgba(107, 114, 128, 0.35)',
+    actionHint: 'Không đủ dữ liệu nội dung để đánh giá mức độ trùng lặp.'
   }
 };
 
@@ -748,9 +781,18 @@ export const SIMILARITY_STATUS_LABELS = {
     icon: '✓' 
   },
   exact_duplicate: { 
-    label: 'Trùng 100%', 
-    badgeText: '🔴 Trùng 100%',
-    badgeAlert: '🔴 Cảnh báo',
+    label: 'Trùng hoàn toàn', 
+    badgeText: '🔴 Trùng hoàn toàn',
+    badgeAlert: '🔴 Trùng hoàn toàn (100%)',
+    color: '#ef4444', 
+    bg: 'rgba(239, 68, 68, 0.14)', 
+    border: 'rgba(239, 68, 68, 0.4)', 
+    icon: '🔴' 
+  },
+  very_high_duplicate: { 
+    label: 'Rất giống', 
+    badgeText: '🔴 Rất giống',
+    badgeAlert: '🔴 Rất giống (95-99.9%)',
     color: '#ef4444', 
     bg: 'rgba(239, 68, 68, 0.14)', 
     border: 'rgba(239, 68, 68, 0.4)', 
@@ -759,7 +801,7 @@ export const SIMILARITY_STATUS_LABELS = {
   high_duplicate: { 
     label: 'Trùng cao', 
     badgeText: '🟠 Trùng cao',
-    badgeAlert: '🟠 Cảnh báo',
+    badgeAlert: '🟠 Trùng cao (80-94.9%)',
     color: '#f97316', 
     bg: 'rgba(249, 115, 22, 0.14)', 
     border: 'rgba(249, 115, 22, 0.4)', 
@@ -768,20 +810,29 @@ export const SIMILARITY_STATUS_LABELS = {
   near_similar: { 
     label: 'Gần giống', 
     badgeText: '🟡 Gần giống',
-    badgeAlert: '🟡 Tham khảo',
+    badgeAlert: '🟡 Gần giống (60-79.9%)',
     color: '#eab308', 
     bg: 'rgba(234, 179, 8, 0.14)', 
     border: 'rgba(234, 179, 8, 0.4)', 
     icon: '🟡' 
   },
   near_duplicate: { 
-    label: 'Có khả năng trùng', 
+    label: 'Trùng cao', 
     badgeText: '🟠 Trùng cao',
-    badgeAlert: '🟠 Cảnh báo',
+    badgeAlert: '🟠 Trùng cao (80-94.9%)',
     color: '#f97316', 
     bg: 'rgba(249, 115, 22, 0.14)', 
     border: 'rgba(249, 115, 22, 0.4)', 
     icon: '🟠' 
+  },
+  insufficient_data: {
+    label: 'Không đủ dữ liệu',
+    badgeText: '⚪ Không đủ dữ liệu',
+    badgeAlert: '⚪ Không đủ dữ liệu để đánh giá mức độ trùng lặp',
+    color: '#6b7280',
+    bg: 'rgba(107, 114, 128, 0.14)',
+    border: 'rgba(107, 114, 128, 0.4)',
+    icon: '⚪'
   }
 };
 

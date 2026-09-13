@@ -22,7 +22,9 @@ export function loadEnv(force = false) {
       if (eqIdx > 0) {
         const key = trimmed.slice(0, eqIdx).trim();
         const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
-        process.env[key] = val;
+        if (process.env[key] === undefined) {
+          process.env[key] = val;
+        }
       }
     }
     console.log('[AI EnvLoader] Đã nạp cấu hình mới nhất từ .env (Mtime:', new Date(stats.mtimeMs).toLocaleTimeString(), ')');

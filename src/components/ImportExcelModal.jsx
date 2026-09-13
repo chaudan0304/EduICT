@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Upload, 
   FileSpreadsheet, 
@@ -13,7 +14,9 @@ import {
 } from 'lucide-react';
 import { 
   parseExcelWorkbook, 
-  downloadSampleExcelTemplate 
+  downloadSampleExcelTemplate,
+  detectGradeFromName,
+  normalizeClassName
 } from '../utils/excelImport';
 import { batchImportClassesToSqlite, fetchClassesFromSqlite } from '../utils/storage';
 import { soundEffects } from '../utils/audio';
@@ -21,9 +24,11 @@ import { soundEffects } from '../utils/audio';
 export default function ImportExcelModal({
   isOpen,
   onClose,
+  onFinish,
   existingClasses = [],
   onImportSuccess,
-  soundEnabled = true
+  soundEnabled = true,
+  currentSchoolYear = '2026 - 2027'
 }) {
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState(null);
@@ -34,7 +39,51 @@ export default function ImportExcelModal({
   const [importResult, setImportResult] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Reset toàn bộ state tạm thời của quy trình import
+  const resetImportState = () => {
+    setParsing(false);
+    setParseError(null);
+    setWorkbookData(null);
+    setSelectedSheetIndex(null);
+    setImporting(false);
+    setImportResult(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Khi modal mở ra (isOpen = true), luôn reset sạch state tạm
+  useEffect(() => {
+    if (isOpen) {
+      resetImportState();
+    }
+  }, [isOpen]);
+
+  const handleClose = () => {
+    if (importing) return;
+    resetImportState();
+    onClose?.();
+  };
+
+  const handleFinish = () => {
+    if (importing) return;
+    resetImportState();
+    if (onFinish) {
+      onFinish();
+    } else {
+      onClose?.();
+    }
+  };
+
+  const handleTriggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    fileInputRef.current?.click();
+  };
+
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   // Xử lý khi chọn file
   const handleFileChange = async (e) => {
@@ -56,6 +105,7 @@ export default function ImportExcelModal({
     } finally {
       setParsing(false);
       if (e.target) e.target.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -86,6 +136,7 @@ export default function ImportExcelModal({
       setParseError(err.message || 'Lỗi khi phân tích file Excel');
     } finally {
       setParsing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -94,32 +145,113 @@ export default function ImportExcelModal({
     e.stopPropagation();
   };
 
+  // Chọn / bỏ chọn 1 sheet
+  const handleToggleSheetSelected = (index) => {
+    setWorkbookData(prev => {
+      if (!prev || !prev.sheets) return prev;
+      const nextSheets = [...prev.sheets];
+      nextSheets[index] = {
+        ...nextSheets[index],
+        selected: !nextSheets[index].selected
+      };
+      return { ...prev, sheets: nextSheets };
+    });
+  };
+
+  // Chọn tất cả / Bỏ chọn tất cả các sheet
+  const handleSelectAllSheets = (isSelected) => {
+    setWorkbookData(prev => {
+      if (!prev || !prev.sheets) return prev;
+      const nextSheets = prev.sheets.map(s => ({
+        ...s,
+        selected: isSelected
+      }));
+      return { ...prev, sheets: nextSheets };
+    });
+  };
+
+  // Đổi tên lớp (className) cho một sheet
+  const handleClassNameChange = (index, newName) => {
+    setWorkbookData(prev => {
+      if (!prev || !prev.sheets) return prev;
+      const nextSheets = [...prev.sheets];
+      const trimmed = newName.trim();
+      const newGrade = detectGradeFromName(trimmed) || nextSheets[index].grade || 3;
+      
+      const matchedClass = existingClasses.find(c =>
+        c.name.trim().toLowerCase() === trimmed.toLowerCase() ||
+        normalizeClassName(c.name) === normalizeClassName(trimmed)
+      );
+
+      nextSheets[index] = {
+        ...nextSheets[index],
+        className: newName,
+        grade: newGrade,
+        classExists: !!matchedClass,
+        targetClassId: matchedClass ? matchedClass.id : null
+      };
+      return { ...prev, sheets: nextSheets };
+    });
+  };
+
   // Tiến hành import batch
   const handleConfirmBatchImport = async () => {
-    if (!workbookData || workbookData.sheets.length === 0) return;
+    if (!workbookData || !workbookData.sheets || workbookData.sheets.length === 0) return;
+
+    // 1. Chỉ lấy các sheet được chọn (selected === true)
+    const sheetsToImport = workbookData.sheets.filter(sheet => sheet.selected);
+
+    // 2. Validation: Không chọn sheet nào
+    if (sheetsToImport.length === 0) {
+      alert('Vui lòng chọn ít nhất một Sheet để import.');
+      return;
+    }
+
+    // 3. Validation: Tên lớp không được để trống & không được trùng lặp giữa các sheet được chọn
+    const seenClassNames = new Set();
+    for (const sheet of sheetsToImport) {
+      const trimmedName = (sheet.className || '').trim();
+      if (!trimmedName) {
+        alert(`Tên lớp không được để trống (Sheet: "${sheet.sheetName}"). Vui lòng kiểm tra lại.`);
+        return;
+      }
+      const normName = trimmedName.toLowerCase();
+      if (seenClassNames.has(normName)) {
+        alert(`Trùng tên lớp "${trimmedName}" trong các sheet được chọn. Vui lòng kiểm tra lại.`);
+        return;
+      }
+      seenClassNames.add(normName);
+    }
 
     setImporting(true);
     try {
-      // Chuẩn bị payload gửi lên backend
+      // Chuẩn bị payload gửi lên backend (CHỈ gửi các sheet được chọn)
       const payload = {
         autoCreateClasses: autoCreateClasses,
-        defaultSchoolYear: '2025 - 2026',
-        sheets: workbookData.sheets.map(sheet => ({
-          sheetName: sheet.sheetName,
-          className: sheet.className,
-          grade: sheet.grade,
-          students: sheet.students
-            .filter(s => s.status !== 'error')
-            .map(s => ({
-              id: s.id,
-              name: s.name,
-              dob: s.dob,
-              gender: s.gender,
-              machineNumber: s.machineNumber,
-              note: s.note,
-              rowNumber: s.rowNumber
-            }))
-        }))
+        defaultSchoolYear: currentSchoolYear || '2026 - 2027',
+        totalWorkbookSheets: workbookData.sheets.length,
+        sheetsSkipped: workbookData.sheets.length - sheetsToImport.length,
+        sheets: sheetsToImport.map(sheet => {
+          const finalClassName = (sheet.className || sheet.sheetName).trim();
+          const finalGrade = sheet.grade || detectGradeFromName(finalClassName) || 3;
+          return {
+            sheetName: sheet.sheetName,
+            className: finalClassName,
+            grade: finalGrade,
+            schoolYear: currentSchoolYear || '2026 - 2027',
+            students: sheet.students
+              .filter(s => s.status !== 'error')
+              .map(s => ({
+                id: s.id,
+                name: s.name,
+                dob: s.dob,
+                gender: s.gender,
+                machineNumber: s.machineNumber,
+                note: s.note,
+                rowNumber: s.rowNumber
+              }))
+          };
+        })
       };
 
       const result = await batchImportClassesToSqlite(payload);
@@ -128,7 +260,7 @@ export default function ImportExcelModal({
       if (soundEnabled) soundEffects.playVictory?.();
 
       // Đồng bộ lại toàn bộ danh sách lớp từ SQLite
-      const updatedClasses = await fetchClassesFromSqlite();
+      const updatedClasses = await fetchClassesFromSqlite(currentSchoolYear);
       if (updatedClasses && onImportSuccess) {
         // Chọn lớp đầu tiên vừa được xử lý
         const firstTargetId = result.sheetResults?.find(r => r.classId)?.classId;
@@ -141,31 +273,41 @@ export default function ImportExcelModal({
     }
   };
 
-  const resetImport = () => {
-    setWorkbookData(null);
-    setParseError(null);
-    setSelectedSheetIndex(null);
-    setImportResult(null);
-  };
-
   const selectedSheet = selectedSheetIndex !== null && workbookData?.sheets
     ? workbookData.sheets[selectedSheetIndex]
     : null;
 
-  return (
+  const selectedSheets = workbookData?.sheets ? workbookData.sheets.filter(s => s.selected) : [];
+  const totalSelectedStudents = selectedSheets.reduce((sum, s) => sum + (s.validRows || 0), 0);
+  const allSelected = Boolean(
+    workbookData?.sheets && 
+    workbookData.sheets.length > 0 && 
+    workbookData.sheets.every(s => s.selected)
+  );
+
+  return createPortal(
     <div 
       className="modal-overlay" 
-      onClick={onClose} 
+      onClick={() => {
+        if (importing) return;
+        if (importResult) {
+          handleFinish();
+        } else {
+          handleClose();
+        }
+      }} 
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(5px)',
+        backgroundColor: 'rgba(15, 23, 42, 0.75)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000,
-        padding: '1rem'
+        zIndex: 10050,
+        padding: '1rem',
+        overflowY: 'auto'
       }}
     >
       <div 
@@ -211,7 +353,7 @@ export default function ImportExcelModal({
                 📥 Import Danh Sách Lớp & Học Sinh Từ Excel
               </h3>
               <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                Mô hình: <strong>1 File Excel = Nhiều Sheet = Nhiều Lớp Học</strong>
+                Mô hình: <strong>1 File Excel = Nhiều Sheet = Nhiều Lớp Học</strong> • Năm học: <strong style={{ color: 'var(--primary)' }}>{currentSchoolYear}</strong>
               </p>
             </div>
           </div>
@@ -219,7 +361,15 @@ export default function ImportExcelModal({
           <button 
             type="button" 
             className="btn btn-sm btn-outline" 
-            onClick={onClose}
+            onClick={() => {
+              if (importing) return;
+              if (importResult) {
+                handleFinish();
+              } else {
+                handleClose();
+              }
+            }}
+            disabled={importing}
             style={{ padding: '0.35rem 0.65rem' }}
           >
             ✕
@@ -262,70 +412,96 @@ export default function ImportExcelModal({
               {/* Thống kê tổng hợp */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                gap: '0.75rem'
+                gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))',
+                gap: '0.65rem'
               }}>
                 <div style={{
                   background: 'var(--surface-secondary)',
-                  padding: '0.85rem',
+                  padding: '0.75rem 0.5rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--surface-border)',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>LỚP ĐÃ XỬ LÝ</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.2rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>TỔNG SHEET</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.2rem' }}>
+                    {importResult.totalWorkbookSheets || importResult.summary?.totalSheets || 0}
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'var(--surface-secondary)',
+                  padding: '0.75rem 0.5rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--surface-border)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>ĐÃ XỬ LÝ</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.2rem' }}>
                     {importResult.summary?.classesProcessed || 0}
                   </div>
                 </div>
 
                 <div style={{
                   background: 'var(--surface-secondary)',
-                  padding: '0.85rem',
+                  padding: '0.75rem 0.5rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--surface-border)',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>LỚP TẠO MỚI</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981', marginTop: '0.2rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>ĐÃ BỎ QUA</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.2rem' }}>
+                    {importResult.sheetsSkipped || 0}
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'var(--surface-secondary)',
+                  padding: '0.75rem 0.5rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--surface-border)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>LỚP TẠO MỚI</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#10b981', marginTop: '0.2rem' }}>
                     {importResult.summary?.classesCreated || 0}
                   </div>
                 </div>
 
                 <div style={{
                   background: 'var(--surface-secondary)',
-                  padding: '0.85rem',
+                  padding: '0.75rem 0.5rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--surface-border)',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>HỌC SINH THÊM MỚI</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0284c7', marginTop: '0.2rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>HS THÊM MỚI</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0284c7', marginTop: '0.2rem' }}>
                     {importResult.summary?.studentsAdded || 0}
                   </div>
                 </div>
 
                 <div style={{
                   background: 'var(--surface-secondary)',
-                  padding: '0.85rem',
+                  padding: '0.75rem 0.5rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--surface-border)',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>ĐÃ CÓ (BỎ QUA)</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.2rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>ĐÃ CÓ (BỎ QUA)</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#64748b', marginTop: '0.2rem' }}>
                     {importResult.summary?.studentsExisting || 0}
                   </div>
                 </div>
 
                 <div style={{
                   background: 'var(--surface-secondary)',
-                  padding: '0.85rem',
+                  padding: '0.75rem 0.5rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--surface-border)',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>DÒNG LỖI</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: importResult.summary?.rowsError > 0 ? '#ef4444' : 'var(--text-muted)', marginTop: '0.2rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>DÒNG LỖI</div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: (importResult.summary?.rowsError || 0) > 0 ? '#ef4444' : 'var(--text-muted)', marginTop: '0.2rem' }}>
                     {importResult.summary?.rowsError || 0}
                   </div>
                 </div>
@@ -385,11 +561,27 @@ export default function ImportExcelModal({
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-outline"
+                  onClick={resetImportState}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    borderColor: 'var(--primary)',
+                    color: 'var(--primary)',
+                    fontWeight: 600
+                  }}
+                >
+                  <RefreshCw size={16} /> ↻ Import file khác
+                </button>
                 <button 
                   type="button" 
                   className="btn btn-primary"
-                  onClick={onClose}
+                  onClick={handleFinish}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
                 >
                   <CheckCircle2 size={16} /> Đóng & Bắt Đầu Sử Dụng
                 </button>
@@ -404,7 +596,7 @@ export default function ImportExcelModal({
               <div 
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={handleTriggerFileInput}
                 style={{
                   border: '2px dashed var(--primary)',
                   borderRadius: 'var(--radius-xl)',
@@ -446,7 +638,7 @@ export default function ImportExcelModal({
                   className="btn btn-primary btn-sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    fileInputRef.current?.click();
+                    handleTriggerFileInput();
                   }}
                 >
                   <FileSpreadsheet size={16} /> Chọn File Excel
@@ -554,8 +746,13 @@ export default function ImportExcelModal({
                         fontSize: '1.1rem',
                         color: 'var(--primary)'
                       }}>
-                        LỚP {selectedSheet.sheetName}
+                        LỚP {selectedSheet.className || selectedSheet.sheetName}
                       </span>
+                      {selectedSheet.className && selectedSheet.className !== selectedSheet.sheetName && (
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                          (Sheet gốc: {selectedSheet.sheetName})
+                        </span>
+                      )}
                       <span style={{
                         fontSize: '0.75rem',
                         fontWeight: 700,
@@ -710,53 +907,141 @@ export default function ImportExcelModal({
                       marginBottom: '0.6rem',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem'
                     }}>
-                      <span>DANH SÁCH SHEET ({workbookData.sheets.length} lớp học)</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 400 }}>Nhấn vào dòng để xem danh sách chi tiết</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span style={{
+                          background: selectedSheets.length > 0 ? 'rgba(2, 132, 199, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                          color: selectedSheets.length > 0 ? 'var(--primary)' : '#ef4444',
+                          padding: '0.25rem 0.65rem',
+                          borderRadius: 'var(--radius-sm)',
+                          fontWeight: 800,
+                          fontSize: '0.8125rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem'
+                        }}>
+                          📊 Đã chọn {selectedSheets.length}/{workbookData.sheets.length} Sheet để import
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => handleSelectAllSheets(true)}
+                          style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}
+                        >
+                          ☑ Chọn tất cả
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => handleSelectAllSheets(false)}
+                          style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}
+                        >
+                          ☐ Bỏ chọn tất cả
+                        </button>
+                      </div>
                     </div>
 
                     <div style={{
                       border: '1px solid var(--surface-border)',
                       borderRadius: 'var(--radius-md)',
-                      maxHeight: 320,
+                      maxHeight: 340,
                       overflowY: 'auto'
                     }}>
                       <table className="grade-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                         <thead>
                           <tr style={{ background: 'var(--surface-secondary)', position: 'sticky', top: 0, zIndex: 1 }}>
-                            <th style={{ padding: '0.6rem 0.8rem', width: 45, textAlign: 'center' }}>STT</th>
-                            <th style={{ padding: '0.6rem 0.9rem', textAlign: 'left' }}>Sheet (Tên Lớp)</th>
-                            <th style={{ padding: '0.6rem 0.9rem', textAlign: 'center', width: 90 }}>Khối lớp</th>
-                            <th style={{ padding: '0.6rem 0.9rem', textAlign: 'center', width: 110 }}>Số học sinh</th>
-                            <th style={{ padding: '0.6rem 0.9rem', textAlign: 'left' }}>Trạng thái lớp</th>
-                            <th style={{ padding: '0.6rem 0.9rem', textAlign: 'left' }}>Dữ liệu Sheet</th>
-                            <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', width: 70 }}>Xem</th>
+                            <th style={{ padding: '0.6rem 0.5rem', width: 45, textAlign: 'center' }}>
+                              <input 
+                                type="checkbox"
+                                checked={allSelected}
+                                onChange={(e) => handleSelectAllSheets(e.target.checked)}
+                                style={{ cursor: 'pointer', accentColor: 'var(--primary)', width: 16, height: 16 }}
+                                title={allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                              />
+                            </th>
+                            <th style={{ padding: '0.6rem 0.5rem', width: 40, textAlign: 'center' }}>STT</th>
+                            <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', width: 130 }}>Sheet Excel</th>
+                            <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', minWidth: 170 }}>Tên Lớp Import</th>
+                            <th style={{ padding: '0.6rem 0.7rem', textAlign: 'center', width: 80 }}>Khối</th>
+                            <th style={{ padding: '0.6rem 0.7rem', textAlign: 'center', width: 95 }}>Số học sinh</th>
+                            <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', minWidth: 140 }}>Trạng thái lớp</th>
+                            <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', width: 55 }}>Xem</th>
                           </tr>
                         </thead>
                         <tbody>
                           {workbookData.sheets.map((sheet, idx) => {
-                            const isErr = sheet.status === 'error';
-                            const hasWarn = sheet.errorRows > 0;
+                            const isSelected = !!sheet.selected;
+                            const isNameEmpty = isSelected && !sheet.className?.trim();
+
                             return (
                               <tr 
                                 key={idx}
-                                onClick={() => setSelectedSheetIndex(idx)}
                                 style={{
-                                  cursor: 'pointer',
                                   borderBottom: '1px solid var(--surface-border)',
+                                  background: isSelected ? 'transparent' : 'rgba(100, 116, 139, 0.04)',
+                                  opacity: isSelected ? 1 : 0.6,
                                   transition: 'background 0.15s ease'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(2, 132, 199, 0.05)'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                               >
-                                <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                {/* Checkbox chọn sheet */}
+                                <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                                  <input 
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleToggleSheetSelected(idx)}
+                                    style={{ cursor: 'pointer', accentColor: 'var(--primary)', width: 16, height: 16 }}
+                                    title={isSelected ? "Bỏ chọn sheet này" : "Chọn sheet này để import"}
+                                  />
+                                </td>
+
+                                {/* STT */}
+                                <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                                   {idx + 1}
                                 </td>
-                                <td style={{ padding: '0.6rem 0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                                  Lớp {sheet.sheetName}
+
+                                {/* Sheet Excel gốc */}
+                                <td style={{ padding: '0.5rem 0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                  <span 
+                                    onClick={() => setSelectedSheetIndex(idx)}
+                                    style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--primary)' }}
+                                    title="Bấm để xem danh sách học sinh của Sheet"
+                                  >
+                                    {sheet.sheetName}
+                                  </span>
                                 </td>
-                                <td style={{ padding: '0.6rem 0.9rem', textAlign: 'center' }}>
+
+                                {/* Tên Lớp Import (Editable Input) */}
+                                <td style={{ padding: '0.4rem 0.8rem' }}>
+                                  <input 
+                                    type="text"
+                                    value={sheet.className ?? sheet.sheetName}
+                                    onChange={(e) => handleClassNameChange(idx, e.target.value)}
+                                    disabled={!isSelected}
+                                    placeholder="Nhập tên lớp..."
+                                    style={{
+                                      width: '100%',
+                                      maxWidth: 150,
+                                      padding: '0.35rem 0.6rem',
+                                      borderRadius: 'var(--radius-sm)',
+                                      border: isNameEmpty 
+                                        ? '1.5px solid #ef4444' 
+                                        : '1px solid var(--surface-border)',
+                                      background: isSelected ? 'var(--surface-card)' : 'rgba(100, 116, 139, 0.1)',
+                                      color: 'var(--text-main)',
+                                      fontSize: '0.875rem',
+                                      fontWeight: 700
+                                    }}
+                                  />
+                                </td>
+
+                                {/* Khối */}
+                                <td style={{ padding: '0.5rem 0.7rem', textAlign: 'center' }}>
                                   <span style={{
                                     fontSize: '0.75rem',
                                     fontWeight: 700,
@@ -768,11 +1053,19 @@ export default function ImportExcelModal({
                                     Khối {sheet.grade}
                                   </span>
                                 </td>
-                                <td style={{ padding: '0.6rem 0.9rem', textAlign: 'center', fontWeight: 700 }}>
-                                  {sheet.validRows}
+
+                                {/* Số học sinh */}
+                                <td style={{ padding: '0.5rem 0.7rem', textAlign: 'center', fontWeight: 700 }}>
+                                  {sheet.validRows} HS
                                 </td>
-                                <td style={{ padding: '0.6rem 0.9rem' }}>
-                                  {sheet.classExists ? (
+
+                                {/* Trạng thái lớp */}
+                                <td style={{ padding: '0.5rem 0.8rem' }}>
+                                  {!isSelected ? (
+                                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.8125rem' }}>
+                                      Bỏ qua (Không import)
+                                    </span>
+                                  ) : sheet.classExists ? (
                                     <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.8125rem' }}>
                                       ✓ Lớp đã tồn tại
                                     </span>
@@ -782,26 +1075,14 @@ export default function ImportExcelModal({
                                     </span>
                                   )}
                                 </td>
-                                <td style={{ padding: '0.6rem 0.9rem' }}>
-                                  {isErr ? (
-                                    <span style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.8125rem' }}>
-                                      ❌ {sheet.errorMessage}
-                                    </span>
-                                  ) : hasWarn ? (
-                                    <span style={{ color: '#d97706', fontWeight: 600, fontSize: '0.8125rem' }}>
-                                      ⚠ {sheet.validRows} hợp lệ • {sheet.errorRows} dòng lỗi
-                                    </span>
-                                  ) : (
-                                    <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.8125rem' }}>
-                                      ✓ {sheet.validRows} học sinh hợp lệ
-                                    </span>
-                                  )}
-                                </td>
-                                <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>
+
+                                {/* Nút xem chi tiết */}
+                                <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                                   <button 
                                     type="button" 
                                     className="btn btn-outline btn-sm"
-                                    style={{ padding: '0.2rem 0.45rem' }}
+                                    onClick={() => setSelectedSheetIndex(idx)}
+                                    style={{ padding: '0.25rem 0.45rem' }}
                                     title="Xem chi tiết danh sách học sinh"
                                   >
                                     <Eye size={14} />
@@ -829,7 +1110,7 @@ export default function ImportExcelModal({
                 <button 
                   type="button" 
                   className="btn btn-outline"
-                  onClick={resetImport}
+                  onClick={resetImportState}
                   disabled={importing}
                 >
                   Chọn File Khác
@@ -839,7 +1120,7 @@ export default function ImportExcelModal({
                   <button 
                     type="button" 
                     className="btn btn-secondary"
-                    onClick={onClose}
+                    onClick={handleClose}
                     disabled={importing}
                   >
                     Hủy
@@ -849,8 +1130,8 @@ export default function ImportExcelModal({
                     type="button" 
                     className="btn btn-primary"
                     onClick={handleConfirmBatchImport}
-                    disabled={importing || workbookData.totalStudents === 0}
-                    style={{ minWidth: 200 }}
+                    disabled={importing || selectedSheets.length === 0}
+                    style={{ minWidth: 220 }}
                   >
                     {importing ? (
                       <>
@@ -858,7 +1139,7 @@ export default function ImportExcelModal({
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 size={16} /> Xác Nhận Import ({workbookData.totalStudents} HS)
+                        <CheckCircle2 size={16} /> Xác Nhận Import ({selectedSheets.length} Lớp • {totalSelectedStudents} HS)
                       </>
                     )}
                   </button>
@@ -868,6 +1149,7 @@ export default function ImportExcelModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

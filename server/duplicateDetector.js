@@ -78,61 +78,108 @@ export function getCanonicalPpctLesson(grade = 3, titleOrFileName = '') {
  * Cấu hình các ngưỡng phát hiện trùng lặp (Configurable Thresholds)
  */
 export const DUPLICATE_THRESHOLDS = {
-  EXACT_MATCH: 100,            // 95 - 100%: Trùng 100% (🔴 Cảnh báo)
-  NEAR_DUPLICATE_HIGH: 95,     // 95 - 100%
-  NEAR_DUPLICATE_LIKELY: 80,   // 80 - 95%: Trùng cao (🟠 Cảnh báo)
-  NEAR_DUPLICATE_SIMILAR: 60,  // 60 - 80%: Gần giống (🟡 Tham khảo)
-  SAFE_DIFFERENT: 60           // < 60%: Khác biệt an toàn
+  EXACT_MATCH: 100,             // 100%: Trùng hoàn toàn (🔴 Cảnh báo)
+  NEAR_DUPLICATE_VERY_HIGH: 95, // 95 - 99.9%: Rất giống (🔴 Cảnh báo)
+  NEAR_DUPLICATE_HIGH: 80,      // 80 - 94.9%: Trùng cao (🟠 Cảnh báo)
+  NEAR_DUPLICATE_SIMILAR: 60,   // 60 - 79.9%: Gần giống (🟡 Tham khảo)
+  SAFE_DIFFERENT: 60            // < 60%: Khác biệt an toàn
 };
 
 /**
- * Cấu hình 3 mức độ trùng lặp theo đúng thiết kế hệ thống
+ * Cấu hình các mức độ trùng lặp theo đúng thiết kế hệ thống
  */
 export const DUPLICATE_TIERS = {
   exact: {
     id: 'exact',
-    range: '95-100%',
-    title: 'Trùng 100%',
-    badge: '🔴 Cảnh báo',
-    badgeText: '🔴 Trùng 100%',
+    range: '100%',
+    title: 'Trùng hoàn toàn',
+    badge: '🔴 Trùng hoàn toàn',
+    badgeText: '🔴 Trùng hoàn toàn',
     color: '#ef4444',
     bg: 'rgba(239, 68, 68, 0.12)',
     border: 'rgba(239, 68, 68, 0.35)',
-    actionHint: 'Nên kiểm tra và xóa bản sao bị trùng'
+    actionHint: 'Trùng khớp 100% (cùng file hash hoặc nội dung). Nên xóa bản sao.'
+  },
+  very_high: {
+    id: 'very_high',
+    range: '95-99.9%',
+    title: 'Rất giống',
+    badge: '🔴 Rất giống',
+    badgeText: '🔴 Rất giống',
+    color: '#ef4444',
+    bg: 'rgba(239, 68, 68, 0.12)',
+    border: 'rgba(239, 68, 68, 0.35)',
+    actionHint: 'Nội dung gần như trùng khớp hoàn toàn, nên đối chiếu trước khi lưu.'
   },
   high: {
     id: 'high',
-    range: '80-95%',
+    range: '80-94.9%',
     title: 'Trùng cao',
     badge: '🟠 Cảnh báo',
     badgeText: '🟠 Trùng cao',
     color: '#f97316',
     bg: 'rgba(249, 115, 22, 0.12)',
     border: 'rgba(249, 115, 22, 0.35)',
-    actionHint: 'Nội dung rất giống nhau, cân nhắc giữ lại hoặc gộp bài'
+    actionHint: 'Nội dung rất giống nhau, cân nhắc giữ lại hoặc gộp bài.'
   },
   reference: {
     id: 'reference',
-    range: '60-80%',
+    range: '60-79.9%',
     title: 'Gần giống',
     badge: '🟡 Tham khảo',
     badgeText: '🟡 Gần giống',
     color: '#eab308',
     bg: 'rgba(234, 179, 8, 0.12)',
     border: 'rgba(234, 179, 8, 0.35)',
-    actionHint: 'Có một số nội dung tương đồng để giáo viên tham khảo'
+    actionHint: 'Có một số nội dung tương đồng để giáo viên tham khảo.'
+  },
+  unique: {
+    id: 'unique',
+    range: '<60%',
+    title: 'Khác biệt',
+    badge: '✓ Khác biệt',
+    badgeText: '✓ Bài mới',
+    color: '#10b981',
+    bg: 'rgba(16, 185, 129, 0.12)',
+    border: 'rgba(16, 185, 129, 0.35)',
+    actionHint: 'Bài học độc lập hoặc nội dung khác biệt.'
+  },
+  insufficient_data: {
+    id: 'insufficient_data',
+    range: 'N/A',
+    title: 'Không đủ dữ liệu',
+    badge: '⚪ Không đủ dữ liệu',
+    badgeText: '⚪ Không đủ dữ liệu',
+    color: '#6b7280',
+    bg: 'rgba(107, 114, 128, 0.12)',
+    border: 'rgba(107, 114, 128, 0.35)',
+    actionHint: 'Không đủ dữ liệu nội dung để đánh giá mức độ trùng lặp.'
   }
 };
+
+/**
+ * Danh sách từ ngữ mẫu dùng chung trong slide giáo án tiểu học (Boilerplate Words)
+ * Cần loại trừ khi đối chiếu nội dung để tránh tính trùng khống (False Positives)
+ */
+export const BOILERPLATE_WORDS = new Set([
+  'chu', 'de', 'bai', 'hoat', 'dong', 'khoi', 'mo', 'dau', 'luyen', 'tap', 'van', 'dung',
+  'muc', 'tieu', 'biet', 'duoc', 'chuc', 'cac', 'em', 'co', 'mot', 'buoi', 'hoc', 'thu',
+  'vi', 'nhe', 'nguoi', 'ban', 'moi', 'quan', 'sat', 'hinh', 'thuc', 'hanh', 'ghi', 'nho',
+  'thao', 'luan', 'nhom', 'cap', 'tra', 'loi', 'cau', 'hoi', 'kham', 'pha', 'ket', 'luan',
+  'tin', 'hoc', 'tiet', 'lop', 'thoi', 'gian', 'phut'
+]);
 
 /**
  * Trạng thái trùng lặp chuẩn hóa
  */
 export const SIMILARITY_STATUS = {
   UNIQUE: 'unique',
-  NEAR_SIMILAR: 'near_similar',       // 60 - 80% (🟡 Tham khảo)
-  HIGH_DUPLICATE: 'high_duplicate',   // 80 - 95%: Trùng cao (🟠 Cảnh báo)
-  EXACT_DUPLICATE: 'exact_duplicate', // 95 - 100%: Trùng 100% (🔴 Cảnh báo)
-  NEAR_DUPLICATE: 'near_duplicate'    // tương thích ngược
+  NEAR_SIMILAR: 'near_similar',             // 60 - 79.9% (🟡 Gần giống)
+  HIGH_DUPLICATE: 'high_duplicate',         // 80 - 94.9% (🟠 Trùng cao)
+  VERY_HIGH_DUPLICATE: 'very_high_duplicate', // 95 - 99.9% (🔴 Rất giống)
+  EXACT_DUPLICATE: 'exact_duplicate',       // 100% (🔴 Trùng hoàn toàn)
+  INSUFFICIENT_DATA: 'insufficient_data',   // Không đủ dữ liệu để đánh giá
+  NEAR_DUPLICATE: 'high_duplicate'          // tương thích ngược
 };
 
 /**
@@ -317,6 +364,8 @@ export function extractTitleFromSlide1Xml(xml = '') {
 
   const validLines = lines.filter(l => l.text.length > 0);
 
+  const isMetaLine = (text) => /^(?:chủ\s*đề|môn\s*tin|tin\s*học|giáo\s*viên|gv\b|trường|lớp|khối|tiết|tuần|năm\s*học|kế\s*hoạch|thời\s*lượng|bài\s*giảng|\d+$)/i.test(text.trim());
+
   // 1. Tìm dòng tiêu đề chính bắt đầu bằng "Bài X"
   for (let i = 0; i < validLines.length; i++) {
     const l = validLines[i];
@@ -327,12 +376,19 @@ export function extractTitleFromSlide1Xml(xml = '') {
       let fullTitle = l.text;
       const rest = matchWithRest[2]?.trim() || '';
 
-      // Kiểm tra dòng kế tiếp: nếu dòng kế tiếp không phải metadata và phần rest còn ngắn hoặc dòng kế tiếp có cỡ chữ tương đương -> ghép vào
+      // Kiểm tra dòng kế tiếp: nếu dòng kế tiếp không phải metadata và là phần nối tiếp hợp lý -> ghép vào
       if (i + 1 < validLines.length) {
         const nextLine = validLines[i + 1];
-        const isNotMeta = !/^(?:chủ\s*đề|tin\s*học|giáo\s*viên|trường|năm\s*học|kế\s*hoạch)/i.test(nextLine.text);
-        if (isNotMeta && (rest.length < 15 || nextLine.size >= l.size * 0.7)) {
-          fullTitle = `${fullTitle} ${nextLine.text}`;
+        if (!isMetaLine(nextLine.text)) {
+          const isDangling = rest.length === 0 || 
+                             /(?:trong|và|về|với|của|để|khi|ở|theo|như|cho|bằng|làm|tập|–|-|:)$/i.test(rest) ||
+                             /^(?:trong|và|về|với|của|để|khi|ở|theo|như|cho|bằng)/i.test(nextLine.text);
+          const isSameSize = l.size > 0 && nextLine.size > 0 && (nextLine.size >= l.size * 0.85);
+
+          // Nếu câu lơ lửng, hoặc cùng cỡ chữ và rest còn ngắn
+          if (isDangling || (isSameSize && rest.length < 25 && !/(?:mục|thư mục|bàn phím|chuột|máy tính)$/i.test(rest))) {
+            fullTitle = `${fullTitle} ${nextLine.text}`;
+          }
         }
       }
       return fullTitle.replace(/\s+/g, ' ').trim();
@@ -341,8 +397,7 @@ export function extractTitleFromSlide1Xml(xml = '') {
       // Trường hợp "BÀI 13" ở 1 text box và "CẤU TRÚC RẼ NHÁNH" ở text box kế tiếp
       if (i + 1 < validLines.length) {
         const nextLine = validLines[i + 1];
-        const isNotMeta = !/^(?:chủ\s*đề|tin\s*học|giáo\s*viên|trường|năm\s*học|kế\s*hoạch)/i.test(nextLine.text);
-        if (isNotMeta) {
+        if (!isMetaLine(nextLine.text)) {
           return `${baiPart}: ${nextLine.text}`.replace(/\s+/g, ' ').trim();
         }
       }
@@ -353,10 +408,7 @@ export function extractTitleFromSlide1Xml(xml = '') {
   // 2. Trường hợp tiêu đề nằm trước hoặc sau (ví dụ: "THỰC HÀNH TẠO ĐỒ DÙNG..." và ở dưới có "Bài 9B")
   const baiLine = validLines.find(l => /^(?:bài|bai)\s*\d+[a-zA-Z]?/i.test(l.text));
   if (baiLine) {
-    const contentLines = validLines.filter(l => 
-      l !== baiLine && 
-      !/^(?:chủ\s*đề|tin\s*học|giáo\s*viên|trường|năm\s*học|kế\s*hoạch|\d+$)/i.test(l.text)
-    );
+    const contentLines = validLines.filter(l => l !== baiLine && !isMetaLine(l.text));
     if (contentLines.length > 0) {
       contentLines.sort((a, b) => b.size - a.size);
       return `${baiLine.text}: ${contentLines[0].text}`.replace(/\s+/g, ' ').trim();
@@ -601,8 +653,8 @@ export function extractPptxContentFingerprint(buffer, originalName = '') {
 
   const fullText = allTexts.join(' ');
   const textTokens = extractWordTokens(fullText);
-  // Fingerprint rút gọn: 1000 ký tự đầu chuẩn hóa
-  const contentFingerprint = normalizeText(fullText).slice(0, 1000);
+  // Fingerprint mở rộng: 8000 ký tự đầu chuẩn hóa để bao phủ toàn bộ nội dung slide
+  const contentFingerprint = normalizeText(fullText).slice(0, 8000);
 
   return {
     fileHash,
@@ -622,9 +674,19 @@ export function extractPptxContentFingerprint(buffer, originalName = '') {
  * Tính toán độ tương đồng chi tiết giữa 2 bài học (0% - 100%)
  * @param {Object} itemA - { title, slideCount, grade, slideHeadings, fullText, textTokens }
  * @param {Object} itemB - { title, slideCount, grade, slideHeadings, fullText, textTokens }
- * @returns {Object} { similarityScore, details: { titleSimilarity, countMatch, headingsSimilarity, textSimilarity } }
+ * @param {boolean} [isExactHash=false] - Cùng mã SHA-256
+ * @returns {Object} { similarityScore, tier, tierLabel, insufficientData, details }
  */
-export function calculateSimilarity(itemA, itemB) {
+export function calculateSimilarity(itemA, itemB, isExactHash = false) {
+  if (isExactHash) {
+    return {
+      similarityScore: 100,
+      tier: 'exact',
+      tierLabel: 'Trùng hoàn toàn (SHA-256)',
+      details: { titleSimilarity: 100, countMatch: 100, headingsSimilarity: 100, textSimilarity: 100 }
+    };
+  }
+
   // 1. So khớp tiêu đề (Title Similarity - Trọng số 30%)
   const cleanA = cleanLessonTitle(itemA.title || itemA.suggestedTitle);
   const cleanB = cleanLessonTitle(itemB.title || itemB.suggestedTitle);
@@ -648,43 +710,97 @@ export function calculateSimilarity(itemA, itemB) {
   let headingsSim = 0;
   if (headingsA && headingsB) {
     headingsSim = diceBigramSimilarity(headingsA, headingsB);
-  } else {
-    headingsSim = titleSim; // Fallback vào tiêu đề bài nếu không có danh sách heading
-  }
+  } // Không fallback vào titleSim để tránh tăng khống trọng số tiêu đề lên 50%
 
   // 4. So khớp nội dung slide text (Body Text Similarity - Trọng số 30%)
-  const tokensA = itemA.textTokens || extractWordTokens(itemA.fullText || itemA.content_fingerprint);
-  const tokensB = itemB.textTokens || extractWordTokens(itemB.fullText || itemB.content_fingerprint);
-  let textSim = 0;
-  if (tokensA && tokensB && tokensA.size > 0 && tokensB.size > 0) {
-    textSim = jaccardSetSimilarity(tokensA, tokensB);
-  } else if (itemA.content_fingerprint && itemB.content_fingerprint) {
-    textSim = diceBigramSimilarity(itemA.content_fingerprint, itemB.content_fingerprint);
-  } else {
-    // Nếu cả 2 chưa có text trích xuất, cân bằng trọng số giữa title và slide count
-    textSim = (titleSim + countMatch) / 2;
+  const textA = itemA.fullText || itemA.content_fingerprint || '';
+  const textB = itemB.fullText || itemB.content_fingerprint || '';
+
+  const extractCleanTokens = (txt, existingTokens) => {
+    if (existingTokens && existingTokens instanceof Set && existingTokens.size > 0) {
+      const filtered = new Set();
+      existingTokens.forEach(w => {
+        if (!BOILERPLATE_WORDS.has(w) && w.length > 1) filtered.add(w);
+      });
+      return filtered;
+    }
+    const all = extractWordTokens(txt);
+    const filtered = new Set();
+    all.forEach(w => {
+      if (!BOILERPLATE_WORDS.has(w) && w.length > 1) filtered.add(w);
+    });
+    return filtered;
+  };
+
+  const tokensA = extractCleanTokens(textA, itemA.textTokens);
+  const tokensB = extractCleanTokens(textB, itemB.textTokens);
+
+  const hasTextA = tokensA && tokensA.size > 0;
+  const hasTextB = tokensB && tokensB.size > 0;
+
+  if (!hasTextA || !hasTextB) {
+    // KHÔNG fallback textSim = (titleSim + countMatch) / 2
+    return {
+      similarityScore: 0,
+      insufficientData: true,
+      message: 'Không đủ dữ liệu để đánh giá mức độ trùng lặp',
+      tier: 'insufficient_data',
+      tierLabel: 'Không đủ dữ liệu',
+      details: {
+        titleSimilarity: Math.round(titleSim * 100),
+        countMatch: Math.round(countMatch * 100),
+        headingsSimilarity: Math.round(headingsSim * 100),
+        textSimilarity: 0
+      }
+    };
   }
+
+  const textSim = jaccardSetSimilarity(tokensA, tokensB);
 
   // 5. Tính điểm tổng hợp (Composite Score)
   let composite = (titleSim * 0.30) + (countMatch * 0.20) + (headingsSim * 0.20) + (textSim * 0.30);
 
-  // Nếu tiêu đề gần như tuyệt đối giống nhau (>= 0.95) và số slide khớp hoàn toàn (countMatch === 1)
-  // và nội dung text khớp cao (>= 0.80), nâng thang điểm vào vùng 95% - 100%
-  if (titleSim >= 0.95 && countMatch >= 0.95 && textSim >= 0.80) {
-    composite = Math.max(composite, 0.95 + (textSim * 0.05));
+  // Phạt điểm nếu số bài khác nhau rõ ràng (Bài 1 vs Bài 2)
+  const numA = extractLessonNumber(itemA.title || itemA.suggestedTitle);
+  const numB = extractLessonNumber(itemB.title || itemB.suggestedTitle);
+  if (numA && numB && numA !== numB) {
+    composite *= 0.5; // Giảm 50% nếu khác số hiệu bài
   }
 
-  // Phạt điểm nếu khối lớp khác nhau hoàn toàn (ví dụ lớp 3 so với lớp 5)
+  // Phạt điểm nếu khác khối lớp (Khối 1 vs Khối 2 hoặc Khối 3 vs Khối 5)
   const gradeA = Number(itemA.grade || itemA.detectedGrade) || 0;
   const gradeB = Number(itemB.grade || itemB.detectedGrade) || 0;
-  if (gradeA > 0 && gradeB > 0 && Math.abs(gradeA - gradeB) >= 2) {
-    composite *= 0.6;
+  if (gradeA > 0 && gradeB > 0 && Math.abs(gradeA - gradeB) >= 1) {
+    composite *= 0.5;
+  }
+
+  // Nếu tiêu đề tuyệt đối giống nhau (>= 0.98), cùng số slide, và text trùng rất cao (>= 0.90)
+  if (titleSim >= 0.98 && countMatch === 1 && textSim >= 0.90) {
+    composite = Math.max(composite, 0.95 + (textSim * 0.05));
   }
 
   const scorePercent = Math.min(100, Math.max(0, Math.round(composite * 1000) / 10));
 
+  let tier = 'unique';
+  let tierLabel = 'Khác biệt';
+  if (scorePercent === 100) {
+    tier = 'exact';
+    tierLabel = 'Trùng hoàn toàn';
+  } else if (scorePercent >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_VERY_HIGH) {
+    tier = 'very_high';
+    tierLabel = 'Rất giống';
+  } else if (scorePercent >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_HIGH) {
+    tier = 'high';
+    tierLabel = 'Trùng cao';
+  } else if (scorePercent >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_SIMILAR) {
+    tier = 'reference';
+    tierLabel = 'Gần giống';
+  }
+
   return {
     similarityScore: scorePercent,
+    tier,
+    tierLabel,
     details: {
       titleSimilarity: Math.round(titleSim * 100),
       countMatch: Math.round(countMatch * 100),
@@ -815,26 +931,60 @@ export function checkDuplicateBatch({ files, existingLessons = [] }) {
       }
     }
 
-    // 5. Đánh giá theo 3 mức độ trùng lặp: Trùng 100%, Trùng cao, Gần giống
+    // 5. Đánh giá theo các mức độ trùng lặp: Trùng hoàn toàn (100%), Rất giống (95-99.9%), Trùng cao (80-94.9%), Gần giống (60-79.9%)
+    if (bestMatch && bestDetails?.insufficientData) {
+      results.push({
+        index: i,
+        fileName,
+        fileHash,
+        fileSizeBytes,
+        slideCount: meta.slideCount,
+        suggestedTitle: meta.suggestedTitle,
+        detectedGrade: meta.detectedGrade,
+        slideHeadings: meta.slideHeadings,
+        contentFingerprint: meta.contentFingerprint,
+        isValid: true,
+        status: SIMILARITY_STATUS.INSUFFICIENT_DATA,
+        tier: 'insufficient_data',
+        tierBadge: '⚪ Không đủ dữ liệu',
+        tierLabel: 'Không đủ dữ liệu',
+        tierColor: '#6b7280',
+        similarityScore: 0,
+        details: bestDetails,
+        inBatchDuplicate: false,
+        message: 'Không đủ dữ liệu để đánh giá mức độ trùng lặp',
+        matchedLesson: null,
+        shouldImportDefault: true
+      });
+      continue;
+    }
+
     if (highestScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_SIMILAR && bestMatch) {
       let tier = 'reference';
       let tierBadge = '🟡 Tham khảo';
-      let tierLabel = 'Gần giống (60-80%)';
+      let tierLabel = 'Gần giống (60-79.9%)';
       let tierColor = '#eab308';
       let status = SIMILARITY_STATUS.NEAR_SIMILAR;
       let shouldImportDefault = true;
 
-      if (highestScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_HIGH) {
+      if (highestScore === 100) {
         tier = 'exact';
-        tierBadge = '🔴 Cảnh báo';
-        tierLabel = 'Trùng 100% (95-100%)';
+        tierBadge = '🔴 Trùng hoàn toàn';
+        tierLabel = 'Trùng hoàn toàn (100%)';
         tierColor = '#ef4444';
         status = SIMILARITY_STATUS.EXACT_DUPLICATE;
         shouldImportDefault = false;
-      } else if (highestScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_LIKELY) {
+      } else if (highestScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_VERY_HIGH) {
+        tier = 'very_high';
+        tierBadge = '🔴 Rất giống';
+        tierLabel = 'Rất giống (95-99.9%)';
+        tierColor = '#ef4444';
+        status = SIMILARITY_STATUS.VERY_HIGH_DUPLICATE;
+        shouldImportDefault = false;
+      } else if (highestScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_HIGH) {
         tier = 'high';
         tierBadge = '🟠 Cảnh báo';
-        tierLabel = 'Trùng cao (80-95%)';
+        tierLabel = 'Trùng cao (80-94.9%)';
         tierColor = '#f97316';
         status = SIMILARITY_STATUS.HIGH_DUPLICATE;
         shouldImportDefault = true;
@@ -872,7 +1022,7 @@ export function checkDuplicateBatch({ files, existingLessons = [] }) {
         shouldImportDefault
       });
     } else {
-      // Bài mới hoàn toàn (< 60%)
+      // Khác biệt / Bài mới (< 60%)
       results.push({
         index: i,
         fileName,
@@ -887,11 +1037,11 @@ export function checkDuplicateBatch({ files, existingLessons = [] }) {
         status: SIMILARITY_STATUS.UNIQUE,
         tier: 'unique',
         tierBadge: '✓ Bài mới',
-        tierLabel: 'Bài mới',
+        tierLabel: 'Khác biệt / Bài mới',
         tierColor: '#10b981',
         similarityScore: highestScore,
         inBatchDuplicate: false,
-        message: 'Bài mới',
+        message: 'Khác biệt / Bài mới',
         matchedLesson: null,
         shouldImportDefault: true
       });
@@ -969,20 +1119,26 @@ export function scanLibraryDuplicates(lessons = [], classStats = null) {
       if (finalScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_SIMILAR || isExactHash) {
         let tier = 'reference';
         let tierBadge = '🟡 Tham khảo';
-        let tierLabel = 'Gần giống (60-80%)';
+        let tierLabel = 'Gần giống (60-79.9%)';
         let tierColor = '#eab308';
         let status = SIMILARITY_STATUS.NEAR_SIMILAR;
 
-        if (finalScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_HIGH || isExactHash) {
+        if (finalScore === 100 || isExactHash) {
           tier = 'exact';
-          tierBadge = '🔴 Cảnh báo';
-          tierLabel = isExactHash ? 'Trùng 100% (SHA-256)' : 'Trùng 100% (95-100%)';
+          tierBadge = '🔴 Trùng hoàn toàn';
+          tierLabel = isExactHash ? 'Trùng hoàn toàn (SHA-256)' : 'Trùng hoàn toàn (100%)';
           tierColor = '#ef4444';
           status = SIMILARITY_STATUS.EXACT_DUPLICATE;
-        } else if (finalScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_LIKELY) {
+        } else if (finalScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_VERY_HIGH) {
+          tier = 'very_high';
+          tierBadge = '🔴 Rất giống';
+          tierLabel = 'Rất giống (95-99.9%)';
+          tierColor = '#ef4444';
+          status = SIMILARITY_STATUS.VERY_HIGH_DUPLICATE;
+        } else if (finalScore >= DUPLICATE_THRESHOLDS.NEAR_DUPLICATE_HIGH) {
           tier = 'high';
           tierBadge = '🟠 Cảnh báo';
-          tierLabel = 'Trùng cao (80-95%)';
+          tierLabel = 'Trùng cao (80-94.9%)';
           tierColor = '#f97316';
           status = SIMILARITY_STATUS.HIGH_DUPLICATE;
         }
@@ -1054,13 +1210,14 @@ export function scanLibraryDuplicates(lessons = [], classStats = null) {
   pairs.sort((a, b) => b.score - a.score);
 
   const exactCount = pairs.filter(p => p.tier === 'exact').length;
+  const veryHighCount = pairs.filter(p => p.tier === 'very_high').length;
   const highCount = pairs.filter(p => p.tier === 'high').length;
   const referenceCount = pairs.filter(p => p.tier === 'reference').length;
 
-  // Tính số lượng bài đề xuất xem xét xóa từ các cặp trùng 100%
+  // Tính số lượng bài đề xuất xem xét xóa từ các cặp trùng 100% hoặc rất giống
   const exactDuplicateLessonIds = new Set();
   for (const p of pairs) {
-    if (p.tier === 'exact') {
+    if (p.tier === 'exact' || p.tier === 'very_high') {
       exactDuplicateLessonIds.add(p.lessonB.id);
     }
   }
@@ -1079,12 +1236,14 @@ export function scanLibraryDuplicates(lessons = [], classStats = null) {
     if (dup) {
       if (dup.tier === 'exact') {
         b.exactCount += 1;
+      } else if (dup.tier === 'very_high') {
+        b.veryHighCount = (b.veryHighCount || 0) + 1;
       } else if (dup.tier === 'high') {
         b.highCount += 1;
       } else if (dup.tier === 'reference') {
         b.referenceCount += 1;
       }
-      b.needReviewCount = b.highCount + b.referenceCount;
+      b.needReviewCount = (b.veryHighCount || 0) + b.highCount + b.referenceCount;
       b.warningLessonIds.push({
         lessonId: l.id,
         title: l.title,
@@ -1137,6 +1296,7 @@ export function scanLibraryDuplicates(lessons = [], classStats = null) {
     totalClasses,
     totalDuplicates: pairs.length,
     exactCount,
+    veryHighCount,
     highCount,
     referenceCount,
     suggestedDeleteCount,

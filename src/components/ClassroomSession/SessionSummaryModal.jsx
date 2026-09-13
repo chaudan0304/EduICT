@@ -158,7 +158,7 @@ export default function SessionSummaryModal({
               </h2>
 
               <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                {currentClass?.name} • Năm học {currentClass?.schoolYear || '2025 - 2026'}
+                {currentClass?.name} • Năm học {currentClass?.schoolYear || '2026 - 2027'}
               </p>
             </div>
 
