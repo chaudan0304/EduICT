@@ -16,105 +16,47 @@ const BROKEN_MACHINES_KEY = 'edumaster_broken_machines_v1';
 import { compareVietnameseNames, sortStudentsVietnamese } from './vietnameseSort';
 export { compareVietnameseNames, sortStudentsVietnamese };
 
-// Học sinh mẫu chuẩn tiếng Việt cho Khối 1 (Làm quen & Kỹ năng chuột)
-const STUDENTS_GRADE_1 = [
-  { id: 'HS101', name: 'Nguyễn Tuấn Anh', gender: 'Nam', machineNumber: 1, skill_mouse: 'T', skill_keyboard: 'H', skill_paint: 'T', stars: 15, note: 'Cầm chuột đúng cách, vẽ bông hoa đẹp', attendance: 'present' },
-  { id: 'HS102', name: 'Trần Bảo Châu', gender: 'Nữ', machineNumber: 2, skill_mouse: 'T', skill_keyboard: 'T', skill_paint: 'T', stars: 22, note: 'Thao tác kéo thả rất nhanh, chăm chỉ', attendance: 'present' },
-  { id: 'HS103', name: 'Lê Minh Đăng', gender: 'Nam', machineNumber: 3, skill_mouse: 'H', skill_keyboard: 'H', skill_paint: 'H', stars: 10, note: 'Biết click đúp mở phần mềm Paint', attendance: 'present' },
-  { id: 'HS104', name: 'Phạm Quỳnh Giang', gender: 'Nữ', machineNumber: 4, skill_mouse: 'T', skill_keyboard: 'T', skill_paint: 'T', stars: 18, note: 'Tô màu khéo, không lem ra ngoài', attendance: 'present' },
-  { id: 'HS105', name: 'Vũ Đức Khang', gender: 'Nam', machineNumber: 5, skill_mouse: 'H', skill_keyboard: 'C', skill_paint: 'H', stars: 8, note: 'Cần luyện thêm tìm phím Enter và Space', attendance: 'present' },
-  { id: 'HS106', name: 'Đỗ Thảo Linh', gender: 'Nữ', machineNumber: 6, skill_mouse: 'T', skill_keyboard: 'H', skill_paint: 'T', stars: 14, note: 'Rất ngoan, ngồi đúng tư thế', attendance: 'present' },
-  { id: 'HS107', name: 'Bùi Gia Minh', gender: 'Nam', machineNumber: 7, skill_mouse: 'H', skill_keyboard: 'H', skill_paint: 'H', stars: 9, note: 'Đã biết di chuyển chuột mượt mà', attendance: 'present' },
-  { id: 'HS108', name: 'Ngô Ngọc Mai', gender: 'Nữ', machineNumber: 8, skill_mouse: 'T', skill_keyboard: 'T', skill_paint: 'T', stars: 20, note: 'Biết chọn hình tròn, hình vuông trong Paint', attendance: 'present' },
-  { id: 'HS109', name: 'Hoàng Nhật Nam', gender: 'Nam', machineNumber: 9, skill_mouse: 'T', skill_keyboard: 'H', skill_paint: 'T', stars: 12, note: 'Hăng hái xung phong thực hành', attendance: 'present' },
-  { id: 'HS110', name: 'Đặng Yến Oanh', gender: 'Nữ', machineNumber: 10, skill_mouse: 'T', skill_keyboard: 'T', skill_paint: 'T', stars: 16, note: 'Giữ trật tự phòng máy rất tốt', attendance: 'present' },
-];
-
-// Học sinh mẫu chuẩn cho Khối 2 (Luyện gõ & Vẽ)
-const STUDENTS_GRADE_2 = [
-  { id: 'HS201', name: 'Trịnh Bảo An', gender: 'Nữ', machineNumber: 1, skill_mouse: 'T', skill_keyboard: 'T', skill_paint: 'T', stars: 18, note: 'Gõ hàng phím cơ sở tốt', attendance: 'present' },
-  { id: 'HS202', name: 'Lý Quốc Bảo', gender: 'Nam', machineNumber: 2, skill_mouse: 'T', skill_keyboard: 'H', skill_paint: 'T', stars: 14, note: 'Vẽ ngôi nhà và cây xanh rất sáng tạo', attendance: 'present' },
-  { id: 'HS203', name: 'Dương Khánh Chi', gender: 'Nữ', machineNumber: 3, skill_mouse: 'T', skill_keyboard: 'T', skill_paint: 'T', stars: 25, note: 'Thao tác gõ chữ tiếng Việt cơ bản nhanh', attendance: 'present' },
-  { id: 'HS204', name: 'Mai Hữu Đạt', gender: 'Nam', machineNumber: 4, skill_mouse: 'H', skill_keyboard: 'H', skill_paint: 'H', stars: 9, note: 'Cần chú ý đặt đúng ngón tay trên phím F và J', attendance: 'present' },
-  { id: 'HS205', name: 'Cao Diễm Hằng', gender: 'Nữ', machineNumber: 5, skill_mouse: 'T', skill_keyboard: 'H', skill_paint: 'T', stars: 16, note: 'Biết phóng to thu nhỏ hình vẽ', attendance: 'present' },
-  { id: 'HS206', name: 'Phan Tuấn Kiệt', gender: 'Nam', machineNumber: 6, skill_mouse: 'H', skill_keyboard: 'H', skill_paint: 'H', stars: 11, note: 'Chăm chỉ hoàn thành bài luyện gõ', attendance: 'present' },
-  { id: 'HS207', name: 'Lâm Thanh Lam', gender: 'Nữ', machineNumber: 7, skill_mouse: 'T', skill_keyboard: 'T', skill_paint: 'T', stars: 21, note: 'Vẽ cờ đỏ sao vàng chuẩn và đẹp', attendance: 'present' },
-  { id: 'HS208', name: 'Hồ Minh Phát', gender: 'Nam', machineNumber: 8, skill_mouse: 'H', skill_keyboard: 'C', skill_paint: 'H', stars: 7, note: 'Cần rèn luyện thêm tốc độ gõ phím', attendance: 'present' },
-];
-
-// Học sinh mẫu chuẩn cho Khối 3 (Tin học GDPT 2018 - Gõ 10 ngón, Paint)
-const STUDENTS_GRADE_3 = [
-  { id: 'HS301', name: 'Nguyễn Thành Long', gender: 'Nam', machineNumber: 1, eval_regular: 'T', score_hk1: 9.5, score_ck: 10.0, stars: 28, note: 'Gõ 10 ngón chuẩn xác, hoàn thành bài sớm', attendance: 'present' },
-  { id: 'HS302', name: 'Lê Thuỳ Trang', gender: 'Nữ', machineNumber: 2, eval_regular: 'T', score_hk1: 9.0, score_ck: 9.5, stars: 24, note: 'Hiểu bài nhanh, hướng dẫn bạn cùng máy', attendance: 'present' },
-  { id: 'HS303', name: 'Trần Quang Huy', gender: 'Nam', machineNumber: 3, eval_regular: 'H', score_hk1: 7.5, score_ck: 8.0, stars: 12, note: 'Thao tác gõ tiếng Việt Telex tiến bộ', attendance: 'present' },
-  { id: 'HS304', name: 'Võ Minh Thư', gender: 'Nữ', machineNumber: 4, eval_regular: 'T', score_hk1: 8.5, score_ck: 9.0, stars: 19, note: 'Vẽ tranh phong cảnh Paint rất khéo', attendance: 'present' },
-  { id: 'HS305', name: 'Phạm Đức Trọng', gender: 'Nam', machineNumber: 5, eval_regular: 'H', score_hk1: 6.5, score_ck: 7.0, stars: 8, note: 'Cần rèn luyện thêm gõ hàng phím trên', attendance: 'present' },
-  { id: 'HS306', name: 'Đỗ Ngọc Bích', gender: 'Nữ', machineNumber: 6, eval_regular: 'T', score_hk1: 9.5, score_ck: 9.5, stars: 26, note: 'Nắm vững quy tắc an toàn phòng máy', attendance: 'present' },
-  { id: 'HS307', name: 'Hoàng Anh Tuấn', gender: 'Nam', machineNumber: 7, eval_regular: 'H', score_hk1: 7.0, score_ck: 7.5, stars: 10, note: 'Có tiến bộ trong thực hành tạo thư mục', attendance: 'present' },
-  { id: 'HS308', name: 'Đặng Mai Chi', gender: 'Nữ', machineNumber: 8, eval_regular: 'T', score_hk1: 8.5, score_ck: 9.0, stars: 17, note: 'Soạn đoạn thơ ngắn đúng dấu', attendance: 'present' },
-];
-
-// Học sinh mẫu chuẩn cho Khối 4 (Soạn thảo văn bản & Trình chiếu)
-const STUDENTS_GRADE_4 = [
-  { id: 'HS401', name: 'Bùi Đức Anh', gender: 'Nam', machineNumber: 1, eval_regular: 'T', score_hk1: 9.0, score_ck: 9.5, stars: 20, note: 'Định dạng phông chữ, cỡ chữ văn bản rất chuẩn', attendance: 'present' },
-  { id: 'HS402', name: 'Nguyễn Hoàng Yến', gender: 'Nữ', machineNumber: 2, eval_regular: 'T', score_hk1: 10.0, score_ck: 10.0, stars: 32, note: 'Chèn ảnh và tạo hiệu ứng trình chiếu đẹp mắt', attendance: 'present' },
-  { id: 'HS403', name: 'Lê Gia Hưng', gender: 'Nam', machineNumber: 3, eval_regular: 'H', score_hk1: 7.5, score_ck: 8.0, stars: 13, note: 'Biết chèn bảng đơn giản trong Word', attendance: 'present' },
-  { id: 'HS404', name: 'Trần Phương Uyên', gender: 'Nữ', machineNumber: 4, eval_regular: 'T', score_hk1: 9.0, score_ck: 9.0, stars: 21, note: 'Tìm kiếm thông tin trên Internet an toàn', attendance: 'present' },
-  { id: 'HS405', name: 'Vũ Quốc Khánh', gender: 'Nam', machineNumber: 5, eval_regular: 'H', score_hk1: 6.5, score_ck: 7.0, stars: 9, note: 'Cần lưu bài đúng vào thư mục cá nhân', attendance: 'present' },
-  { id: 'HS406', name: 'Phạm Hồng Nhung', gender: 'Nữ', machineNumber: 6, eval_regular: 'T', score_hk1: 9.5, score_ck: 9.5, stars: 25, note: 'Thiết kế slide bài thuyết trình rất sinh động', attendance: 'present' },
-];
-
-// Học sinh mẫu chuẩn cho Khối 5 (Lập trình Scratch & Đa phương tiện)
-const STUDENTS_GRADE_5 = [
-  { id: 'HS501', name: 'Đoàn Nhật Minh', gender: 'Nam', machineNumber: 1, eval_regular: 'T', score_hk1: 10.0, score_ck: 10.0, stars: 35, note: 'Lập trình nhân vật Scratch chuyển động mượt mà', attendance: 'present' },
-  { id: 'HS502', name: 'Võ Khánh Vy', gender: 'Nữ', machineNumber: 2, eval_regular: 'T', score_hk1: 9.5, score_ck: 9.5, stars: 27, note: 'Tạo game mê cung Scratch rất sáng tạo', attendance: 'present' },
-  { id: 'HS503', name: 'Hoàng Trung Kiên', gender: 'Nam', machineNumber: 3, eval_regular: 'T', score_hk1: 9.0, score_ck: 9.5, stars: 22, note: 'Hiểu câu lệnh lặp và rẽ nhánh if-then', attendance: 'present' },
-  { id: 'HS504', name: 'Ngô Thảo Nguyên', gender: 'Nữ', machineNumber: 4, eval_regular: 'H', score_hk1: 8.0, score_ck: 8.5, stars: 15, note: 'Nhập dữ liệu vào bảng tính cẩn thận', attendance: 'present' },
-  { id: 'HS505', name: 'Đinh Trọng Phúc', gender: 'Nam', machineNumber: 5, eval_regular: 'H', score_hk1: 7.0, score_ck: 7.5, stars: 11, note: 'Cần chú ý thêm khối lệnh âm thanh trong Scratch', attendance: 'present' },
-  { id: 'HS506', name: 'Trần Mỹ Dung', gender: 'Nữ', machineNumber: 6, eval_regular: 'T', score_hk1: 9.5, score_ck: 10.0, stars: 30, note: 'Xuất sắc, tư duy logic rất tốt', attendance: 'present' },
-];
-
-// 5 Khối Lớp mẫu chuẩn Tiểu học dành cho Giáo viên Tin học
+// 5 Khối Lớp chuẩn Tiểu học dành cho Giáo viên Tin học
 const INITIAL_CLASSES = [
   {
     id: 'class_1a1',
     name: 'Lớp 1A1',
     grade: 1,
     subject: 'Tin Học 1 (Làm quen & Vẽ Paint)',
-    schoolYear: '2025 - 2026',
-    students: STUDENTS_GRADE_1,
+    schoolYear: '2026 - 2027',
+    students: [],
   },
   {
     id: 'class_2a1',
     name: 'Lớp 2A1',
     grade: 2,
     subject: 'Tin Học 2 (Luyện phím & Vẽ hình)',
-    schoolYear: '2025 - 2026',
-    students: STUDENTS_GRADE_2,
+    schoolYear: '2026 - 2027',
+    students: [],
   },
   {
     id: 'class_3a1',
     name: 'Lớp 3A1',
     grade: 3,
     subject: 'Tin Học 3 (Gõ 10 ngón & Paint)',
-    schoolYear: '2025 - 2026',
-    students: STUDENTS_GRADE_3,
+    schoolYear: '2026 - 2027',
+    students: [],
   },
   {
     id: 'class_4a1',
     name: 'Lớp 4A1',
     grade: 4,
     subject: 'Tin Học 4 (Word & PowerPoint)',
-    schoolYear: '2025 - 2026',
-    students: STUDENTS_GRADE_4,
+    schoolYear: '2026 - 2027',
+    students: [],
   },
   {
     id: 'class_5a1',
     name: 'Lớp 5A1',
     grade: 5,
     subject: 'Tin Học 5 (Lập trình Scratch & Internet)',
-    schoolYear: '2025 - 2026',
-    students: STUDENTS_GRADE_5,
+    schoolYear: '2026 - 2027',
+    students: [],
   }
 ];
 

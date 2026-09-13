@@ -89,6 +89,36 @@ export default function SeatingDisplayMode({
   const allAssigned = Object.values(machineStudentMap).flat();
   const sharedCount = Object.values(machineStudentMap).filter(list => list.length === 2).length;
 
+  // BIẾN ĐỔI 180° BỐ CỤC KHÔNG GIAN CHO GÓC NHÌN HỌC SINH (Student Perspective):
+  // 1. Thứ tự cột từ Trái sang Phải: Dãy 1 -> Dãy 2 -> Dãy 3 -> Dãy 4 -> Dãy 5 (ngược với trang quản trị)
+  // 2. Trong mỗi dãy, số máy GIẢM DẦN từ trên xuống dưới (Máy số lớn trên cùng gần bảng -> máy số nhỏ dưới cùng)
+  // 3. Vị trí nhãn: Bàn giáo viên (góc trên-trái); Bảng & tivi (giữa trên); Cửa ra vào (góc trên-phải)
+  const studentRows = React.useMemo(() => {
+    // Sắp xếp Dãy 1 -> Dãy 5 theo id tăng dần (1, 2, 3, 4, 5)
+    return [...labLayout].sort((a, b) => a.id - b.id).map(row => {
+      const [start, end] = row.machineRange;
+      const isTeacherSide = row.id === 1;
+      const isDoorSide = row.id === 5;
+      return {
+        ...row,
+        rowName: `Dãy ${row.id}${isTeacherSide ? ' (Trong cùng)' : ''}`,
+        subtitle: isTeacherSide 
+          ? 'Làn máy phía Bàn Giáo Viên' 
+          : (isDoorSide ? 'Làn máy phía Cửa Ra Vào' : (row.id === 3 ? 'Làn máy trung tâm' : `Làn máy số ${row.id}`)),
+        isTeacherSide,
+        isDoorSide,
+        rangeLabel: `Máy ${String(end).padStart(2, '0')} – ${String(start).padStart(2, '0')}`,
+        getMachineNumbers: () => {
+          const nums = [];
+          for (let m = end; m >= start; m--) {
+            nums.push(m);
+          }
+          return nums;
+        }
+      };
+    });
+  }, [labLayout]);
+
   return (
     <div 
       className="seating-display-mode-root"
@@ -164,7 +194,7 @@ export default function SeatingDisplayMode({
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em'
               }}>
-                Màn Hình Chiếu
+                Góc Nhìn Học Sinh
               </span>
             </div>
             <p style={{
@@ -248,8 +278,7 @@ export default function SeatingDisplayMode({
         </div>
       </header>
 
-      {/* 2. ĐỊNH HƯỚNG KHÔNG GIAN PHÍA TRƯỚC: BẢNG LỚP HỌC & BÀN GIÁO VIÊN & CỬA RA VÀO */}
-      {/* Học sinh nhìn lên bảng phía trước để định vị hướng máy tính */}
+      {/* 2. ĐỊNH HƯỚNG KHÔNG GIAN PHÍA TRƯỚC (GÓC NHÌN HỌC SINH NHÌN LÊN BẢNG / MÀN CHIẾU) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))',
@@ -258,166 +287,84 @@ export default function SeatingDisplayMode({
         marginBottom: '0.85rem',
         flexShrink: 0
       }}>
-        {teacherSide === 'right' ? (
-          <>
-            {/* Cửa Ra Vào (Phía Dãy 5) */}
-            <div style={{
-              gridColumn: '1 / 2',
-              padding: '0.65rem 0.85rem',
-              background: 'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
-              border: '2px solid #0284c7',
-              borderRadius: '10px',
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.45rem',
-              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.12)'
-            }}>
-              <DoorOpen size={20} color="#0284c7" />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>
-                  Lối Vào Phòng Máy
-                </div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#0284c7' }}>
-                  🚪 CỬA RA VÀO CHÍNH
-                </div>
-              </div>
+        {/* Góc trên - trái (Thẳng hàng Dãy 1): Bàn Giáo Viên */}
+        <div style={{
+          gridColumn: '1 / 2',
+          padding: '0.65rem 0.85rem',
+          background: 'linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%)',
+          border: '2px solid #f59e0b',
+          borderRadius: '10px',
+          textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.45rem',
+          boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
+        }}>
+          <Server size={20} color="#d97706" />
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>
+              Phía Trước Bên Trái
             </div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#b45309' }}>
+              💻 BÀN GIÁO VIÊN
+            </div>
+          </div>
+        </div>
 
-            {/* Bảng Lớp Học & Màn Chiếu Trung Tâm */}
-            <div style={{
-              gridColumn: '2 / 5',
-              textAlign: 'center',
-              padding: '0.65rem 1rem',
-              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-              borderRadius: '10px',
-              border: '2px solid #334155',
-              color: '#f8fafc',
-              boxShadow: '0 4px 12px rgba(15, 23, 42, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.75rem'
-            }}>
-              <span style={{ fontSize: '1.2rem' }}>📋</span>
-              <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.02em', color: '#38bdf8' }}>
-                  BẢNG LỚP HỌC & MÀN CHIẾU CHÍNH (HƯỚNG NHÌN LÊN)
-                </div>
-                <div style={{ fontSize: '0.775rem', fontWeight: 600, color: '#94a3b8' }}>
-                  Các em nhìn theo vị trí Dãy 1 → Dãy 5 bên dưới để về đúng chỗ ngồi của mình
-                </div>
-              </div>
+        {/* Giữa phía trên (Thẳng hàng Dãy 2, 3, 4): Bảng và Tivi / Màn chiếu chính */}
+        <div style={{
+          gridColumn: '2 / 5',
+          textAlign: 'center',
+          padding: '0.65rem 1rem',
+          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+          borderRadius: '10px',
+          border: '2px solid #334155',
+          color: '#f8fafc',
+          boxShadow: '0 4px 12px rgba(15, 23, 42, 0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.75rem'
+        }}>
+          <span style={{ fontSize: '1.3rem' }}>📺</span>
+          <div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.02em', color: '#38bdf8' }}>
+              BẢNG VÀ TIVI / MÀN CHIẾU CHÍNH (HƯỚNG NHÌN LÊN)
             </div>
+            <div style={{ fontSize: '0.775rem', fontWeight: 600, color: '#94a3b8' }}>
+              Các em nhìn theo hướng bảng: Dãy 1 (Bên trái) → Dãy 5 (Bên phải gần cửa ra vào)
+            </div>
+          </div>
+        </div>
 
-            {/* Bàn Giáo Viên & Máy Chủ (Phía Dãy 1) */}
-            <div style={{
-              gridColumn: '5 / 6',
-              padding: '0.65rem 0.85rem',
-              background: 'linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%)',
-              border: '2px solid #f59e0b',
-              borderRadius: '10px',
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.45rem',
-              boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
-            }}>
-              <Server size={20} color="#d97706" />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>
-                  Phía Trong Cùng
-                </div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#b45309' }}>
-                  💻 BÀN GIÁO VIÊN
-                </div>
-              </div>
+        {/* Góc trên - phải (Thẳng hàng Dãy 5): Cửa Ra Vào */}
+        <div style={{
+          gridColumn: '5 / 6',
+          padding: '0.65rem 0.85rem',
+          background: 'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
+          border: '2px solid #0284c7',
+          borderRadius: '10px',
+          textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.45rem',
+          boxShadow: '0 2px 6px rgba(2, 132, 199, 0.12)'
+        }}>
+          <DoorOpen size={20} color="#0284c7" />
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>
+              Phía Trước Bên Phải
             </div>
-          </>
-        ) : (
-          <>
-            {/* Bàn Giáo Viên & Máy Chủ (Phía Dãy 1 Bên Trái) */}
-            <div style={{
-              gridColumn: '1 / 2',
-              padding: '0.65rem 0.85rem',
-              background: 'linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%)',
-              border: '2px solid #f59e0b',
-              borderRadius: '10px',
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.45rem',
-              boxShadow: '0 2px 6px rgba(245, 158, 11, 0.15)'
-            }}>
-              <Server size={20} color="#d97706" />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>
-                  Phía Trong Cùng
-                </div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#b45309' }}>
-                  💻 BÀN GIÁO VIÊN
-                </div>
-              </div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#0284c7' }}>
+              🚪 CỬA RA VÀO
             </div>
-
-            {/* Bảng Lớp Học & Màn Chiếu Trung Tâm */}
-            <div style={{
-              gridColumn: '2 / 5',
-              textAlign: 'center',
-              padding: '0.65rem 1rem',
-              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-              borderRadius: '10px',
-              border: '2px solid #334155',
-              color: '#f8fafc',
-              boxShadow: '0 4px 12px rgba(15, 23, 42, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.75rem'
-            }}>
-              <span style={{ fontSize: '1.2rem' }}>📋</span>
-              <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.02em', color: '#38bdf8' }}>
-                  BẢNG LỚP HỌC & MÀN CHIẾU CHÍNH (HƯỚNG NHÌN LÊN)
-                </div>
-                <div style={{ fontSize: '0.775rem', fontWeight: 600, color: '#94a3b8' }}>
-                  Các em nhìn theo vị trí Dãy 1 → Dãy 5 bên dưới để về đúng chỗ ngồi của mình
-                </div>
-              </div>
-            </div>
-
-            {/* Cửa Ra Vào (Phía Dãy 5 Bên Phải) */}
-            <div style={{
-              gridColumn: '5 / 6',
-              padding: '0.65rem 0.85rem',
-              background: 'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
-              border: '2px solid #0284c7',
-              borderRadius: '10px',
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.45rem',
-              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.12)'
-            }}>
-              <DoorOpen size={20} color="#0284c7" />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>
-                  Lối Vào Phòng Máy
-                </div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#0284c7' }}>
-                  🚪 CỬA RA VÀO CHÍNH
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+          </div>
+        </div>
       </div>
 
-      {/* 3. KHÔNG GIAN CHÍNH: 5 DÃY MÁY TÍNH PHÒNG THỰC HÀNH */}
+      {/* 3. KHÔNG GIAN CHÍNH: 5 DÃY MÁY TÍNH (XOAY 180° THEO GÓC NHÌN HỌC SINH: DÃY 1 -> DÃY 5) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))',
@@ -425,13 +372,9 @@ export default function SeatingDisplayMode({
         flex: 1,
         alignItems: 'start'
       }}>
-        {labLayout.map(row => {
-          // Tạo danh sách số máy thuộc dãy này
-          const [start, end] = row.machineRange;
-          const machineNumbers = [];
-          for (let m = start; m <= end; m++) {
-            machineNumbers.push(m);
-          }
+        {studentRows.map(row => {
+          // Trong mỗi dãy: Số máy giảm dần từ trên xuống dưới (máy lớn ở trên gần bảng -> máy nhỏ ở dưới)
+          const machineNumbers = row.getMachineNumbers();
 
           let borderColor = '#cbd5e1';
           let headerBg = '#f1f5f9';
@@ -483,7 +426,7 @@ export default function SeatingDisplayMode({
                   {row.isTeacherSide && <Sparkles size={15} color="#f59e0b" />}
                 </div>
                 <div style={{ fontSize: '0.725rem', fontWeight: 700, opacity: 0.9 }}>
-                  {row.subtitle} (Máy {String(start).padStart(2, '0')} – {String(end).padStart(2, '0')})
+                  {row.subtitle} ({row.rangeLabel})
                 </div>
               </div>
 
@@ -717,19 +660,9 @@ export default function SeatingDisplayMode({
         marginTop: '0.85rem',
         flexShrink: 0
       }}>
-        {teacherSide === 'right' ? (
-          <>
-            <span style={{ color: '#0284c7' }}>🚪 PHÍA DÃY 5 (GẦN CỬA RA VÀO)</span>
-            <span>🪟 HƯỚNG CUỐI PHÒNG MÁY / CỬA SỔ THÔNG THOÁNG</span>
-            <span style={{ color: '#d97706' }}>📍 PHÍA DÃY 1 (TRONG CÙNG • BÀN GV)</span>
-          </>
-        ) : (
-          <>
-            <span style={{ color: '#d97706' }}>📍 PHÍA DÃY 1 (TRONG CÙNG • BÀN GV)</span>
-            <span>🪟 HƯỚNG CUỐI PHÒNG MÁY / CỬA SỔ THÔNG THOÁNG</span>
-            <span style={{ color: '#0284c7' }}>🚪 PHÍA DÃY 5 (GẦN CỬA RA VÀO)</span>
-          </>
-        )}
+        <span style={{ color: '#d97706' }}>📍 PHÍA TRONG CÙNG (CUỐI DÃY 1)</span>
+        <span>🪟 HƯỚNG CUỐI PHÒNG MÁY / CỬA SỔ THÔNG THOÁNG</span>
+        <span style={{ color: '#0284c7' }}>🚪 CỬA RA VÀO PHÍA SAU (CUỐI DÃY 5)</span>
       </footer>
     </div>
   );
