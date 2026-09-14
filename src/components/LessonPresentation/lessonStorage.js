@@ -16,36 +16,102 @@ export const INFORMATICS_TOPICS = [
 ];
 
 /**
- * So sánh tên bài học tự nhiên (Natural Lesson Sorting)
- * Tự động nhận diện và sắp xếp chuẩn: "Bài 1", "Bài 2", ..., "Bài 9", "Bài 10", "Bài 11"...
- * Hỗ trợ tiếng Việt có dấu và các tiền tố Tiết, Tuần, Chủ đề, Lesson, Unit.
+ * Trích xuất thứ tự số học tự nhiên từ tiêu đề bài học và chủ đề
+ * Hỗ trợ: "Bài 1", "Bài 2", "Bài 8A", "Bài 8B", "Bài 10", "Chương 3", "Chủ đề A"...
  */
-export function compareLessonTitles(titleA = '', titleB = '') {
-  const cleanA = (titleA || '').trim();
-  const cleanB = (titleB || '').trim();
+export function extractLessonSortKey(lessonOrTitle) {
+  let title = '';
+  let topic = '';
+  let grade = 0;
+  let orderIndex = 0;
 
-  const extractLessonNum = (str) => {
-    const match = str.match(/(?:bài|tiết|tuần|chủ đề|lesson|unit)\s*(\d+)/i);
-    if (match) return parseInt(match[1], 10);
-    const generalMatch = str.match(/(?:^|[_\-\s])(\d+)(?:[_\-\s:]|$)/);
-    if (generalMatch) return parseInt(generalMatch[1], 10);
-    return null;
-  };
-
-  const numA = extractLessonNum(cleanA);
-  const numB = extractLessonNum(cleanB);
-
-  if (numA !== null && numB !== null) {
-    if (numA !== numB) {
-      return numA - numB;
-    }
-  } else if (numA !== null && numB === null) {
-    return -1;
-  } else if (numA === null && numB !== null) {
-    return 1;
+  if (typeof lessonOrTitle === 'string') {
+    title = lessonOrTitle.trim();
+  } else if (lessonOrTitle && typeof lessonOrTitle === 'object') {
+    title = (lessonOrTitle.title || lessonOrTitle.lessonTitle || '').trim();
+    topic = (lessonOrTitle.topic || '').trim();
+    grade = Number(lessonOrTitle.grade) || 0;
+    orderIndex = Number(lessonOrTitle.order_index) || 0;
   }
 
-  return cleanA.localeCompare(cleanB, 'vi', { numeric: true, sensitivity: 'base' });
+  // 1. Trích xuất Chương / Chủ đề (VD: "(Chương 6: ...)", "Chương 3", "Chủ đề A", "Chủ đề 2")
+  let chapterNum = 0;
+  const chapterMatch = (topic + ' ' + title).match(/(?:chương|chuong|chủ đề|chu de)\s*(\d+|[a-zA-Z])/i);
+  if (chapterMatch) {
+    const rawChapter = chapterMatch[1].toUpperCase();
+    if (/^\d+$/.test(rawChapter)) {
+      chapterNum = parseInt(rawChapter, 10);
+    } else {
+      chapterNum = rawChapter.charCodeAt(0) - 64;
+    }
+  }
+
+  // 2. Trích xuất Số bài học (VD: "Bài 10", "Bài 8A", "Bài 8B", "Tiết 3")
+  let lessonNum = 9999;
+  let lessonSuffix = '';
+  const lessonMatch = title.match(/(?:bài|bai|tiết|tiet|tuần|tuan|lesson|unit)\s*(\d+)\s*([a-zA-Z])?/i);
+  if (lessonMatch) {
+    lessonNum = parseInt(lessonMatch[1], 10);
+    lessonSuffix = (lessonMatch[2] || '').toUpperCase();
+  } else {
+    const generalMatch = title.match(/(?:^|[_\-\s])(\d+)(?:[_\-\s:]|$)/);
+    if (generalMatch) {
+      lessonNum = parseInt(generalMatch[1], 10);
+    }
+  }
+
+  return {
+    grade,
+    chapterNum,
+    lessonNum,
+    lessonSuffix,
+    orderIndex,
+    title
+  };
+}
+
+/**
+ * So sánh tên bài học tự nhiên (Natural Lesson Sorting)
+ * Tự động nhận diện và sắp xếp chuẩn: "Bài 1", "Bài 2", ..., "Bài 8A", "Bài 8B", "Bài 10", "Bài 11"...
+ * Hỗ trợ tiếng Việt có dấu và các tiền tố Tiết, Tuần, Chương, Chủ đề, Lesson, Unit.
+ */
+export function compareLessonTitles(a = '', b = '') {
+  const keyA = extractLessonSortKey(a);
+  const keyB = extractLessonSortKey(b);
+
+  if (keyA.grade && keyB.grade && keyA.grade !== keyB.grade) {
+    return keyA.grade - keyB.grade;
+  }
+
+  // 1. Ưu tiên số thứ tự bài học (VD: Bài 3 < Bài 7 < Bài 8A < Bài 8B < Bài 10 < Bài 16)
+  if (keyA.lessonNum !== 9999 && keyB.lessonNum !== 9999) {
+    if (keyA.lessonNum !== keyB.lessonNum) {
+      return keyA.lessonNum - keyB.lessonNum;
+    }
+    if (keyA.lessonSuffix !== keyB.lessonSuffix) {
+      return keyA.lessonSuffix.localeCompare(keyB.lessonSuffix);
+    }
+  }
+
+  if (keyA.lessonNum !== 9999 && keyB.lessonNum === 9999) return -1;
+  if (keyA.lessonNum === 9999 && keyB.lessonNum !== 9999) return 1;
+
+  // 2. So sánh Chương / Chủ đề nếu có
+  if (keyA.chapterNum !== keyB.chapterNum) {
+    return keyA.chapterNum - keyB.chapterNum;
+  }
+
+  // 3. order_index nếu có
+  if (keyA.orderIndex !== keyB.orderIndex) {
+    return keyA.orderIndex - keyB.orderIndex;
+  }
+
+  return keyA.title.localeCompare(keyB.title, 'vi', { numeric: true, sensitivity: 'base' });
+}
+
+export function sortLessonsList(lessons) {
+  if (!Array.isArray(lessons)) return [];
+  return [...lessons].sort(compareLessonTitles);
 }
 
 /**
@@ -339,8 +405,9 @@ export async function fetchLessonsApi(filters = {}) {
     const res = await fetch(`/api/lessons?${params.toString()}`);
     if (res.ok) {
       const data = await res.json();
-      saveLocalLessonsCache(data);
-      return data;
+      const sorted = sortLessonsList(data);
+      saveLocalLessonsCache(sorted);
+      return sorted;
     }
   } catch (err) {
     console.warn('API /api/lessons không khả dụng, sử dụng cache local:', err.message);
@@ -364,7 +431,7 @@ export async function fetchLessonsApi(filters = {}) {
       (l.keywords && l.keywords.toLowerCase().includes(s))
     );
   }
-  return cached;
+  return sortLessonsList(cached);
 }
 
 // 2. Lấy chi tiết bài học kèm slides

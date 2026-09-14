@@ -19,9 +19,9 @@ export default function QuickToolModal({
         className="modal-content" 
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxWidth: toolType === 'quiz' ? 580 : 960,
-          width: '94%',
-          maxHeight: '92vh',
+          maxWidth: toolType === 'quiz' ? 580 : 1100,
+          width: '96vw',
+          maxHeight: '94vh',
           overflowY: 'auto',
           padding: '1.5rem',
           position: 'relative'
@@ -47,9 +47,22 @@ export default function QuickToolModal({
         {toolType === 'wheel' && (
           <div>
             <div style={{ marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                🎡 Vòng Quay May Mắn Trong Tiết Học
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  🎡 Vòng Quay May Mắn Trong Tiết Học
+                </h3>
+                <span style={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 800,
+                  padding: '0.15rem 0.6rem',
+                  borderRadius: '999px',
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  border: '1px solid rgba(99, 102, 241, 0.35)',
+                  color: 'var(--primary)'
+                }}>
+                  🏫 Lớp: {currentClass?.name || 'Chưa chọn'}
+                </span>
+              </div>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
                 Bốc thăm gọi tên học sinh lên bảng hoặc trả lời câu hỏi mà không làm gián đoạn tiết học
               </p>
@@ -66,11 +79,24 @@ export default function QuickToolModal({
         {toolType === 'duckrace' && (
           <div>
             <div style={{ marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                🦆 Đua Vịt Lớp Học Trong Tiết Học
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  🦆 Đua Vịt Gọi Trả Bài Trong Tiết Học
+                </h3>
+                <span style={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 800,
+                  padding: '0.15rem 0.6rem',
+                  borderRadius: '999px',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  color: '#d97706'
+                }}>
+                  🏫 Lớp: {currentClass?.name || 'Chưa chọn'}
+                </span>
+              </div>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                Cuộc đua bơi vịt kịch tính chọn bạn trả lời hoặc gỡ điểm miệng
+                Cuộc đua bơi vịt kịch tính bốc thăm chọn học sinh lên bảng trả bài hoặc kiểm tra miệng
               </p>
             </div>
             <DuckRace

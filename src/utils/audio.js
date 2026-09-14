@@ -15,38 +15,80 @@ function getAudioContext() {
   return audioCtx;
 }
 
+// Bộ tổng hợp tiếng vịt kêu chân thực (Quack Synth)
+function playSingleQuack(ctx, startTime, basePitch = 350, duration = 0.22, volume = 0.4) {
+  const osc = ctx.createOscillator();
+  const mod = ctx.createOscillator();
+  const modGain = ctx.createGain();
+  const gain = ctx.createGain();
+  const filter1 = ctx.createBiquadFilter();
+  const filter2 = ctx.createBiquadFilter();
+
+  // FM vibrato tạo độ khàn tự nhiên của tiếng vịt kêu
+  mod.type = 'sawtooth';
+  mod.frequency.setValueAtTime(48, startTime);
+  modGain.gain.setValueAtTime(40, startTime);
+
+  osc.type = 'sawtooth';
+  // Độ rớt cao độ đặc trưng của tiếng quạc
+  osc.frequency.setValueAtTime(basePitch, startTime);
+  osc.frequency.exponentialRampToValueAtTime(basePitch * 0.5, startTime + duration);
+
+  mod.connect(modGain);
+  modGain.connect(osc.frequency);
+
+  // Bộ lọc formant âm mũi vịt (nasal resonance)
+  filter1.type = 'bandpass';
+  filter1.frequency.setValueAtTime(750, startTime);
+  filter1.Q.setValueAtTime(3.8, startTime);
+
+  filter2.type = 'peaking';
+  filter2.frequency.setValueAtTime(1400, startTime);
+  filter2.gain.setValueAtTime(8, startTime);
+
+  gain.gain.setValueAtTime(0.001, startTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+  osc.connect(filter1);
+  filter1.connect(filter2);
+  filter2.connect(gain);
+  gain.connect(ctx.destination);
+
+  mod.start(startTime);
+  osc.start(startTime);
+  mod.stop(startTime + duration + 0.03);
+  osc.stop(startTime + duration + 0.03);
+}
+
 export const soundEffects = {
-  // Tiếng vịt kêu cạp cạp (Quack)
-  playQuack: () => {
+  // Tiếng vịt kêu cạp cạp (Quack đơn)
+  playQuack: (pitch = 350) => {
     try {
       const ctx = getAudioContext();
       if (!ctx) return;
-
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-
-      osc.type = 'sawtooth';
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(800, ctx.currentTime);
-      filter.Q.setValueAtTime(3, ctx.currentTime);
-
-      const now = ctx.currentTime;
-      // Pitch drop resembling a duck quack
-      osc.frequency.setValueAtTime(320, now);
-      osc.frequency.exponentialRampToValueAtTime(180, now + 0.18);
-
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.22);
+      playSingleQuack(ctx, ctx.currentTime, pitch, 0.22, 0.4);
     } catch (e) {
       console.warn('Audio play failed', e);
+    }
+  },
+
+  // Tiếng đàn vịt đồng thanh kêu rộn ràng khi bắt đầu cuộc đua (Flock Quack)
+  playFlockQuack: () => {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // Đàn vịt kêu rộn rã khi xuất phát: "Cạp cạp! Quạc quạc! Quạc!"
+      playSingleQuack(ctx, now, 380, 0.22, 0.55);
+      playSingleQuack(ctx, now + 0.07, 310, 0.24, 0.5);
+      playSingleQuack(ctx, now + 0.18, 430, 0.2, 0.52);
+      playSingleQuack(ctx, now + 0.3, 340, 0.26, 0.55);
+      playSingleQuack(ctx, now + 0.45, 400, 0.22, 0.5);
+      playSingleQuack(ctx, now + 0.62, 350, 0.25, 0.52);
+      playSingleQuack(ctx, now + 0.78, 380, 0.22, 0.48);
+    } catch (e) {
+      console.warn('Flock audio failed', e);
     }
   },
 

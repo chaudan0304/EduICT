@@ -42,6 +42,8 @@ import SchoolYearTransitionModal from './SchoolYearTransitionModal';
 import AcademicYearSettingsModal from './AcademicYearSettingsModal';
 import AiAssistantModal from './AI/AiAssistantModal';
 import { fetchAiStatus } from './AI/aiService';
+import { getCurrentPeriodStatus } from '../utils/timetable';
+import TimetableModal from './ClassroomSession/TimetableModal';
 
 export default function Navbar({ 
   classes, 
@@ -69,6 +71,7 @@ export default function Navbar({
   onTransitionSuccess,
   academicYearSettings,
   onSaveAcademicYearSettings,
+  onSelectClassFromTimetable = null,
   dbStatus = { connected: true, dbFile: 'edumaster.sqlite' } 
 }) {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -86,6 +89,16 @@ export default function Navbar({
   const [newClassSubject, setNewClassSubject] = useState('Tin Học');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [modalGradeFilter, setModalGradeFilter] = useState('all');
+  const [showTimetableModal, setShowTimetableModal] = useState(false);
+  const [livePeriodStatus, setLivePeriodStatus] = useState(() => getCurrentPeriodStatus());
+
+  // Cập nhật trạng thái tiết dạy thời gian thực trên thanh điều hướng
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLivePeriodStatus(getCurrentPeriodStatus());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Tự động làm mới số liệu thống kê khi mở modal Quản lý lớp
   useEffect(() => {
@@ -371,6 +384,43 @@ export default function Navbar({
               </button>
 
               {/* Các nút phụ inline khi màn hình rộng */}
+              <button
+                type="button"
+                className="btn btn-outline btn-sm navbar-btn-inline-secondary"
+                onClick={() => setShowTimetableModal(true)}
+                title="Lịch giảng dạy cá nhân (Thời khóa biểu) & Thời gian thực"
+                style={{
+                  height: 34,
+                  padding: '0 0.75rem',
+                  borderColor: livePeriodStatus.isTeachingNow ? '#10b981' : 'rgba(2, 132, 199, 0.4)',
+                  background: livePeriodStatus.isTeachingNow 
+                    ? 'rgba(16, 185, 129, 0.12)' 
+                    : livePeriodStatus.status === 'RECESS' 
+                    ? 'rgba(245, 158, 11, 0.12)' 
+                    : 'rgba(2, 132, 199, 0.06)',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  color: livePeriodStatus.isTeachingNow 
+                    ? '#059669' 
+                    : livePeriodStatus.status === 'RECESS'
+                    ? '#d97706'
+                    : 'var(--text-main)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+              >
+                <Calendar size={15} color={livePeriodStatus.isTeachingNow ? '#10b981' : 'var(--primary)'} />
+                {livePeriodStatus.isTeachingNow ? (
+                  <span>🟢 Tiết {livePeriodStatus.period} ({livePeriodStatus.className}) • {livePeriodStatus.remainingMin}p</span>
+                ) : livePeriodStatus.status === 'RECESS' ? (
+                  <span>☕ Ra chơi • {livePeriodStatus.remainingMin}p</span>
+                ) : (
+                  <span>TKB</span>
+                )}
+              </button>
+
               <button
                 type="button"
                 className="btn btn-outline btn-sm navbar-btn-inline-secondary"
@@ -1626,6 +1676,32 @@ export default function Navbar({
           onOpenClassAnalysis={() => onSelectTab('gradebook')}
         />
       )}
+
+      {/* Modal Lịch Giảng Dạy Cá Nhân (Thời Khóa Biểu) */}
+      <TimetableModal
+        isOpen={showTimetableModal}
+        onClose={() => setShowTimetableModal(false)}
+        onSelectClassForSession={(targetClassName, targetGrade) => {
+          setShowTimetableModal(false);
+          if (onSelectClassFromTimetable) {
+            onSelectClassFromTimetable(targetClassName, targetGrade);
+          } else {
+            if (targetClassName && classes && classes.length > 0) {
+              const clean = targetClassName.trim().toLowerCase();
+              const found = classes.find(c => {
+                const cName = (c.name || '').trim().toLowerCase();
+                return cName === clean || cName === `lớp ${clean}` || `lớp ${cName}` === clean;
+              });
+              if (found && onSelectClass) {
+                onSelectClass(found.id);
+              }
+            }
+            if (onSelectTab) {
+              onSelectTab('sessions');
+            }
+          }
+        }}
+      />
     </>
   );
 }

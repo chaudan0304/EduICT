@@ -15,6 +15,9 @@ import {
 export default function SessionManager({
   classes = [],
   currentClass,
+  onSelectClass = null,
+  autoOpenClassId = null,
+  onClearAutoOpen = null,
   onUpdateStudents,
   onUpdateGoodScores,
   soundEnabled
@@ -23,8 +26,19 @@ export default function SessionManager({
   const [activeSession, setActiveSession] = useState(null);
   const [currentView, setCurrentView] = useState('list'); // 'list' | 'dashboard'
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createModalTargetClassId, setCreateModalTargetClassId] = useState(null);
   const [viewSummarySession, setViewSummarySession] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Tự động mở Modal tạo tiết học khi được kích hoạt từ Thời khóa biểu
+  useEffect(() => {
+    if (autoOpenClassId) {
+      setCreateModalTargetClassId(autoOpenClassId);
+      setShowCreateModal(true);
+      setCurrentView('list');
+      onClearAutoOpen?.();
+    }
+  }, [autoOpenClassId]);
 
   // Nạp danh sách sessions khi component khởi tạo hoặc đổi lớp
   useEffect(() => {
@@ -118,7 +132,14 @@ export default function SessionManager({
             sessions={sessions}
             classes={classes}
             currentClass={currentClass}
-            onOpenCreateModal={() => setShowCreateModal(true)}
+            onOpenCreateModal={(targetClassId = null) => {
+              const cId = targetClassId || currentClass?.id;
+              if (cId && onSelectClass) {
+                onSelectClass(cId);
+              }
+              setCreateModalTargetClassId(cId);
+              setShowCreateModal(true);
+            }}
             onEnterSession={handleEnterSession}
             onViewSummary={handleViewSummary}
             onDeleteSession={handleDeleteSession}
@@ -141,9 +162,13 @@ export default function SessionManager({
       {/* Modal Tạo Session Mới */}
       <CreateSessionModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          setCreateModalTargetClassId(null);
+        }}
         classes={classes}
-        currentClass={currentClass}
+        currentClass={classes.find(c => c.id === createModalTargetClassId) || currentClass}
+        initialClassId={createModalTargetClassId}
         onCreateSession={handleCreateSession}
       />
 

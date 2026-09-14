@@ -2336,14 +2336,15 @@ export function createSession(sessionData) {
     const sessionId = sessionData.id || `sess_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const stmt = db.prepare(`
       INSERT INTO classroom_sessions (
-        id, class_id, lesson_title, duration_minutes, session_date,
+        id, class_id, lesson_id, lesson_title, duration_minutes, session_date,
         objectives, teacher_notes, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
     `);
 
     stmt.run(
       sessionId,
       sessionData.class_id || sessionData.classId,
+      sessionData.lesson_id || sessionData.lessonId || null,
       sessionData.lesson_title || sessionData.lessonTitle || 'Tiết học Tin học',
       Number(sessionData.duration_minutes || sessionData.durationMinutes) || 35,
       sessionData.session_date || sessionData.sessionDate || new Date().toISOString().slice(0, 10),
@@ -2387,7 +2388,7 @@ export function createSession(sessionData) {
 export function updateSession(sessionId, updateData) {
   const db = getDatabase();
   const allowed = [
-    'lesson_title', 'duration_minutes', 'session_date', 'objectives', 
+    'lesson_id', 'lesson_title', 'duration_minutes', 'session_date', 'objectives', 
     'teacher_notes', 'status', 'started_at', 'paused_at', 
     'total_paused_seconds', 'ended_at'
   ];
@@ -2502,6 +2503,95 @@ export function addStudentParticipation(sessionId, pData) {
 // LESSONS & SLIDES CRUD
 // ========================================================
 
+// Helper: Trích xuất thứ tự số học tự nhiên từ tiêu đề bài học và chủ đề
+export function extractLessonSortKey(lessonOrTitle) {
+  let title = '';
+  let topic = '';
+  let grade = 0;
+  let orderIndex = 0;
+
+  if (typeof lessonOrTitle === 'string') {
+    title = lessonOrTitle.trim();
+  } else if (lessonOrTitle && typeof lessonOrTitle === 'object') {
+    title = (lessonOrTitle.title || lessonOrTitle.lessonTitle || '').trim();
+    topic = (lessonOrTitle.topic || '').trim();
+    grade = Number(lessonOrTitle.grade) || 0;
+    orderIndex = Number(lessonOrTitle.order_index) || 0;
+  }
+
+  // 1. Trích xuất Chương / Chủ đề (VD: "(Chương 6: ...)", "Chương 3", "Chủ đề A", "Chủ đề 2")
+  let chapterNum = 0;
+  const chapterMatch = (topic + ' ' + title).match(/(?:chương|chuong|chủ đề|chu de)\s*(\d+|[a-zA-Z])/i);
+  if (chapterMatch) {
+    const rawChapter = chapterMatch[1].toUpperCase();
+    if (/^\d+$/.test(rawChapter)) {
+      chapterNum = parseInt(rawChapter, 10);
+    } else {
+      chapterNum = rawChapter.charCodeAt(0) - 64;
+    }
+  }
+
+  // 2. Trích xuất Số bài học (VD: "Bài 10", "Bài 8A", "Bài 8B", "Tiết 3")
+  let lessonNum = 9999;
+  let lessonSuffix = '';
+  const lessonMatch = title.match(/(?:bài|bai|tiết|tiet|tuần|tuan|lesson|unit)\s*(\d+)\s*([a-zA-Z])?/i);
+  if (lessonMatch) {
+    lessonNum = parseInt(lessonMatch[1], 10);
+    lessonSuffix = (lessonMatch[2] || '').toUpperCase();
+  } else {
+    const generalMatch = title.match(/(?:^|[_\-\s])(\d+)(?:[_\-\s:]|$)/);
+    if (generalMatch) {
+      lessonNum = parseInt(generalMatch[1], 10);
+    }
+  }
+
+  return {
+    grade,
+    chapterNum,
+    lessonNum,
+    lessonSuffix,
+    orderIndex,
+    title
+  };
+}
+
+export function sortLessonsList(lessons) {
+  if (!Array.isArray(lessons)) return [];
+  return [...lessons].sort((a, b) => {
+    const keyA = extractLessonSortKey(a);
+    const keyB = extractLessonSortKey(b);
+
+    if (keyA.grade && keyB.grade && keyA.grade !== keyB.grade) {
+      return keyA.grade - keyB.grade;
+    }
+
+    // 1. Ưu tiên số thứ tự bài học (VD: Bài 3 < Bài 7 < Bài 8A < Bài 8B < Bài 10 < Bài 16)
+    if (keyA.lessonNum !== 9999 && keyB.lessonNum !== 9999) {
+      if (keyA.lessonNum !== keyB.lessonNum) {
+        return keyA.lessonNum - keyB.lessonNum;
+      }
+      if (keyA.lessonSuffix !== keyB.lessonSuffix) {
+        return keyA.lessonSuffix.localeCompare(keyB.lessonSuffix);
+      }
+    }
+
+    if (keyA.lessonNum !== 9999 && keyB.lessonNum === 9999) return -1;
+    if (keyA.lessonNum === 9999 && keyB.lessonNum !== 9999) return 1;
+
+    // 2. Chương / Chủ đề
+    if (keyA.chapterNum !== keyB.chapterNum) {
+      return keyA.chapterNum - keyB.chapterNum;
+    }
+
+    // 3. order_index nếu có
+    if (keyA.orderIndex !== keyB.orderIndex) {
+      return keyA.orderIndex - keyB.orderIndex;
+    }
+
+    return keyA.title.localeCompare(keyB.title, 'vi', { numeric: true, sensitivity: 'base' });
+  });
+}
+
 // 1. Lấy tất cả bài học (kèm số lượng slide và bộ lọc)
 export function getAllLessons(filters = {}) {
   const db = getDatabase();
@@ -2540,7 +2630,7 @@ export function getAllLessons(filters = {}) {
   sql += ' GROUP BY l.id ORDER BY l.grade ASC, l.updated_at DESC;';
   const rows = db.prepare(sql).all(...params);
 
-  return rows.map(l => {
+  const mapped = rows.map(l => {
     const total = Number(l.total_slides) || Number(l.slide_count) || Number(l.slides_count) || 0;
     const isCompleted = l.render_status === 'ready' || l.render_status === 'COMPLETED' || l.render_status === 'completed';
     const rendered = l.rendered_slides !== null && l.rendered_slides !== undefined ? Number(l.rendered_slides) : (isCompleted ? total : 0);
@@ -2558,6 +2648,8 @@ export function getAllLessons(filters = {}) {
       thumbnailUrl: l.thumbnail_url || ''
     };
   });
+
+  return sortLessonsList(mapped);
 }
 
 // 2. Lấy chi tiết bài học kèm tất cả các slide

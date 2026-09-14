@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -13,16 +13,24 @@ import {
   AlertCircle,
   Edit3,
   Loader2,
-  Layers
+  Layers,
+  Sparkles,
+  GripVertical,
+  ChevronDown,
+  ChevronUp,
+  Calendar
 } from 'lucide-react';
 import SlideRenderer from './SlideRenderer';
 import TeacherNotesDrawer from './TeacherNotesDrawer';
 import LuckyWheel from '../LuckyWheel';
+import DuckRace from '../DuckRace';
 import { soundEffects } from '../../utils/audio';
 import CreateQuizModal from '../QuickQuiz/CreateQuizModal';
 import QuizPlayer from '../QuickQuiz/QuizPlayer';
 import QuizResultModal from '../QuickQuiz/QuizResultModal';
 import { fetchLessonDetailApi, fetchLessonRenderStatusApi } from './lessonStorage';
+import { getCurrentPeriodStatus, formatTimeCountdown } from '../../utils/timetable';
+import TimetableModal from '../ClassroomSession/TimetableModal';
 
 export default function PresentationView({
   lesson: initialLesson = null,
@@ -43,6 +51,17 @@ export default function PresentationView({
     return false;
   });
   const [loadError, setLoadError] = useState(null);
+
+  // Theo dõi thời gian thực của tiết học theo Thời khóa biểu cá nhân
+  const [livePeriodStatus, setLivePeriodStatus] = useState(() => getCurrentPeriodStatus());
+  const [isTimetableOpen, setIsTimetableOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLivePeriodStatus(getCurrentPeriodStatus());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Tự động tải bài học và danh sách slide nếu cần
   useEffect(() => {
@@ -146,11 +165,122 @@ export default function PresentationView({
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [showStarModal, setShowStarModal] = useState(false);
   const [showWheelModal, setShowWheelModal] = useState(false);
+  const [showDuckRaceModal, setShowDuckRaceModal] = useState(false);
+  const [dockedCaller, setDockedCaller] = useState(null); // { student: object, toolType: 'wheel' | 'duck' }
+  const [dockedPosition, setDockedPosition] = useState({ x: null, y: null });
+  const [isDockedCollapsed, setIsDockedCollapsed] = useState(false);
+  const dragRef = useRef({ isDragging: false, startX: 0, startY: 0, initX: 0, initY: 0 });
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [showQuizModal, setShowQuizModal] = useState(false);
   const [activeQuizSession, setActiveQuizSession] = useState(null);
   const [quizSummary, setQuizSummary] = useState(null);
   const [isQuizResultOpen, setIsQuizResultOpen] = useState(false);
+
+  // Kéo thả thanh gọi học sinh tự do trên màn hình
+  const handleDragMouseDown = (e) => {
+    if (e.button !== 0) return;
+    const currentEl = e.currentTarget.closest('.docked-caller-widget');
+    const rect = currentEl ? currentEl.getBoundingClientRect() : { left: window.innerWidth - 480, top: 16 };
+
+    dragRef.current = {
+      isDragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      initX: rect.left,
+      initY: rect.top
+    };
+
+    const handleMouseMove = (moveEvent) => {
+      if (!dragRef.current.isDragging) return;
+      const dx = moveEvent.clientX - dragRef.current.startX;
+      const dy = moveEvent.clientY - dragRef.current.startY;
+      const newX = Math.max(12, Math.min(window.innerWidth - 260, dragRef.current.initX + dx));
+      const newY = Math.max(12, Math.min(window.innerHeight - 55, dragRef.current.initY + dy));
+      setDockedPosition({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+      dragRef.current.isDragging = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleDragTouchStart = (e) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    const currentEl = e.currentTarget.closest('.docked-caller-widget');
+    const rect = currentEl ? currentEl.getBoundingClientRect() : { left: window.innerWidth - 480, top: 16 };
+
+    dragRef.current = {
+      isDragging: true,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      initX: rect.left,
+      initY: rect.top
+    };
+
+    const handleTouchMove = (moveEvent) => {
+      if (!dragRef.current.isDragging) return;
+      const t = moveEvent.touches[0];
+      if (!t) return;
+      const dx = t.clientX - dragRef.current.startX;
+      const dy = t.clientY - dragRef.current.startY;
+      const newX = Math.max(12, Math.min(window.innerWidth - 260, dragRef.current.initX + dx));
+      const newY = Math.max(12, Math.min(window.innerHeight - 55, dragRef.current.initY + dy));
+      setDockedPosition({ x: newX, y: newY });
+    };
+
+    const handleTouchEnd = () => {
+      dragRef.current.isDragging = false;
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchend', handleTouchEnd);
+  };
+
+  // Xử lý tạm ẩn bộ quay/đua sang góc để chiếu slide cho học sinh trả lời
+  const handleMinimizeCaller = (student, toolType) => {
+    setDockedCaller({ student, toolType });
+    setShowWheelModal(false);
+    setShowDuckRaceModal(false);
+  };
+
+  // Cộng sao trực tiếp từ thẻ gọi thu nhỏ
+  const handleRewardDockedCaller = (starsToAdd) => {
+    if (!dockedCaller?.student?.id) return;
+    const studentId = dockedCaller.student.id;
+    const updated = (currentClass?.students || []).map(s => {
+      if (s.id === studentId) {
+        return { ...s, stars: (s.stars || 0) + starsToAdd };
+      }
+      return s;
+    });
+    if (onUpdateStudents) onUpdateStudents(updated);
+    if (soundEnabled) soundEffects.playStarDing();
+
+    setDockedCaller(prev => ({
+      ...prev,
+      student: {
+        ...prev.student,
+        stars: (prev.student.stars || 0) + starsToAdd
+      }
+    }));
+  };
+
+  // Mở lại bảng gọi học sinh đầy đủ
+  const handleRestoreCallerModal = () => {
+    if (dockedCaller?.toolType === 'duck') {
+      setShowDuckRaceModal(true);
+    } else {
+      setShowWheelModal(true);
+    }
+  };
 
   const currentSlide = slides[currentIndex] || slides[0];
   const totalSlides = slides.length;
@@ -534,22 +664,98 @@ export default function PresentationView({
             )}
           </div>
 
-          {sessionTimerRemainingSec !== null && (
-            <div style={{
-              background: 'rgba(2, 132, 199, 0.1)',
-              border: '1px solid rgba(2, 132, 199, 0.3)',
-              borderRadius: '999px',
-              padding: '0.35rem 0.85rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              color: '#0284c7',
-              fontSize: '0.875rem',
-              fontWeight: 800
-            }}>
+          {/* Badge Thời gian Tiết học theo Thời gian thực & TKB */}
+          {livePeriodStatus.isTeachingNow ? (
+            <button
+              type="button"
+              onClick={() => setIsTimetableOpen(true)}
+              style={{
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(5, 150, 105, 0.08))',
+                border: '1.5px solid #10b981',
+                borderRadius: '999px',
+                padding: '0.35rem 0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                color: '#059669',
+                fontSize: '0.875rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)'
+              }}
+              title="Nhấp để xem chi tiết Thời khóa biểu cá nhân"
+            >
+              <Clock size={16} color="#059669" />
+              <span>Tiết {livePeriodStatus.period} ({livePeriodStatus.className}) • Còn {formatTimeCountdown(livePeriodStatus.remainingSec)}</span>
+              <span style={{ fontSize: '0.75rem', background: '#10b981', color: '#fff', borderRadius: '999px', padding: '0.1rem 0.4rem', fontWeight: 800 }}>TKB</span>
+            </button>
+          ) : livePeriodStatus.status === 'RECESS' ? (
+            <button
+              type="button"
+              onClick={() => setIsTimetableOpen(true)}
+              style={{
+                background: 'rgba(245, 158, 11, 0.15)',
+                border: '1.5px solid #f59e0b',
+                borderRadius: '999px',
+                padding: '0.35rem 0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                color: '#d97706',
+                fontSize: '0.875rem',
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}
+              title="Nhấp để xem Thời khóa biểu cá nhân"
+            >
+              <Clock size={16} color="#d97706" />
+              <span>Ra chơi • Còn {formatTimeCountdown(livePeriodStatus.remainingSec)}</span>
+            </button>
+          ) : sessionTimerRemainingSec !== null ? (
+            <button
+              type="button"
+              onClick={() => setIsTimetableOpen(true)}
+              style={{
+                background: 'rgba(2, 132, 199, 0.1)',
+                border: '1px solid rgba(2, 132, 199, 0.3)',
+                borderRadius: '999px',
+                padding: '0.35rem 0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                color: '#0284c7',
+                fontSize: '0.875rem',
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}
+              title="Thời gian tiết học • Nhấp để xem Thời khóa biểu"
+            >
               <Clock size={16} />
               <span>{formatTime(sessionTimerRemainingSec)}</span>
-            </div>
+              <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>📅 TKB</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsTimetableOpen(true)}
+              style={{
+                background: 'var(--surface-secondary)',
+                border: '1px solid var(--surface-border)',
+                borderRadius: '999px',
+                padding: '0.35rem 0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                color: 'var(--text-main)',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+              title="Nhấp để xem Lịch giảng dạy & Thời khóa biểu cá nhân"
+            >
+              <Calendar size={15} color="var(--primary)" />
+              <span>Lịch giảng dạy</span>
+            </button>
           )}
         </div>
 
@@ -772,6 +978,30 @@ export default function PresentationView({
             </button>
           )}
 
+          {/* Công cụ sư phạm: Đua vịt gọi trả bài */}
+          {currentClass && (
+            <button
+              onClick={() => setShowDuckRaceModal(true)}
+              className="btn"
+              style={{
+                background: 'rgba(245, 158, 11, 0.22)',
+                border: '1px solid rgba(245, 158, 11, 0.45)',
+                color: '#fbbf24',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                padding: '0.4rem 0.85rem',
+                borderRadius: '999px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+              title="Mở Đua vịt gọi học sinh trả bài"
+            >
+              <span style={{ fontSize: '1.05rem', lineHeight: 1 }}>🦆</span>
+              <span>Đua Vịt</span>
+            </button>
+          )}
+
           {/* Quick Quiz củng cố */}
           <button
             onClick={() => setShowQuizModal(true)}
@@ -931,6 +1161,186 @@ export default function PresentationView({
         </div>
       )}
 
+      {/* 5b. Thẻ Gọi Học Sinh Thu Gọn Sang Góc (Docked Caller Widget - Siêu Gọn, Kéo Thả Tự Do) */}
+      {dockedCaller && (
+        <div 
+          className="docked-caller-widget"
+          style={{
+            position: 'fixed',
+            top: dockedPosition.y !== null ? dockedPosition.y : '1rem',
+            left: dockedPosition.x !== null ? dockedPosition.x : 'auto',
+            right: dockedPosition.x !== null ? 'auto' : '4.75rem',
+            zIndex: 1100,
+            background: 'rgba(15, 23, 42, 0.92)',
+            backdropFilter: 'blur(16px)',
+            border: '1.5px solid #f59e0b',
+            borderRadius: '999px',
+            padding: isDockedCollapsed ? '0.2rem 0.6rem 0.2rem 0.35rem' : '0.2rem 0.65rem 0.2rem 0.35rem',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4), 0 0 14px rgba(245, 158, 11, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            userSelect: 'none',
+            height: 38,
+            boxSizing: 'border-box',
+            animation: 'fadeIn 0.2s ease'
+          }}
+        >
+          {/* Nút Kéo Thả (Drag Handle) */}
+          <div
+            onMouseDown={handleDragMouseDown}
+            onTouchStart={handleDragTouchStart}
+            style={{
+              cursor: 'grab',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'rgba(255, 255, 255, 0.4)',
+              padding: '0 0.15rem'
+            }}
+            title="Nhấp & kéo thả để di chuyển vị trí trên màn hình"
+          >
+            <GripVertical size={16} />
+          </div>
+
+          {/* Icon công cụ */}
+          <span style={{ fontSize: '1.15rem', lineHeight: 1 }}>
+            {dockedCaller.toolType === 'duck' ? '🦆' : '🎡'}
+          </span>
+
+          {/* Thông tin học sinh */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{
+              fontSize: '0.875rem',
+              fontWeight: 800,
+              color: '#ffffff',
+              whiteSpace: 'nowrap'
+            }}>
+              {dockedCaller.student?.name}
+            </span>
+
+            {dockedCaller.student?.machineNumber && (
+              <span style={{
+                fontSize: '0.6875rem',
+                fontWeight: 700,
+                color: '#38bdf8',
+                background: 'rgba(56, 189, 248, 0.15)',
+                padding: '0.1rem 0.35rem',
+                borderRadius: '4px',
+                whiteSpace: 'nowrap'
+              }}>
+                M{dockedCaller.student.machineNumber}
+              </span>
+            )}
+
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: '#fbbf24',
+              whiteSpace: 'nowrap'
+            }}>
+              ⭐{dockedCaller.student?.stars || 0}
+            </span>
+          </div>
+
+          {!isDockedCollapsed && (
+            <>
+              <div style={{ width: 1, height: 16, background: 'rgba(255, 255, 255, 0.2)' }} />
+
+              {/* Nút cộng sao nhanh */}
+              <button
+                className="btn btn-amber btn-sm"
+                onClick={() => handleRewardDockedCaller(1)}
+                style={{
+                  padding: '0.2rem 0.5rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  borderRadius: '999px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.2rem'
+                }}
+                title="Cộng +1 Sao trả lời đúng"
+              >
+                <Star size={12} fill="#fff" />
+                +1 Sao
+              </button>
+
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => handleRewardDockedCaller(2)}
+                style={{
+                  padding: '0.2rem 0.5rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  borderRadius: '999px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.2rem'
+                }}
+                title="Cộng +2 Sao xuất sắc"
+              >
+                <Sparkles size={12} />
+                +2 Sao
+              </button>
+
+              {/* Mở lại Modal */}
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={handleRestoreCallerModal}
+                style={{
+                  padding: '0.2rem 0.5rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  borderRadius: '999px',
+                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem'
+                }}
+                title="Mở lại bảng đầy đủ"
+              >
+                <Maximize2 size={12} />
+                Mở lại
+              </button>
+            </>
+          )}
+
+          {/* Thu nhỏ / Mở rộng Toggle */}
+          <button
+            className="btn btn-icon btn-sm"
+            onClick={() => setIsDockedCollapsed(prev => !prev)}
+            style={{
+              padding: '0.15rem',
+              color: 'rgba(255, 255, 255, 0.6)',
+              width: 24,
+              height: 24,
+              borderRadius: '50%'
+            }}
+            title={isDockedCollapsed ? "Mở rộng thao tác" : "Thu nhỏ thanh gọn gàng hơn"}
+          >
+            {isDockedCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+
+          {/* Đóng */}
+          <button
+            className="btn btn-icon btn-sm"
+            onClick={() => setDockedCaller(null)}
+            style={{
+              padding: '0.15rem',
+              color: 'rgba(255, 255, 255, 0.5)',
+              width: 24,
+              height: 24,
+              borderRadius: '50%'
+            }}
+            title="Đóng thanh gọi này"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* 6. Modal Vòng Quay May Mắn */}
       {showWheelModal && currentClass && (
         <div style={{
@@ -948,25 +1358,102 @@ export default function PresentationView({
             background: 'var(--surface-card)',
             border: '1px solid var(--surface-border)',
             borderRadius: 'var(--radius-2xl)',
-            width: '100%',
-            maxWidth: 720,
-            maxHeight: '90vh',
+            width: '96vw',
+            maxWidth: 1100,
+            maxHeight: '94vh',
             overflowY: 'auto',
             padding: '1.75rem',
             position: 'relative'
           }}>
-            <button
-              onClick={() => setShowWheelModal(false)}
-              className="btn btn-icon"
-              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 10 }}
-            >
-              <X size={20} />
-            </button>
+            <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 10, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <button
+                onClick={() => {
+                  setShowWheelModal(false);
+                  if (!dockedCaller) {
+                    setDockedCaller({
+                      student: { name: 'Vòng Quay May Mắn' },
+                      toolType: 'wheel'
+                    });
+                  }
+                }}
+                className="btn btn-icon"
+                title="Tạm ẩn sang góc để chiếu slide"
+              >
+                <Minimize2 size={18} />
+              </button>
+              <button
+                onClick={() => setShowWheelModal(false)}
+                className="btn btn-icon"
+                title="Đóng Vòng Quay"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
             <LuckyWheel
               currentClass={currentClass}
               onUpdateStudents={onUpdateStudents}
               soundEnabled={soundEnabled}
+              onMinimize={(winner) => handleMinimizeCaller(winner, 'wheel')}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 6b. Modal Đua Vịt Gọi Trả Bài */}
+      {showDuckRaceModal && currentClass && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 1200,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1.5rem'
+        }}>
+          <div style={{
+            background: 'var(--surface-card)',
+            border: '1px solid var(--surface-border)',
+            borderRadius: 'var(--radius-2xl)',
+            width: '100%',
+            maxWidth: 1050,
+            maxHeight: '92vh',
+            overflowY: 'auto',
+            padding: '1.75rem',
+            position: 'relative'
+          }}>
+            <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 10, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <button
+                onClick={() => {
+                  setShowDuckRaceModal(false);
+                  if (!dockedCaller) {
+                    setDockedCaller({
+                      student: { name: 'Đua Vịt Gọi Trả Bài' },
+                      toolType: 'duck'
+                    });
+                  }
+                }}
+                className="btn btn-icon"
+                title="Tạm ẩn sang góc để chiếu slide"
+              >
+                <Minimize2 size={18} />
+              </button>
+              <button
+                onClick={() => setShowDuckRaceModal(false)}
+                className="btn btn-icon"
+                title="Đóng Đua Vịt"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <DuckRace
+              currentClass={currentClass}
+              onUpdateStudents={onUpdateStudents}
+              soundEnabled={soundEnabled}
+              onMinimize={(winner) => handleMinimizeCaller(winner, 'duck')}
             />
           </div>
         </div>
@@ -1015,6 +1502,12 @@ export default function PresentationView({
           setQuizSummary(null);
         }}
         summaryData={quizSummary}
+      />
+
+      {/* Modal Lịch Giảng Dạy Cá Nhân (Thời Khóa Biểu) */}
+      <TimetableModal
+        isOpen={isTimetableOpen}
+        onClose={() => setIsTimetableOpen(false)}
       />
     </div>
   );

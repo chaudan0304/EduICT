@@ -69,16 +69,55 @@ export default function SessionDashboard({
   const handleLaunchPresentation = async () => {
     try {
       let lesson = null;
-      if (session.lesson_id || session.lessonId) {
-        lesson = await fetchLessonDetailApi(session.lesson_id || session.lessonId);
+      // 1. Thử tải theo lesson_id đã gắn với session
+      const directLessonId = session.lesson_id || session.lessonId;
+      if (directLessonId) {
+        lesson = await fetchLessonDetailApi(directLessonId);
       }
-      if (!lesson) {
-        const grade = currentClass?.grade || 3;
-        const available = await fetchLessonsApi({ grade });
-        if (available && available.length > 0) {
+
+      // 2. Nếu chưa có lesson_id hoặc lesson_id không tìm thấy, tìm bài học trong Thư Viện khớp với tên bài của session
+      const grade = currentClass?.grade || session.class_grade || 2;
+      const available = await fetchLessonsApi({ grade });
+
+      if (!lesson && available && available.length > 0) {
+        const sessionTitle = (session.lesson_title || session.lessonTitle || '').trim().toLowerCase();
+
+        // A. Khớp chính xác tiêu đề
+        let found = available.find(l => (l.title || '').trim().toLowerCase() === sessionTitle);
+
+        // B. Khớp theo số bài: "Bài 2", "Bài 1", ...
+        if (!found) {
+          const numMatch = sessionTitle.match(/(?:bài|bai|tiết)\s*(\d+)/i);
+          if (numMatch) {
+            const num = numMatch[1];
+            found = available.find(l => {
+              const lNumMatch = (l.title || '').match(/(?:bài|bai|tiết)\s*(\d+)/i);
+              return lNumMatch && lNumMatch[1] === num;
+            });
+          }
+        }
+
+        // C. Khớp tương đối theo từ khóa tiêu đề (chứa lẫn nhau)
+        if (!found) {
+          found = available.find(l => 
+            (l.title && sessionTitle.includes(l.title.toLowerCase())) ||
+            (l.title && l.title.toLowerCase().includes(sessionTitle))
+          );
+        }
+
+        if (found) {
+          lesson = await fetchLessonDetailApi(found.id);
+          // Tự động liên kết lesson_id vào session để lưu trữ đồng bộ
+          if (session.id && found.id) {
+            updateSessionApi(session.id, { lesson_id: found.id });
+            setSession(prev => ({ ...prev, lesson_id: found.id }));
+          }
+        } else {
+          // Fallback về bài đầu tiên nếu hoàn toàn không tìm thấy bài nào tương ứng
           lesson = await fetchLessonDetailApi(available[0].id);
         }
       }
+
       if (!lesson) {
         alert('Chưa có bài học nào trong Thư Viện. Vui lòng chuyển sang tab "Bài Học & Slide" để tạo bài học trước!');
         return;

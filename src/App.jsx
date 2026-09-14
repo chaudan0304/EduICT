@@ -50,6 +50,7 @@ export default function App() {
   const [studentStats, setStudentStats] = useState(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [statsError, setStatsError] = useState(null);
+  const [autoOpenSessionForClassId, setAutoOpenSessionForClassId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem('eduict_sidebar_collapsed') === 'true';
@@ -63,6 +64,24 @@ export default function App() {
       localStorage.setItem('eduict_sidebar_collapsed', sidebarCollapsed);
     } catch {}
   }, [sidebarCollapsed]);
+
+  // Xử lý khi nhấp vào lớp trong Thời khóa biểu: tự động chọn lớp & mở chuẩn bị tiết học
+  const handleSelectClassFromTimetable = (targetClassName, targetGrade) => {
+    if (!targetClassName || !classes || classes.length === 0) return;
+    const clean = targetClassName.trim().toLowerCase();
+    let found = classes.find(c => {
+      const cName = (c.name || '').trim().toLowerCase();
+      return cName === clean || cName === `lớp ${clean}` || `lớp ${cName}` === clean;
+    });
+    if (!found && targetGrade) {
+      found = classes.find(c => (c.grade || detectGradeFromName(c.name)) === targetGrade);
+    }
+    const targetId = found ? found.id : classes[0].id;
+    setClassId(targetId);
+    setCurrentClassId(targetId);
+    setAutoOpenSessionForClassId(targetId);
+    setActiveTab('sessions');
+  };
 
   // Làm mới thống kê số lượng học sinh & lớp theo khối và toàn trường trực tiếp từ SQLite
   const refreshStudentStats = async (schoolYear = null) => {
@@ -347,6 +366,7 @@ export default function App() {
           onToggleSound={() => setSoundEnabled(prev => !prev)}
           activeTab={activeTab}
           onSelectTab={setActiveTab}
+          onSelectClassFromTimetable={handleSelectClassFromTimetable}
           currentSchoolYear={currentSchoolYear}
           availableSchoolYears={availableSchoolYears}
           academicYearSettings={academicYearSettings}
@@ -501,6 +521,12 @@ export default function App() {
             <SessionManager
               classes={classes}
               currentClass={currentClass}
+              onSelectClass={(newClassId) => {
+                setClassId(newClassId);
+                setCurrentClassId(newClassId);
+              }}
+              autoOpenClassId={autoOpenSessionForClassId}
+              onClearAutoOpen={() => setAutoOpenSessionForClassId(null)}
               onUpdateStudents={handleUpdateStudents}
               onUpdateGoodScores={handleUpdateGoodScores}
               soundEnabled={soundEnabled}

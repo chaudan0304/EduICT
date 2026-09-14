@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, 
   Play, 
@@ -10,8 +10,11 @@ import {
   FileText,
   Search,
   ArrowRight,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
+import { getCurrentPeriodStatus, formatTimeCountdown } from '../../utils/timetable';
+import TimetableModal from './TimetableModal';
 
 export default function SessionList({
   sessions = [],
@@ -26,6 +29,16 @@ export default function SessionList({
   const [selectedClassFilter, setSelectedClassFilter] = useState(currentClass?.id || 'all');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'active' | 'completed' | 'draft'
   const [searchQuery, setSearchQuery] = useState('');
+  const [livePeriodStatus, setLivePeriodStatus] = useState(() => getCurrentPeriodStatus());
+  const [showTimetable, setShowTimetable] = useState(false);
+
+  // Cập nhật trạng thái tiết dạy thời gian thực
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLivePeriodStatus(getCurrentPeriodStatus());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Lọc danh sách sessions
   const filteredSessions = useMemo(() => {
@@ -159,22 +172,51 @@ export default function SessionList({
           </p>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={onOpenCreateModal}
-          style={{
-            padding: '0.6rem 1.25rem',
-            fontWeight: 800,
-            fontSize: '0.9rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.45rem'
-          }}
-        >
-          <Plus size={18} />
-          <span>Tạo Classroom Session Mới</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => setShowTimetable(true)}
+            style={{
+              padding: '0.6rem 1.15rem',
+              fontWeight: 800,
+              fontSize: '0.875rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              borderColor: livePeriodStatus.isTeachingNow ? '#10b981' : 'var(--primary)',
+              background: livePeriodStatus.isTeachingNow ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+              color: livePeriodStatus.isTeachingNow ? '#059669' : 'var(--primary)'
+            }}
+            title="Lịch giảng dạy cá nhân & Đếm ngược thời gian thực"
+          >
+            <Calendar size={18} />
+            {livePeriodStatus.isTeachingNow ? (
+              <span>🟢 Tiết {livePeriodStatus.period} ({livePeriodStatus.className}) • Còn {formatTimeCountdown(livePeriodStatus.remainingSec)}</span>
+            ) : livePeriodStatus.status === 'RECESS' ? (
+              <span>☕ Ra chơi • Còn {formatTimeCountdown(livePeriodStatus.remainingSec)}</span>
+            ) : (
+              <span>Lịch Giảng Dạy (TKB)</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onOpenCreateModal}
+            style={{
+              padding: '0.6rem 1.25rem',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem'
+            }}
+          >
+            <Plus size={18} />
+            <span>Tạo Classroom Session Mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Bộ lọc & Tìm kiếm */}
@@ -398,6 +440,21 @@ export default function SessionList({
           })}
         </div>
       )}
+
+      {/* Modal Lịch Giảng Dạy Cá Nhân */}
+      <TimetableModal
+        isOpen={showTimetable}
+        onClose={() => setShowTimetable(false)}
+        onSelectClassForSession={(targetClassName, targetGrade) => {
+          setShowTimetable(false);
+          const clean = (targetClassName || '').trim().toLowerCase();
+          const matched = classes.find(c => {
+            const cName = (c.name || '').trim().toLowerCase();
+            return cName === clean || cName === `lớp ${clean}` || `lớp ${cName}` === clean;
+          });
+          onOpenCreateModal(matched ? matched.id : null);
+        }}
+      />
     </div>
   );
 }
