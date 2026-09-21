@@ -9,7 +9,10 @@ import {
   CheckCircle2, 
   Lightbulb, 
   FolderOpen,
-  Sparkles
+  Sparkles,
+  Check,
+  CheckSquare,
+  X
 } from 'lucide-react';
 import { 
   fetchQuestionsApi, 
@@ -37,6 +40,7 @@ export default function QuestionBankView({
   const [selectedTopic, setSelectedTopic] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState(new Set());
 
   // Quản lý Modal thêm/sửa câu hỏi
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -146,6 +150,50 @@ export default function QuestionBankView({
     setIsFormOpen(true);
   };
 
+  // Chọn / Bỏ chọn từng câu hỏi
+  const toggleSelectQuestion = (id, e) => {
+    if (e) e.stopPropagation();
+    setSelectedQuestionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Chọn tất cả các câu đang hiển thị theo bộ lọc
+  const handleSelectAllFiltered = () => {
+    if (filteredQuestions.length === 0) return;
+    const allSelected = filteredQuestions.every(q => selectedQuestionIds.has(q.id));
+    setSelectedQuestionIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        filteredQuestions.forEach(q => next.delete(q.id));
+      } else {
+        filteredQuestions.forEach(q => next.add(q.id));
+      }
+      return next;
+    });
+  };
+
+  // Bỏ chọn tất cả
+  const handleClearSelection = () => {
+    setSelectedQuestionIds(new Set());
+  };
+
+  // Khởi chạy tạo Quick Quiz từ các câu hỏi đã chọn
+  const handleLaunchWithSelected = () => {
+    if (selectedQuestionIds.size > 0) {
+      const chosen = questions.filter(q => selectedQuestionIds.has(q.id));
+      onLaunchQuizCreator(chosen);
+    } else {
+      onLaunchQuizCreator([]);
+    }
+  };
+
   // Lưu câu hỏi từ modal
   const handleSaveQuestion = async (formData) => {
     try {
@@ -162,7 +210,7 @@ export default function QuestionBankView({
   };
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1440, margin: '0 auto', width: '100%' }}>
+    <div style={{ padding: '1.5rem', maxWidth: 1440, margin: '0 auto', width: '100%', position: 'relative' }}>
       {/* 1. Header Banner & Hành Động Chính */}
       <div style={{
         background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.12) 0%, rgba(147, 51, 234, 0.08) 100%)',
@@ -248,7 +296,7 @@ export default function QuestionBankView({
           </button>
 
           <button
-            onClick={onLaunchQuizCreator}
+            onClick={handleLaunchWithSelected}
             className="btn btn-primary"
             style={{
               padding: '0.65rem 1.4rem',
@@ -262,7 +310,11 @@ export default function QuestionBankView({
             }}
           >
             <Zap size={18} fill="#fff" />
-            <span>+ Tạo Quick Quiz Ngay</span>
+            <span>
+              {selectedQuestionIds.size > 0 
+                ? `⚡ Tạo Quick Quiz (${selectedQuestionIds.size} câu đã chọn)` 
+                : '+ Tạo Quick Quiz Ngay'}
+            </span>
           </button>
         </div>
       </div>
@@ -317,8 +369,69 @@ export default function QuestionBankView({
             </button>
           ))}
 
-          <div style={{ marginLeft: 'auto', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-            Hiển thị: <strong style={{ color: '#ec4899' }}>{filteredQuestions.length}</strong> câu hỏi
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            {filteredQuestions.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelectAllFiltered}
+                className="btn btn-secondary"
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: filteredQuestions.every(q => selectedQuestionIds.has(q.id)) ? 'rgba(236, 72, 153, 0.12)' : 'var(--surface-ground)',
+                  borderColor: filteredQuestions.every(q => selectedQuestionIds.has(q.id)) ? '#ec4899' : 'var(--surface-border)',
+                  color: filteredQuestions.every(q => selectedQuestionIds.has(q.id)) ? '#ec4899' : 'var(--text-main)',
+                  cursor: 'pointer'
+                }}
+              >
+                <CheckSquare size={15} />
+                <span>
+                  {filteredQuestions.every(q => selectedQuestionIds.has(q.id)) 
+                    ? 'Bỏ chọn trang này' 
+                    : `Chọn tất cả (${filteredQuestions.length})`}
+                </span>
+              </button>
+            )}
+
+            {selectedQuestionIds.size > 0 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                background: 'rgba(236, 72, 153, 0.1)',
+                padding: '0.3rem 0.65rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid rgba(236, 72, 153, 0.3)'
+              }}>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#ec4899' }}>
+                  Đã chọn: {selectedQuestionIds.size} câu
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  title="Bỏ chọn tất cả"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+              Kho có: <strong style={{ color: '#ec4899' }}>{filteredQuestions.length}</strong> câu
+            </div>
           </div>
         </div>
 
@@ -416,71 +529,100 @@ export default function QuestionBankView({
           {filteredQuestions.map((q) => {
             const topicInfo = INFORMATICS_TOPICS.find(t => t.id === q.topic);
             const diffInfo = DIFFICULTIES.find(d => d.id === q.difficulty);
+            const isSelected = selectedQuestionIds.has(q.id);
 
             return (
               <div
                 key={q.id}
-                onClick={() => handleOpenEdit(q)}
+                onClick={() => toggleSelectQuestion(q.id)}
                 style={{
-                  background: 'var(--surface-card)',
-                  border: '1px solid var(--surface-border)',
+                  background: isSelected ? 'rgba(236, 72, 153, 0.05)' : 'var(--surface-card)',
+                  border: isSelected ? '2px solid #ec4899' : '1px solid var(--surface-border)',
                   borderRadius: 'var(--radius-lg)',
                   padding: '1.25rem',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  boxShadow: 'var(--shadow-sm)',
+                  boxShadow: isSelected ? '0 0 0 1px #ec4899, var(--shadow-md)' : 'var(--shadow-sm)',
                   cursor: 'pointer',
+                  position: 'relative',
                   transition: 'all 0.15s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#ec4899';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = 'rgba(236, 72, 153, 0.5)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--surface-border)';
-                  e.currentTarget.style.transform = 'translateY(0)';
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = 'var(--surface-border)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
                 }}
               >
                 <div>
-                  {/* Badges: Khối, Chủ đề, Mức độ */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                    <span style={{
-                      padding: '0.2rem 0.55rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(236, 72, 153, 0.12)',
-                      color: '#ec4899',
-                      fontWeight: 800,
-                      fontSize: '0.75rem'
-                    }}>
-                      Khối {q.grade}
-                    </span>
-
-                    {topicInfo && (
+                  {/* Badges: Khối, Chủ đề, Mức độ & Checkbox chọn */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                       <span style={{
                         padding: '0.2rem 0.55rem',
                         borderRadius: 'var(--radius-sm)',
-                        background: 'var(--surface-ground)',
-                        color: 'var(--text-main)',
-                        fontWeight: 600,
+                        background: 'rgba(236, 72, 153, 0.12)',
+                        color: '#ec4899',
+                        fontWeight: 800,
                         fontSize: '0.75rem'
                       }}>
-                        {topicInfo.icon} {topicInfo.label.split(':')[0]}
+                        Khối {q.grade}
                       </span>
-                    )}
 
-                    {diffInfo && (
-                      <span style={{
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: diffInfo.bg,
-                        color: diffInfo.color,
-                        fontWeight: 700,
-                        fontSize: '0.75rem'
-                      }}>
-                        {diffInfo.label}
-                      </span>
-                    )}
+                      {topicInfo && (
+                        <span style={{
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--surface-ground)',
+                          color: 'var(--text-main)',
+                          fontWeight: 600,
+                          fontSize: '0.75rem'
+                        }}>
+                          {topicInfo.icon} {topicInfo.label.split(':')[0]}
+                        </span>
+                      )}
+
+                      {diffInfo && (
+                        <span style={{
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: diffInfo.bg,
+                          color: diffInfo.color,
+                          fontWeight: 700,
+                          fontSize: '0.75rem'
+                        }}>
+                          {diffInfo.label}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Nút Checkbox chọn câu hỏi */}
+                    <div
+                      onClick={(e) => toggleSelectQuestion(q.id, e)}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 6,
+                        border: isSelected ? '2px solid #ec4899' : '2px solid var(--surface-border)',
+                        background: isSelected ? '#ec4899' : 'var(--surface-ground)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={isSelected ? 'Bỏ chọn câu này' : 'Chọn câu này vào Quiz'}
+                    >
+                      {isSelected && <Check size={16} color="#fff" strokeWidth={3} />}
+                    </div>
                   </div>
 
                   {/* Câu hỏi */}
@@ -643,6 +785,84 @@ export default function QuestionBankView({
             }).then(data => setQuestions(data || []));
           }}
         />
+      )}
+
+      {/* Floating Action Bar khi giáo viên chọn câu hỏi */}
+      {selectedQuestionIds.size > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1100,
+          background: 'var(--surface-card)',
+          border: '2px solid #ec4899',
+          borderRadius: 99,
+          padding: '0.65rem 1.25rem 0.65rem 1.5rem',
+          boxShadow: '0 12px 36px -4px rgba(236, 72, 153, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1.25rem',
+          backdropFilter: 'blur(12px)',
+          maxWidth: '90vw'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <span style={{
+              width: 26,
+              height: 26,
+              borderRadius: '50%',
+              background: '#ec4899',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 900,
+              fontSize: '0.85rem'
+            }}>
+              {selectedQuestionIds.size}
+            </span>
+            <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+              Đã chọn <strong style={{ color: '#ec4899' }}>{selectedQuestionIds.size}</strong> câu hỏi
+            </span>
+          </div>
+
+          <div style={{ width: 1, height: 22, background: 'var(--surface-border)' }} />
+
+          <button
+            type="button"
+            onClick={handleClearSelection}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.4rem 0.85rem',
+              fontSize: '0.825rem',
+              fontWeight: 700,
+              borderRadius: 99
+            }}
+          >
+            Bỏ chọn tất cả
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLaunchWithSelected}
+            className="btn btn-primary"
+            style={{
+              padding: '0.55rem 1.4rem',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              borderRadius: 99,
+              background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
+              boxShadow: '0 4px 14px rgba(236, 72, 153, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Zap size={17} fill="#fff" />
+            <span>Tạo Quick Quiz Ngay ({selectedQuestionIds.size} câu)</span>
+          </button>
+        </div>
       )}
     </div>
   );

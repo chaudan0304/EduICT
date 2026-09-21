@@ -13,7 +13,14 @@ import {
   ArrowDown,
   ArrowLeftRight,
   Users,
-  Maximize2
+  Maximize2,
+  Trash2,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  GripVertical,
+  X
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
 import { 
@@ -47,6 +54,19 @@ export default function SeatingChart({
   const [brokenMachines, setBrokenMachines] = useState(() => getGlobalBrokenMachines());
   // Modal máy đang chọn
   const [activeMachineNum, setActiveMachineNum] = useState(null);
+
+  // Trạng thái khay học sinh chưa xếp chỗ (mở/thu gọn)
+  const [isUnassignedOpen, setIsUnassignedOpen] = useState(true);
+  // Tìm kiếm học sinh trong khay chưa xếp chỗ
+  const [unassignedSearch, setUnassignedSearch] = useState('');
+  // Học sinh đang được chọn để xếp nhanh bằng click (Click-to-Assign)
+  const [selectedStudentForPlacement, setSelectedStudentForPlacement] = useState(null);
+  // Học sinh đang được kéo (Drag & Drop)
+  const [draggingStudent, setDraggingStudent] = useState(null); // { studentId, sourceMachine: null | number }
+  // Máy đang được rê chuột kéo qua (Drag Over target)
+  const [dragOverMachine, setDragOverMachine] = useState(null);
+  // Rê chuột vào Khay Chưa Xếp Chỗ để gỡ
+  const [dragOverDrawer, setDragOverDrawer] = useState(false);
 
   // Danh sách nội quy phòng máy phục vụ cộng/trừ nhanh
   const rules = React.useMemo(() => getClassroomRules(), [activeMachineNum]);
@@ -142,27 +162,173 @@ export default function SeatingChart({
   }, [teacherSide]);
 
   // Tạo map máy -> danh sách học sinh (tối đa 2 học sinh mỗi máy)
+  // Chỉ gán đúng các học sinh đã có machineNumber hợp lệ, không tự động nhồi nhét học sinh chưa xếp chỗ vào máy
   const machineStudentMap = useMemo(() => {
     const map = {};
     for (let m = 1; m <= 31; m++) {
       map[m] = [];
     }
 
-    const assignedIds = new Set();
     students.forEach(s => {
-      if (s.machineNumber && s.machineNumber >= 1 && s.machineNumber <= 31) {
+      const m = Number(s.machineNumber);
+      if (m >= 1 && m <= 31) {
         // Tuyệt đối không nhận học sinh vào máy đang báo hỏng
-        if (!brokenMachines.includes(s.machineNumber)) {
-          if (map[s.machineNumber].length < 2) {
-            map[s.machineNumber].push(s);
-            assignedIds.add(s.id);
+        if (!brokenMachines.includes(m)) {
+          if (map[m].length < 2) {
+            map[m].push(s);
           }
         }
       }
     });
 
-    // Với học sinh chưa có số máy, tự động xếp vào máy hoạt động còn trống
-    // Hoặc ghép vào máy đã có 1 bạn nếu máy không đủ
+    return map;
+  }, [students, brokenMachines]);
+
+  // Danh sách ID học sinh đã có chỗ ngồi thực tế
+  const seatedStudentIds = useMemo(() => {
+    const ids = new Set();
+    Object.values(machineStudentMap).forEach(list => {
+      list.forEach(s => ids.add(s.id));
+    });
+    return ids;
+  }, [machineStudentMap]);
+
+  // Danh sách học sinh chưa được xếp chỗ (hoặc máy đang hỏng)
+  const unassignedStudents = useMemo(() => {
+    return students.filter(s => !seatedStudentIds.has(s.id));
+  }, [students, seatedStudentIds]);
+
+  // Lọc học sinh trong khay chưa xếp theo từ khóa tìm kiếm
+  const filteredUnassignedStudents = useMemo(() => {
+    if (!unassignedSearch.trim()) return unassignedStudents;
+    const q = unassignedSearch.toLowerCase().trim();
+    return unassignedStudents.filter(s => s.name.toLowerCase().includes(q));
+  }, [unassignedStudents, unassignedSearch]);
+
+  // Xóa toàn bộ chỗ ngồi hiện tại của lớp (đưa về trạng thái chưa xếp)
+  const handleClearAllSeats = () => {
+    if (seatedStudentIds.size === 0) {
+      alert('Hiện tại tất cả học sinh đều chưa có chỗ ngồi.');
+      return;
+    }
+
+    const ok = window.confirm(
+      `Thầy/Cô có chắc chắn muốn XÓA TOÀN BỘ CHỖ NGỒI hiện tại của lớp ${currentClass?.name || ''}?\n\n` +
+      `Tất cả ${seatedStudentIds.size} học sinh đang ngồi sẽ được đưa về danh sách "Chưa Xếp Chỗ" để Thầy/Cô tự sắp xếp lại từ đầu.`
+    );
+    if (!ok) return;
+
+    const updated = students.map(s => ({ ...s, machineNumber: null }));
+    onUpdateStudents(updated);
+    setSelectedStudentForPlacement(null);
+    setIsUnassignedOpen(true);
+    if (soundEnabled) soundEffects.playTick();
+
+    setReassignAlerts({
+      type: 'info',
+      title: 'Đã Xóa Toàn Bộ Chỗ Ngồi Của Lớp',
+      items: [
+        {
+          type: 'info',
+          text: `Đã đưa toàn bộ ${students.length} học sinh về danh sách Chưa Xếp Chỗ. Thầy/Cô có thể kéo thả hoặc chọn để xếp vào các máy.`
+        }
+      ]
+    });
+  };
+
+  // Gán 1 học sinh vào 1 máy tính cụ thể (hỗ trợ kéo thả hoặc click chọn)
+  const handleAssignStudentToMachine = (studentId, targetMachineNum) => {
+    if (!studentId || !targetMachineNum) return;
+
+    if (brokenMachines.includes(targetMachineNum)) {
+      alert(`Máy ${String(targetMachineNum).padStart(2, '0')} đang báo hỏng, không thể xếp học sinh vào máy này!`);
+      return;
+    }
+
+    const currentOnTarget = (machineStudentMap[targetMachineNum] || []).filter(s => s.id !== studentId);
+    if (currentOnTarget.length >= 2) {
+      alert(`Máy ${String(targetMachineNum).padStart(2, '0')} đã đủ 2 học sinh ngồi ghép. Thầy/Cô hãy kéo trực tiếp vào 1 bạn trên máy để Hoán Đổi Chỗ (Swap) hoặc chọn máy khác!`);
+      return;
+    }
+
+    const studentObj = students.find(s => s.id === studentId);
+    const updated = students.map(s => {
+      if (s.id === studentId) {
+        return { ...s, machineNumber: targetMachineNum };
+      }
+      return s;
+    });
+
+    onUpdateStudents(updated);
+    setSelectedStudentForPlacement(null);
+    if (soundEnabled) soundEffects.playTick();
+
+    const isPaired = currentOnTarget.length === 1;
+    setQuickRuleFeedback({
+      text: `Đã xếp ${studentObj?.name || 'Học sinh'} vào Máy ${String(targetMachineNum).padStart(2, '0')}${isPaired ? ' (ngồi ghép đôi)' : ''}`,
+      isPositive: true
+    });
+    setTimeout(() => setQuickRuleFeedback(null), 3000);
+  };
+
+  // Hoán đổi chỗ ngồi giữa 2 học sinh (Swap)
+  const handleSwapStudents = (studentIdA, studentIdB) => {
+    if (!studentIdA || !studentIdB || studentIdA === studentIdB) return;
+
+    const studentA = students.find(s => s.id === studentIdA);
+    const studentB = students.find(s => s.id === studentIdB);
+    if (!studentA || !studentB) return;
+
+    const machineA = studentA.machineNumber;
+    const machineB = studentB.machineNumber;
+
+    const updated = students.map(s => {
+      if (s.id === studentIdA) return { ...s, machineNumber: machineB };
+      if (s.id === studentIdB) return { ...s, machineNumber: machineA };
+      return s;
+    });
+
+    onUpdateStudents(updated);
+    setSelectedStudentForPlacement(null);
+    if (soundEnabled) soundEffects.playStarDing();
+
+    setReassignAlerts({
+      type: 'success',
+      title: 'Đã Hoán Đổi Chỗ Ngồi',
+      items: [
+        {
+          type: 'success',
+          text: `Đã đổi chỗ giữa ${studentA.name} (${machineA ? `Máy ${machineA}` : 'Chưa xếp'}) và ${studentB.name} (${machineB ? `Máy ${machineB}` : 'Chưa xếp'}).`
+        }
+      ]
+    });
+  };
+
+  // Gỡ 1 học sinh khỏi máy về danh sách Chưa Xếp Chỗ
+  const handleUnassignStudent = (studentId) => {
+    const studentObj = students.find(s => s.id === studentId);
+    if (!studentObj) return;
+
+    const prevMachine = studentObj.machineNumber;
+    const updated = students.map(s => s.id === studentId ? { ...s, machineNumber: null } : s);
+    onUpdateStudents(updated);
+    if (selectedStudentForPlacement === studentId) setSelectedStudentForPlacement(null);
+    if (soundEnabled) soundEffects.playTick();
+
+    setQuickRuleFeedback({
+      text: `Đã gỡ ${studentObj.name}${prevMachine ? ` khỏi Máy ${String(prevMachine).padStart(2, '0')}` : ''} về danh sách Chưa Xếp Chỗ`,
+      isPositive: true
+    });
+    setTimeout(() => setQuickRuleFeedback(null), 3000);
+  };
+
+  // Xếp tự động các bạn còn lại vào các máy còn chỗ trống (không ảnh hưởng máy đã xếp)
+  const handleAutoAssignRemaining = () => {
+    if (unassignedStudents.length === 0) {
+      alert('Tất cả học sinh trong lớp đều đã có chỗ ngồi!');
+      return;
+    }
+
     const workingMachines = [];
     for (let m = 1; m <= 31; m++) {
       if (!brokenMachines.includes(m)) {
@@ -170,32 +336,56 @@ export default function SeatingChart({
       }
     }
 
-    let unassigned = students.filter(s => !assignedIds.has(s.id));
+    const availableSlots = [];
+    // Ưu tiên 1: các máy đang trống hoàn toàn (0 bạn)
+    workingMachines.forEach(m => {
+      if ((machineStudentMap[m] || []).length === 0) {
+        availableSlots.push(m);
+      }
+    });
+    // Ưu tiên 2: các máy đang có đúng 1 bạn (ngồi ghép 2 bạn)
+    workingMachines.forEach(m => {
+      if ((machineStudentMap[m] || []).length === 1) {
+        availableSlots.push(m);
+      }
+    });
 
-    // Đợt 1: xếp vào máy hoàn toàn trống
-    for (const m of workingMachines) {
-      if (unassigned.length === 0) break;
-      if (map[m].length === 0) {
-        const s = unassigned.shift();
-        map[m].push(s);
-        assignedIds.add(s.id);
+    if (availableSlots.length === 0) {
+      alert('Tất cả các máy hoạt động đã đủ 2 bạn ngồi ghép, không còn chỗ trống để xếp thêm!');
+      return;
+    }
+
+    const unassignedCopy = [...unassignedStudents];
+    const updated = [...students];
+
+    let count = 0;
+    while (unassignedCopy.length > 0 && availableSlots.length > 0) {
+      const s = unassignedCopy.shift();
+      const targetM = availableSlots.shift();
+      const sIdx = updated.findIndex(st => st.id === s.id);
+      if (sIdx !== -1) {
+        updated[sIdx] = { ...updated[sIdx], machineNumber: targetM };
+        count++;
       }
     }
 
-    // Đợt 2: nếu vẫn còn học sinh, cho ngồi ghép 2 bạn/máy vào các máy hoạt động
-    for (const m of workingMachines) {
-      if (unassigned.length === 0) break;
-      if (map[m].length === 1) {
-        const s = unassigned.shift();
-        map[m].push(s);
-        assignedIds.add(s.id);
-      }
-    }
+    onUpdateStudents(updated);
+    setSelectedStudentForPlacement(null);
+    if (soundEnabled) soundEffects.playVictory();
 
-    return map;
-  }, [students, brokenMachines]);
+    setReassignAlerts({
+      type: 'success',
+      title: 'Đã Xếp Tự Động Các Bạn Còn Lại',
+      items: [
+        {
+          type: 'success',
+          text: `Đã xếp thêm ${count} bạn vào các máy còn trống.${unassignedCopy.length > 0 ? ` (Còn ${unassignedCopy.length} bạn chưa có chỗ do hết máy).` : ''}`
+        }
+      ]
+    });
+  };
 
-  // Xếp tuần tự: ưu tiên 1 bạn / máy, tự động ghép 2 bạn / máy nếu thiếu máy hoặc máy hỏng
+  // Xếp tuần tự toàn bộ lớp: ưu tiên 1 bạn / máy, tự động ghép 2 bạn / máy nếu thiếu máy hoặc máy hỏng
   const handleAutoAssign = () => {
     const workingMachines = [];
     for (let m = 1; m <= 31; m++) {
@@ -231,6 +421,7 @@ export default function SeatingChart({
     }
 
     onUpdateStudents(updated);
+    setSelectedStudentForPlacement(null);
     if (soundEnabled) soundEffects.playVictory();
   };
 
@@ -258,6 +449,7 @@ export default function SeatingChart({
     }));
 
     onUpdateStudents(updated);
+    setSelectedStudentForPlacement(null);
     if (soundEnabled) soundEffects.playVictory();
   };
 
@@ -490,16 +682,36 @@ export default function SeatingChart({
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.875rem', fontWeight: 700 }}>
-              <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+              <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title="Số học sinh đã có chỗ ngồi">
                 <CheckCircle2 size={16} /> {allSeatedStudents.length} HS có chỗ
               </span>
               •
+              <button
+                type="button"
+                onClick={() => setIsUnassignedOpen(true)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: unassignedStudents.length > 0 ? '#ef4444' : '#64748b',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.2rem',
+                  fontWeight: 800,
+                  fontSize: '0.875rem'
+                }}
+                title="Số học sinh chưa được xếp máy (Bấm để xem danh sách)"
+              >
+                <Users size={16} /> {unassignedStudents.length} Chưa xếp
+              </button>
+              •
               <span style={{ color: '#4f46e5', display: 'flex', alignItems: 'center', gap: '0.2rem' }} title="Số máy có 2 học sinh ngồi chung">
-                <Users size={16} /> {sharedMachinesCount} Máy ghép 2 bạn
+                <Users size={16} /> {sharedMachinesCount} Máy ghép
               </span>
               •
               <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                <Wrench size={16} /> {brokenMachines.length} Máy hỏng
+                <Wrench size={16} /> {brokenMachines.length} Hỏng
               </span>
             </div>
 
@@ -573,6 +785,27 @@ export default function SeatingChart({
               <Shuffle size={14} color="var(--primary)" />
               Xếp Ngẫu Nhiên
             </button>
+
+            {/* Nút Xóa Hết Chỗ Ngồi Hiện Tại */}
+            <button 
+              type="button"
+              className="btn btn-sm"
+              onClick={handleClearAllSeats}
+              title="Xóa toàn bộ chỗ ngồi hiện tại để tự sắp xếp lại từ đầu (học sinh chuyển về danh sách Chưa Xếp Chỗ)"
+              style={{
+                background: '#fef2f2',
+                color: '#b91c1c',
+                border: '1.5px solid #fca5a5',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                cursor: 'pointer'
+              }}
+            >
+              <Trash2 size={14} />
+              <span>Xóa Hết Chỗ Ngồi</span>
+            </button>
           </div>
         </div>
       </div>
@@ -640,6 +873,291 @@ export default function SeatingChart({
           </button>
         </div>
       )}
+
+      {/* KHAY HỌC SINH CHƯA XẾP CHỖ (Hỗ trợ Tự Sắp Xếp Chỗ Ngồi: Kéo - Thả, Click-to-Assign, Tìm kiếm) */}
+      <div 
+        className="glass-panel"
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (draggingStudent && draggingStudent.sourceMachine !== null) {
+            setDragOverDrawer(true);
+          }
+        }}
+        onDragLeave={() => setDragOverDrawer(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOverDrawer(false);
+          if (draggingStudent && draggingStudent.sourceMachine !== null) {
+            handleUnassignStudent(draggingStudent.studentId);
+            setDraggingStudent(null);
+          }
+        }}
+        style={{
+          padding: '0.85rem 1.15rem',
+          border: dragOverDrawer ? '2px dashed #10b981' : (unassignedStudents.length > 0 ? '1.5px solid #cbd5e1' : '1px solid var(--surface-border)'),
+          background: dragOverDrawer ? 'rgba(16, 185, 129, 0.08)' : (unassignedStudents.length > 0 ? 'var(--surface)' : 'var(--surface-secondary)'),
+          boxShadow: dragOverDrawer ? '0 0 16px rgba(16, 185, 129, 0.25)' : 'var(--shadow-sm)',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.65rem'
+        }}
+      >
+        {/* Header Khay */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '1.25rem' }}>📦</span>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              Học Sinh Chưa Xếp Chỗ
+              <span style={{
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                background: unassignedStudents.length > 0 ? '#fee2e2' : '#ecfdf5',
+                color: unassignedStudents.length > 0 ? '#b91c1c' : '#047857',
+                padding: '0.15rem 0.55rem',
+                borderRadius: 'var(--radius-full)',
+                border: unassignedStudents.length > 0 ? '1px solid #fca5a5' : '1px solid #a7f3d0'
+              }}>
+                {unassignedStudents.length} học sinh
+              </span>
+            </h3>
+
+            {selectedStudentForPlacement && (
+              <span style={{
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                color: '#4338ca',
+                background: '#e0e7ff',
+                padding: '0.2rem 0.6rem',
+                borderRadius: 6,
+                border: '1.5px solid #818cf8',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}>
+                <span>👉 Đang chọn: <strong>{students.find(s => s.id === selectedStudentForPlacement)?.name}</strong> (Nhấp vào máy muốn xếp)</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setSelectedStudentForPlacement(null); }}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#4338ca', fontWeight: 900 }}
+                  title="Hủy chọn"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {unassignedStudents.length > 0 && (
+              <>
+                {/* Ô tìm kiếm nhanh */}
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <Search size={14} style={{ position: 'absolute', left: 8, color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    placeholder="Tìm tên học sinh..."
+                    value={unassignedSearch}
+                    onChange={(e) => setUnassignedSearch(e.target.value)}
+                    className="input-field"
+                    style={{
+                      paddingLeft: '1.75rem',
+                      paddingRight: unassignedSearch ? '1.5rem' : '0.5rem',
+                      paddingTop: '0.25rem',
+                      paddingBottom: '0.25rem',
+                      fontSize: '0.75rem',
+                      height: 30,
+                      width: 155
+                    }}
+                  />
+                  {unassignedSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setUnassignedSearch('')}
+                      style={{ position: 'absolute', right: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}
+                      title="Xóa tìm kiếm"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Nút xếp tự động các bạn còn lại */}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleAutoAssignRemaining}
+                  style={{
+                    fontWeight: 800,
+                    fontSize: '0.75rem',
+                    padding: '0.3rem 0.65rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem'
+                  }}
+                  title="Tự động xếp nốt các bạn chưa có chỗ vào các máy còn trống mà không thay đổi các máy thầy/cô đã tự xếp"
+                >
+                  <Zap size={13} />
+                  Xếp Tự Động Các Bạn Còn Lại
+                </button>
+              </>
+            )}
+
+            {/* Nút thu gọn / mở rộng khay */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setIsUnassignedOpen(prev => !prev)}
+              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+            >
+              {isUnassignedOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              <span>{isUnassignedOpen ? 'Thu gọn' : 'Mở rộng'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Nội dung danh sách học sinh */}
+        {isUnassignedOpen && (
+          <div>
+            {unassignedStudents.length === 0 ? (
+              <div style={{
+                padding: '0.75rem',
+                textAlign: 'center',
+                color: '#059669',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                background: '#ecfdf5',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid #a7f3d0'
+              }}>
+                🎉 Tuyệt vời! 100% học sinh trong lớp ({students.length} bạn) đã được xếp chỗ vào các máy tính.
+              </div>
+            ) : (
+              <>
+                <div style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  marginBottom: '0.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap'
+                }}>
+                  <span>
+                    💡 <strong>Cách tự sắp xếp:</strong> Kéo học sinh thả vào Máy • Hoặc bấm chọn rồi nhấp vào Máy • Thả vào bạn khác để Đổi Chỗ (Swap).
+                  </span>
+                  {dragOverDrawer && (
+                    <span style={{ color: '#059669', fontWeight: 800, animation: 'bounce 1s infinite' }}>
+                      ⬇️ Thả vào đây để đưa học sinh về danh sách chưa xếp chỗ!
+                    </span>
+                  )}
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.45rem',
+                  maxHeight: 180,
+                  overflowY: 'auto',
+                  padding: '0.25rem 0.1rem'
+                }}>
+                  {filteredUnassignedStudents.map(s => {
+                    const isSelected = selectedStudentForPlacement === s.id;
+                    const isFemale = s.gender === 'Nữ';
+                    return (
+                      <div
+                        key={s.id}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', s.id);
+                          setDraggingStudent({ studentId: s.id, sourceMachine: null });
+                        }}
+                        onDragEnd={() => {
+                          setDraggingStudent(null);
+                          setDragOverMachine(null);
+                        }}
+                        onClick={() => {
+                          setSelectedStudentForPlacement(prev => prev === s.id ? null : s.id);
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.3rem 0.55rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: isSelected ? '#ede9fe' : 'var(--surface-card)',
+                          border: isSelected ? '2px solid #6366f1' : '1px solid var(--surface-border)',
+                          boxShadow: isSelected ? '0 0 10px rgba(99, 102, 241, 0.4)' : 'var(--shadow-sm)',
+                          cursor: 'grab',
+                          userSelect: 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                        title="Kéo thả vào máy tính hoặc bấm chọn rồi bấm vào máy để xếp"
+                      >
+                        <GripVertical size={13} color="var(--text-muted)" style={{ opacity: 0.7 }} />
+                        <div style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          background: isFemale ? '#fdf2f8' : '#eff6ff',
+                          color: isFemale ? '#db2777' : '#2563eb',
+                          fontSize: '0.65rem',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {s.name.trim().split(' ').pop()?.[0] || 'H'}
+                        </div>
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                          {s.name}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: '#d97706', fontWeight: 800 }}>
+                          {s.stars || 0}⭐
+                        </span>
+
+                        {/* Dropdown gán nhanh vào máy */}
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            const m = Number(e.target.value);
+                            if (m) handleAssignStudentToMachine(s.id, m);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            fontSize: '0.6875rem',
+                            padding: '0.08rem 0.25rem',
+                            border: '1px solid var(--surface-border)',
+                            borderRadius: 4,
+                            background: 'var(--surface)',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer'
+                          }}
+                          title="Gán nhanh vào máy..."
+                        >
+                          <option value="">+ Vào máy...</option>
+                          {Array.from({ length: 31 }, (_, i) => i + 1).map(mNum => {
+                            const isBroken = brokenMachines.includes(mNum);
+                            const count = (machineStudentMap[mNum] || []).length;
+                            if (isBroken) return null;
+                            return (
+                              <option key={mNum} value={mNum} disabled={count >= 2}>
+                                Máy {String(mNum).padStart(2, '0')} ({count === 0 ? 'Trống' : count === 1 ? '1 bạn' : 'Đầy'})
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Định Hướng Phía Trên Tùy Theo Góc Nhìn */}
       {chartPerspective === 'student' ? (
@@ -829,6 +1347,8 @@ export default function SeatingChart({
                   const assigned = machineStudentMap[mNum] || [];
                   const isBroken = brokenMachines.includes(mNum);
                   const isShared = assigned.length === 2;
+                  const isDraggingOverThis = dragOverMachine === mNum;
+                  const isPlacementTarget = Boolean(selectedStudentForPlacement && !isBroken && assigned.length < 2);
 
                   let statusBorder = 'var(--surface-border)';
                   let statusBg = 'var(--surface)';
@@ -847,18 +1367,49 @@ export default function SeatingChart({
                   return (
                     <div
                       key={mNum}
-                      onClick={() => setActiveMachineNum(mNum)}
+                      onClick={() => {
+                        if (selectedStudentForPlacement) {
+                          handleAssignStudentToMachine(selectedStudentForPlacement, mNum);
+                        } else {
+                          setActiveMachineNum(mNum);
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (!isBroken) setDragOverMachine(mNum);
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverMachine === mNum) setDragOverMachine(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOverMachine(null);
+                        if (isBroken) {
+                          alert(`Máy ${String(mNum).padStart(2, '0')} đang báo hỏng, không thể xếp học sinh!`);
+                          return;
+                        }
+                        if (draggingStudent) {
+                          if (draggingStudent.sourceMachine === mNum) return;
+                          handleAssignStudentToMachine(draggingStudent.studentId, mNum);
+                          setDraggingStudent(null);
+                        }
+                      }}
                       style={{
                         padding: '0.6rem 0.65rem',
                         borderRadius: 'var(--radius-md)',
-                        border: `2px solid ${statusBorder}`,
-                        background: statusBg,
+                        border: isDraggingOverThis 
+                          ? '2px dashed #4f46e5' 
+                          : (isPlacementTarget ? '2px solid #6366f1' : `2px solid ${statusBorder}`),
+                        background: isDraggingOverThis 
+                          ? 'rgba(79, 70, 229, 0.12)' 
+                          : (isPlacementTarget ? 'rgba(99, 102, 241, 0.08)' : statusBg),
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
-                        boxShadow: 'var(--shadow-sm)',
+                        boxShadow: (isDraggingOverThis || isPlacementTarget) ? '0 0 12px rgba(99, 102, 241, 0.35)' : 'var(--shadow-sm)',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '0.4rem'
+                        gap: '0.4rem',
+                        transform: isDraggingOverThis ? 'scale(1.02)' : 'none'
                       }}
                     >
                       {/* Top Bar: Machine # & Badges */}
@@ -884,8 +1435,8 @@ export default function SeatingChart({
                           )}
 
                           {assigned.length === 0 && !isBroken && (
-                            <span style={{ fontSize: '0.625rem', color: 'var(--text-dim)' }}>
-                              Trống
+                            <span style={{ fontSize: '0.625rem', color: isPlacementTarget ? '#4338ca' : 'var(--text-dim)', fontWeight: isPlacementTarget ? 800 : 500 }}>
+                              {isPlacementTarget ? '👉 Trống' : 'Trống'}
                             </span>
                           )}
                         </div>
@@ -907,6 +1458,24 @@ export default function SeatingChart({
                             return (
                               <div 
                                 key={student.id} 
+                                draggable={true}
+                                onDragStart={(e) => {
+                                  e.stopPropagation();
+                                  e.dataTransfer.setData('text/plain', student.id);
+                                  setDraggingStudent({ studentId: student.id, sourceMachine: mNum });
+                                }}
+                                onDragEnd={() => {
+                                  setDraggingStudent(null);
+                                  setDragOverMachine(null);
+                                }}
+                                onDrop={(e) => {
+                                  e.stopPropagation();
+                                  setDragOverMachine(null);
+                                  if (draggingStudent && draggingStudent.studentId !== student.id) {
+                                    handleSwapStudents(draggingStudent.studentId, student.id);
+                                    setDraggingStudent(null);
+                                  }
+                                }}
                                 style={{
                                   background: isShared ? 'var(--surface)' : 'transparent',
                                   padding: isShared ? '0.35rem 0.45rem' : '0',
@@ -914,8 +1483,10 @@ export default function SeatingChart({
                                   border: isShared ? '1px solid var(--surface-border)' : 'none',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: '0.25rem'
+                                  gap: '0.25rem',
+                                  cursor: 'grab'
                                 }}
+                                title="Kéo bạn này sang máy khác hoặc kéo vào bạn khác để Đổi Chỗ (Swap)"
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
@@ -960,6 +1531,31 @@ export default function SeatingChart({
                                     <span style={{ fontSize: '0.71875rem', fontWeight: 800, color: '#d97706' }}>
                                       {student.stars || 0}⭐
                                     </span>
+
+                                    {/* Nút gỡ nhanh bạn này về danh sách chưa xếp chỗ */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUnassignStudent(student.id);
+                                      }}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#94a3b8',
+                                        cursor: 'pointer',
+                                        padding: '1px',
+                                        borderRadius: 3,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                      }}
+                                      title="Gỡ bạn này về danh sách Chưa Xếp Chỗ"
+                                      onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                                      onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+                                    >
+                                      <X size={13} />
+                                    </button>
                                   </div>
                                 </div>
 
@@ -998,27 +1594,43 @@ export default function SeatingChart({
                             <div 
                               style={{
                                 textAlign: 'center',
-                                padding: '0.2rem',
-                                border: '1px dashed var(--primary)',
+                                padding: '0.25rem',
+                                border: isPlacementTarget ? '1.5px dashed #6366f1' : '1px dashed var(--primary)',
                                 borderRadius: 4,
-                                color: 'var(--primary)',
+                                color: isPlacementTarget ? '#4338ca' : 'var(--primary)',
                                 fontSize: '0.6875rem',
-                                fontWeight: 700,
+                                fontWeight: 800,
                                 cursor: 'pointer',
-                                background: 'rgba(79, 70, 229, 0.04)'
+                                background: isPlacementTarget ? '#e0e7ff' : 'rgba(79, 70, 229, 0.04)'
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setActiveMachineNum(mNum);
+                                if (selectedStudentForPlacement) {
+                                  handleAssignStudentToMachine(selectedStudentForPlacement, mNum);
+                                } else {
+                                  setActiveMachineNum(mNum);
+                                }
                               }}
                             >
-                              + Thêm Bạn Ngồi Ghép (HS 2)
+                              {selectedStudentForPlacement ? '👉 Nhấp để xếp vào ngồi ghép (HS 2)' : '+ Thêm Bạn Ngồi Ghép (HS 2)'}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--text-dim)', fontStyle: 'italic', padding: '0.2rem 0' }}>
-                          {isBroken ? '(Máy hỏng - Không sử dụng)' : '(Nhấp để gán học sinh vào máy)'}
+                        <div 
+                          style={{ 
+                            fontSize: '0.725rem', 
+                            color: selectedStudentForPlacement && !isBroken ? '#4338ca' : 'var(--text-dim)', 
+                            fontStyle: selectedStudentForPlacement && !isBroken ? 'normal' : 'italic',
+                            fontWeight: selectedStudentForPlacement && !isBroken ? 800 : 500,
+                            padding: '0.35rem 0.2rem',
+                            textAlign: 'center',
+                            borderRadius: 4,
+                            background: selectedStudentForPlacement && !isBroken ? '#ede9fe' : 'transparent',
+                            border: selectedStudentForPlacement && !isBroken ? '1.5px dashed #818cf8' : 'none'
+                          }}
+                        >
+                          {isBroken ? '(Máy hỏng - Không sử dụng)' : (selectedStudentForPlacement ? '👉 Nhấp để xếp bạn đang chọn' : '➕ Kéo thả hoặc nhấp để xếp HS')}
                         </div>
                       )}
                     </div>
@@ -1318,30 +1930,62 @@ export default function SeatingChart({
 
                 <select
                   className="input-field"
-                  style={{ marginBottom: '0.75rem' }}
+                  style={{ marginBottom: '0.5rem' }}
                   value={activeMachineStudents[0]?.id || ''}
                   onChange={(e) => handleSetStudentAtSlot(activeMachineNum, e.target.value, 0)}
                 >
                   <option value="">-- Chưa có học sinh 1 (Bấm chọn) --</option>
-                  {students
-                    .filter(s => {
-                      // Không cho phép chọn học sinh đang ngồi ở Slot 2 (HS2) của máy này
-                      if (activeMachineStudents[1]?.id && s.id === activeMachineStudents[1].id) {
-                        return false;
-                      }
-                      // Giữ lại học sinh đang ngồi ở Slot 1 (HS1) của máy này để xem/sửa/giữ nguyên
-                      if (activeMachineStudents[0]?.id && s.id === activeMachineStudents[0].id) {
-                        return true;
-                      }
-                      // Chỉ hiển thị học sinh chưa được xếp vào bất kỳ máy nào trong lớp
-                      return !s.machineNumber || Number(s.machineNumber) < 1 || Number(s.machineNumber) > 31;
-                    })
-                    .map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}{s.machineNumber ? ` [Đang ở Máy ${s.machineNumber}]` : ''}
-                      </option>
-                    ))}
+                  {activeMachineStudents[0] && (
+                    <option value={activeMachineStudents[0].id}>
+                      ⭐ {activeMachineStudents[0].name} (Đang ở vị trí này)
+                    </option>
+                  )}
+                  <optgroup label="📋 Học sinh chưa xếp chỗ">
+                    {unassignedStudents
+                      .filter(s => s.id !== activeMachineStudents[1]?.id)
+                      .map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.gender || 'HS'}) - {s.stars || 0}⭐
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="🖥️ Đang ở máy khác (Chọn để chuyển sang máy này)">
+                    {students
+                      .filter(s => s.machineNumber && s.machineNumber !== activeMachineNum && s.id !== activeMachineStudents[1]?.id)
+                      .map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} [Đang ở Máy {String(s.machineNumber).padStart(2, '0')}]
+                        </option>
+                      ))}
+                  </optgroup>
                 </select>
+
+                {activeMachineStudents[0] && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>⇄ Đổi chỗ với:</span>
+                    <select
+                      className="input-field"
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.4rem', height: 'auto', flex: 1 }}
+                      defaultValue=""
+                      onChange={(e) => {
+                        const targetId = e.target.value;
+                        if (targetId) {
+                          handleSwapStudents(activeMachineStudents[0].id, targetId);
+                        }
+                        e.target.value = '';
+                      }}
+                    >
+                      <option value="">-- Chọn bạn để hoán đổi chỗ ngồi --</option>
+                      {students
+                        .filter(s => s.id !== activeMachineStudents[0]?.id)
+                        .map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.machineNumber ? `Máy ${String(s.machineNumber).padStart(2, '0')}` : 'Chưa xếp chỗ'})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
 
                 {activeMachineStudents[0] && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.5rem' }}>
@@ -1501,30 +2145,62 @@ export default function SeatingChart({
 
                 <select
                   className="input-field"
-                  style={{ marginBottom: '0.75rem' }}
+                  style={{ marginBottom: '0.5rem' }}
                   value={activeMachineStudents[1]?.id || ''}
                   onChange={(e) => handleSetStudentAtSlot(activeMachineNum, e.target.value, 1)}
                 >
                   <option value="">-- Chưa có bạn ngồi ghép (Chọn để thêm HS 2) --</option>
-                  {students
-                    .filter(s => {
-                      // Không cho phép chọn học sinh đang ngồi ở Slot 1 (HS1) của máy này làm HS2
-                      if (activeMachineStudents[0]?.id && s.id === activeMachineStudents[0].id) {
-                        return false;
-                      }
-                      // Giữ lại học sinh đang ngồi ở Slot 2 (HS2) của máy này để xem/sửa/giữ nguyên
-                      if (activeMachineStudents[1]?.id && s.id === activeMachineStudents[1].id) {
-                        return true;
-                      }
-                      // Chỉ hiển thị học sinh chưa được xếp vào bất kỳ máy nào trong lớp
-                      return !s.machineNumber || Number(s.machineNumber) < 1 || Number(s.machineNumber) > 31;
-                    })
-                    .map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}{s.machineNumber ? ` [Đang ở Máy ${s.machineNumber}]` : ''}
-                      </option>
-                    ))}
+                  {activeMachineStudents[1] && (
+                    <option value={activeMachineStudents[1].id}>
+                      ⭐ {activeMachineStudents[1].name} (Đang ở vị trí này)
+                    </option>
+                  )}
+                  <optgroup label="📋 Học sinh chưa xếp chỗ">
+                    {unassignedStudents
+                      .filter(s => s.id !== activeMachineStudents[0]?.id)
+                      .map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.gender || 'HS'}) - {s.stars || 0}⭐
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="🖥️ Đang ở máy khác (Chọn để chuyển sang máy này)">
+                    {students
+                      .filter(s => s.machineNumber && s.machineNumber !== activeMachineNum && s.id !== activeMachineStudents[0]?.id)
+                      .map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} [Đang ở Máy {String(s.machineNumber).padStart(2, '0')}]
+                        </option>
+                      ))}
+                  </optgroup>
                 </select>
+
+                {activeMachineStudents[1] && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>⇄ Đổi chỗ với:</span>
+                    <select
+                      className="input-field"
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.4rem', height: 'auto', flex: 1 }}
+                      defaultValue=""
+                      onChange={(e) => {
+                        const targetId = e.target.value;
+                        if (targetId) {
+                          handleSwapStudents(activeMachineStudents[1].id, targetId);
+                        }
+                        e.target.value = '';
+                      }}
+                    >
+                      <option value="">-- Chọn bạn để hoán đổi chỗ ngồi --</option>
+                      {students
+                        .filter(s => s.id !== activeMachineStudents[1]?.id)
+                        .map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.machineNumber ? `Máy ${String(s.machineNumber).padStart(2, '0')}` : 'Chưa xếp chỗ'})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
 
                 {activeMachineStudents[1] && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.5rem' }}>

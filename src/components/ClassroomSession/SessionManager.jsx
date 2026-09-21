@@ -27,39 +27,81 @@ export default function SessionManager({
   const [currentView, setCurrentView] = useState('list'); // 'list' | 'dashboard'
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createModalTargetClassId, setCreateModalTargetClassId] = useState(null);
+  const [createModalTargetSlot, setCreateModalTargetSlot] = useState(null);
   const [viewSummarySession, setViewSummarySession] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Tự động mở Modal tạo tiết học khi được kích hoạt từ Thời khóa biểu
   useEffect(() => {
     if (autoOpenClassId) {
+      // Nếu đang có tiết học chưa hoàn thành, ưu tiên tiếp tục tiết học đang diễn ra
+      if (activeSession && activeSession.status !== 'COMPLETED') {
+        const currentActiveCId = activeSession.class_id || activeSession.classId;
+        if (currentActiveCId === autoOpenClassId) {
+          setCurrentView('dashboard');
+          onClearAutoOpen?.();
+          return;
+        } else {
+          const keepOngoing = window.confirm(
+            `Đang có tiết học "${activeSession.lesson_title || 'Tin học'}" chưa kết thúc!\n\nThầy/Cô có muốn tiếp tục tiết học đang diễn ra không?\n(Bấm OK để tiếp tục tiết học này, bấm Cancel nếu muốn tạo tiết học mới)`
+          );
+          if (keepOngoing) {
+            setCurrentView('dashboard');
+            onClearAutoOpen?.();
+            return;
+          }
+        }
+      }
+
       setCreateModalTargetClassId(autoOpenClassId);
       setShowCreateModal(true);
-      setCurrentView('list');
       onClearAutoOpen?.();
     }
-  }, [autoOpenClassId]);
+  }, [autoOpenClassId, activeSession]);
 
-  // Nạp danh sách sessions khi component khởi tạo hoặc đổi lớp
+  // Nạp danh sách sessions khi component khởi tạo và tự động khôi phục tiết học chưa kết thúc
   useEffect(() => {
     async function loadSessions() {
       setLoading(true);
       const data = await fetchSessionsFromApi();
       setSessions(data || []);
 
-      // Kiểm tra nếu có session đang chạy trong cache để tiếp tục ngay (F5 resilience)
+      // 1. Kiểm tra session có id trong stored active session
       const storedActiveId = getStoredActiveSessionId();
+      let restoredSession = null;
+
       if (storedActiveId) {
         const activeDetail = await fetchSessionDetailFromApi(storedActiveId);
-        if (activeDetail && (activeDetail.status === 'RUNNING' || activeDetail.status === 'PAUSED')) {
-          setActiveSession(activeDetail);
-          setCurrentView('dashboard');
+        if (activeDetail && activeDetail.status !== 'COMPLETED') {
+          restoredSession = activeDetail;
+        }
+      }
+
+      // 2. Nếu chưa có, tự động quét tìm phiên chưa hoàn thành gần nhất (RUNNING, PAUSED, READY)
+      if (!restoredSession && data && data.length > 0) {
+        const ongoing = data.find(s => s.status === 'RUNNING' || s.status === 'PAUSED' || s.status === 'READY');
+        if (ongoing) {
+          const detail = await fetchSessionDetailFromApi(ongoing.id);
+          if (detail && detail.status !== 'COMPLETED') {
+            restoredSession = detail;
+          }
+        }
+      }
+
+      // 3. Tự động đưa giáo viên vào lại tiết học chưa kết thúc
+      if (restoredSession) {
+        setActiveSession(restoredSession);
+        setCurrentView('dashboard');
+        setStoredActiveSessionId(restoredSession.id);
+        const targetCId = restoredSession.class_id || restoredSession.classId;
+        if (targetCId && onSelectClass) {
+          onSelectClass(targetCId);
         }
       }
       setLoading(false);
     }
     loadSessions();
-  }, []);
+  }, [onSelectClass]);
 
   // Tạo Session mới
   const handleCreateSession = async (sessionData, shouldStartImmediately) => {
@@ -71,6 +113,10 @@ export default function SessionManager({
         setActiveSession(detail || created);
         setCurrentView('dashboard');
         setStoredActiveSessionId(created.id);
+        const targetCId = detail?.class_id || detail?.classId || created?.class_id || created?.classId;
+        if (targetCId && onSelectClass) {
+          onSelectClass(targetCId);
+        }
       }
     }
   };
@@ -84,6 +130,10 @@ export default function SessionManager({
       setCurrentView('dashboard');
       if (detail.status === 'RUNNING' || detail.status === 'PAUSED') {
         setStoredActiveSessionId(detail.id);
+      }
+      const targetCId = detail.class_id || detail.classId;
+      if (targetCId && onSelectClass) {
+        onSelectClass(targetCId);
       }
     }
     setLoading(false);
@@ -132,12 +182,13 @@ export default function SessionManager({
             sessions={sessions}
             classes={classes}
             currentClass={currentClass}
-            onOpenCreateModal={(targetClassId = null) => {
+            onOpenCreateModal={(targetClassId = null, targetSlot = null) => {
               const cId = targetClassId || currentClass?.id;
               if (cId && onSelectClass) {
                 onSelectClass(cId);
               }
               setCreateModalTargetClassId(cId);
+              setCreateModalTargetSlot(targetSlot);
               setShowCreateModal(true);
             }}
             onEnterSession={handleEnterSession}
@@ -152,8 +203,12 @@ export default function SessionManager({
           key={activeSession.id}
           initialSession={activeSession}
           currentClass={sessionClass}
-          onUpdateStudents={onUpdateStudents}
-          onUpdateGoodScores={onUpdateGoodScores}
+          onUpdateStudents={(updatedStudents, classId = sessionClass?.id) => {
+            onUpdateStudents?.(updatedStudents, classId || sessionClass?.id);
+          }}
+          onUpdateGoodScores={(updatedGoodScores, classId = sessionClass?.id) => {
+            onUpdateGoodScores?.(updatedGoodScores, classId || sessionClass?.id);
+          }}
           onBackToList={handleBackToList}
           soundEnabled={soundEnabled}
         />
@@ -165,10 +220,12 @@ export default function SessionManager({
         onClose={() => {
           setShowCreateModal(false);
           setCreateModalTargetClassId(null);
+          setCreateModalTargetSlot(null);
         }}
         classes={classes}
         currentClass={classes.find(c => c.id === createModalTargetClassId) || currentClass}
         initialClassId={createModalTargetClassId}
+        initialSlot={createModalTargetSlot}
         onCreateSession={handleCreateSession}
       />
 

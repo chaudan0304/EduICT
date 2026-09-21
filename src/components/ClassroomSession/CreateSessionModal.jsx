@@ -12,7 +12,12 @@ import {
 } from 'lucide-react';
 import { LESSON_FLOW_PRESETS } from './sessionStorage';
 import { fetchLessonsApi, sortLessonsList } from '../LessonPresentation/lessonStorage';
-import { getCurrentPeriodStatus, formatTimeCountdown } from '../../utils/timetable';
+import { 
+  getCurrentPeriodStatus, 
+  formatTimeCountdown,
+  getAllTeachingSlots,
+  getSlotById
+} from '../../utils/timetable';
 import TimetableModal from './TimetableModal';
 
 export default function CreateSessionModal({
@@ -21,6 +26,7 @@ export default function CreateSessionModal({
   classes = [],
   currentClass,
   initialClassId = null,
+  initialSlot = null,
   onCreateSession // (sessionData, shouldStartImmediately) => void
 }) {
   const [selectedClassId, setSelectedClassId] = useState(() => initialClassId || currentClass?.id || classes[0]?.id || '');
@@ -33,6 +39,15 @@ export default function CreateSessionModal({
   const [selectedLessonId, setSelectedLessonId] = useState('');
   const [libraryLessons, setLibraryLessons] = useState([]);
   const [periodStatus, setPeriodStatus] = useState(() => getCurrentPeriodStatus());
+  const [selectedSlotId, setSelectedSlotId] = useState(() => {
+    if (initialSlot) return initialSlot.id;
+    const st = getCurrentPeriodStatus();
+    if (st.slot && st.slot.period !== null && !st.slot.isRecess && !st.slot.isLunch) {
+      return st.slot.id;
+    }
+    return '';
+  });
+  const [syncWithTimetable, setSyncWithTimetable] = useState(true);
   const [showTimetableModal, setShowTimetableModal] = useState(false);
 
   // Tự động đồng bộ lớp được chọn khi mở modal hoặc khi click từ Thời khóa biểu
@@ -42,8 +57,12 @@ export default function CreateSessionModal({
       if (targetId) {
         setSelectedClassId(targetId);
       }
+      if (initialSlot) {
+        setSelectedSlotId(initialSlot.id);
+        setSyncWithTimetable(true);
+      }
     }
-  }, [isOpen, initialClassId, currentClass?.id]);
+  }, [isOpen, initialClassId, currentClass?.id, initialSlot]);
 
   // Cập nhật trạng thái tiết học theo thời gian thực mỗi 1 giây
   useEffect(() => {
@@ -58,7 +77,7 @@ export default function CreateSessionModal({
   const grade = chosenClass?.grade || 3;
 
   // Tự động áp dụng lớp & số phút theo tiết học thực tế từ Thời khóa biểu
-  const handleSelectClassFromTimetable = (targetClassName, targetGrade) => {
+  const handleSelectClassFromTimetable = (targetClassName, targetGrade, targetSlot = null) => {
     if (!targetClassName) return;
     const clean = targetClassName.trim().toLowerCase();
     const matched = classes.find(c => {
@@ -67,6 +86,13 @@ export default function CreateSessionModal({
     });
     if (matched) {
       setSelectedClassId(matched.id);
+    }
+    if (targetSlot) {
+      setSelectedSlotId(targetSlot.id);
+      setSyncWithTimetable(true);
+    } else if (periodStatus.slot && periodStatus.slot.period !== null && !periodStatus.slot.isRecess && !periodStatus.slot.isLunch) {
+      setSelectedSlotId(periodStatus.slot.id);
+      setSyncWithTimetable(true);
     }
     if (periodStatus.isTeachingNow && periodStatus.remainingMin > 0) {
       setDurationMinutes(periodStatus.remainingMin);
@@ -145,6 +171,10 @@ export default function CreateSessionModal({
       }
     }
 
+    const targetSlot = syncWithTimetable 
+      ? (getSlotById(selectedSlotId) || (periodStatus.slot && !periodStatus.slot.isRecess && !periodStatus.slot.isLunch ? periodStatus.slot : null))
+      : null;
+
     const newSessionData = {
       id: `sess_${Date.now()}`,
       class_id: selectedClassId,
@@ -156,6 +186,10 @@ export default function CreateSessionModal({
       teacher_notes: teacherNotes.trim(),
       status: startImmediately ? 'RUNNING' : 'READY',
       started_at: startImmediately ? new Date().toISOString() : null,
+      sync_timetable_period: syncWithTimetable && !!targetSlot,
+      period_slot_id: targetSlot ? targetSlot.id : null,
+      period_label: targetSlot ? targetSlot.label : null,
+      period_end_time: targetSlot ? targetSlot.endTime : null,
       activities: preset.activities.map((act, idx) => ({
         id: `act_${Date.now()}_${idx}`,
         order_index: idx,
@@ -277,7 +311,7 @@ export default function CreateSessionModal({
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                onClick={() => handleSelectClassFromTimetable(periodStatus.className, periodStatus.grade)}
+                onClick={() => handleSelectClassFromTimetable(periodStatus.className, periodStatus.grade, periodStatus.slot)}
                 style={{
                   fontSize: '0.75rem',
                   fontWeight: 800,
@@ -497,6 +531,76 @@ export default function CreateSessionModal({
             </div>
           </div>
 
+          {/* Tùy chọn Đồng bộ Thời gian theo Thời Khóa Biểu (Chuông trường & Hết tiết) */}
+          <div style={{
+            background: syncWithTimetable 
+              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(2, 132, 199, 0.04) 100%)'
+              : 'var(--surface-secondary)',
+            border: syncWithTimetable ? '1.5px solid #10b981' : '1px solid var(--surface-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '0.85rem 1rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.55rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.85rem', fontWeight: 800, color: syncWithTimetable ? '#059669' : 'var(--text-main)' }}>
+                <Clock size={16} />
+                <span>CHẾ ĐỘ TÍNH GIỜ TIẾT HỌC (THEO THỜI KHÓA BIỂU):</span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 700, color: syncWithTimetable ? '#059669' : 'var(--text-muted)' }}>
+                <input
+                  type="checkbox"
+                  checked={syncWithTimetable}
+                  onChange={(e) => setSyncWithTimetable(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#10b981', cursor: 'pointer' }}
+                />
+                <span>Đồng bộ theo giờ hết tiết thực tế</span>
+              </label>
+            </div>
+
+            {syncWithTimetable ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem', alignItems: 'center' }}>
+                <div>
+                  <select
+                    className="input-field"
+                    value={selectedSlotId}
+                    onChange={(e) => {
+                      setSelectedSlotId(e.target.value);
+                      const s = getSlotById(e.target.value);
+                      if (s) setDurationMinutes(s.durationMin || 40);
+                    }}
+                    style={{ fontSize: '0.8125rem', fontWeight: 700 }}
+                  >
+                    <option value="">-- Tự động khớp tiết đang học --</option>
+                    {getAllTeachingSlots().map(slot => (
+                      <option key={slot.id} value={slot.id}>
+                        {slot.label}: {slot.startTime} - {slot.endTime} ({slot.durationMin}p)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  fontSize: '0.75rem',
+                  color: '#059669',
+                  lineHeight: 1.4
+                }}>
+                  🔔 <strong>Đúng chuẩn nhà trường:</strong> Đến đúng giờ hết tiết, hệ thống tự reo chuông trường & thông báo kết thúc (không đếm ngược 35/40 phút cố định).
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                ⏱️ Đang ở chế độ đếm ngược cố định {durationMinutes} phút kể từ lúc bấm Bắt đầu (thích hợp dạy bồi dưỡng ngoài giờ hoặc thử nghiệm).
+              </div>
+            )}
+          </div>
+
           {/* Gợi ý bài học nhanh theo Khối */}
           {suggestions && suggestions.length > 0 && (
             <div>
@@ -646,8 +750,8 @@ export default function CreateSessionModal({
       <TimetableModal
         isOpen={showTimetableModal}
         onClose={() => setShowTimetableModal(false)}
-        onSelectClassForSession={(className, classGrade) => {
-          handleSelectClassFromTimetable(className, classGrade);
+        onSelectClassForSession={(className, classGrade, slot) => {
+          handleSelectClassFromTimetable(className, classGrade, slot);
           setShowTimetableModal(false);
         }}
       />

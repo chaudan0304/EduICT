@@ -262,5 +262,42 @@ export const soundEffects = {
     } catch (e) {
       console.warn('Audio play failed', e);
     }
+  },
+
+  // Tiếng chuông báo hết tiết học trường học (School Bell Chime: Bính - Boong - Bính - Boong ngân vang)
+  playSchoolBell: () => {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      // Giai điệu chuông trường học quen thuộc (E4 - C4 - D4 - G3 / hoặc G4 - E4 - F4 - D4)
+      const chimeNotes = [
+        { freq: 659.25, time: 0.0, dur: 0.9 },   // E5
+        { freq: 523.25, time: 0.7, dur: 0.9 },   // C5
+        { freq: 587.33, time: 1.4, dur: 0.9 },   // D5
+        { freq: 392.00, time: 2.1, dur: 1.8 }    // G4 (ngân dài)
+      ];
+
+      chimeNotes.forEach(({ freq, time, dur }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + time);
+
+        // Chuông ngân vang tự nhiên
+        gain.gain.setValueAtTime(0.35, now + time);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + time + dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + time);
+        osc.stop(now + time + dur);
+      });
+    } catch (e) {
+      console.warn('School bell audio failed', e);
+    }
   }
 };

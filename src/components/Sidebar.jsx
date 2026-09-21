@@ -22,13 +22,23 @@ export default function Sidebar({
   onSelectTab,
   isCollapsed,
   onToggleCollapse,
-  currentClass
+  currentClass,
+  hasOngoingSession = false
 }) {
   const currentGradeNum = currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
 
   const navTabs = [
     { id: 'home', label: 'Trang Chủ', icon: <Home size={19} />, emoji: '🏠' },
-    { id: 'sessions', label: 'Tiết Học (Session)', icon: <Target size={19} />, emoji: '🎯', badge: 'CHÍNH', highlight: true },
+    { 
+      id: 'sessions', 
+      label: 'Tiết Học (Session)', 
+      icon: <Target size={19} />, 
+      emoji: '🎯', 
+      badge: hasOngoingSession ? 'ĐANG DẠY' : 'CHÍNH', 
+      badgeColor: hasOngoingSession ? '#10b981' : null,
+      pulse: hasOngoingSession,
+      highlight: true 
+    },
     { id: 'lessons', label: 'Bài Học & Slide', icon: <BookOpen size={19} />, emoji: '📚' },
     { id: 'quiz', label: 'Quick Quiz (Đố Vui)', icon: <Zap size={19} />, emoji: '⚡' },
     { id: 'seating', label: 'Phòng Máy (31 Máy)', icon: <Monitor size={19} />, emoji: '🖥️' },
@@ -211,12 +221,14 @@ export default function Sidebar({
                     <span style={{
                       fontSize: '0.625rem',
                       fontWeight: 800,
-                      background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                      background: tab.badgeColor || 'linear-gradient(135deg, #0284c7, #2563eb)',
                       color: '#fff',
                       padding: '0.1rem 0.4rem',
                       borderRadius: 'var(--radius-full)',
                       letterSpacing: '0.02em',
-                      marginLeft: '0.4rem'
+                      marginLeft: '0.4rem',
+                      boxShadow: tab.pulse ? '0 0 10px rgba(16, 185, 129, 0.6)' : 'none',
+                      animation: tab.pulse ? 'pulseGlow 1.8s infinite' : 'none'
                     }}>
                       {tab.badge}
                     </span>

@@ -9,12 +9,12 @@ import RewardShop from './components/RewardShop';
 import ClassroomTimer from './components/ClassroomTimer';
 import GoodScoresBoard from './components/GoodScoresBoard';
 import HomeDashboard from './components/HomeDashboard';
-import StarExchangeModal from './components/StarExchangeModal';
 import NewSchoolYearDetectedModal from './components/NewSchoolYearDetectedModal';
 import SessionManager from './components/ClassroomSession/SessionManager';
 import LessonManager from './components/LessonPresentation/LessonManager';
 import QuickQuizManager from './components/QuickQuiz/QuickQuizManager';
 import ErrorBoundary from './components/ErrorBoundary';
+import { getActiveOngoingSession } from './components/ClassroomSession/sessionStorage';
 import { 
   getStoredClasses, 
   saveClasses, 
@@ -36,11 +36,18 @@ import {
 export default function App() {
   const [classes, setClasses] = useState(() => getStoredClasses());
   const [currentClassId, setClassId] = useState(() => getCurrentClassId());
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const ongoing = getActiveOngoingSession();
+      if (ongoing && (ongoing.status === 'RUNNING' || ongoing.status === 'PAUSED')) {
+        return 'sessions';
+      }
+    } catch {}
+    return 'home';
+  });
+  const [ongoingSession, setOngoingSession] = useState(() => getActiveOngoingSession());
   const [isProjector, setIsProjector] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
-  const [exchangeStudentId, setExchangeStudentId] = useState(null);
   const [dbStatus, setDbStatus] = useState({ connected: false, dbFile: 'edumaster.sqlite' });
   const [currentSchoolYear, setCurrentSchoolYear] = useState('2026 - 2027');
   const [availableSchoolYears, setAvailableSchoolYears] = useState(['2025 - 2026', '2026 - 2027']);
@@ -64,6 +71,17 @@ export default function App() {
       localStorage.setItem('eduict_sidebar_collapsed', sidebarCollapsed);
     } catch {}
   }, [sidebarCollapsed]);
+
+  // Kiểm tra định kỳ xem có tiết học nào đang diễn ra không (để hiển thị Banner và cập nhật icon)
+  useEffect(() => {
+    const checkOngoing = () => {
+      const active = getActiveOngoingSession();
+      setOngoingSession(active || null);
+    };
+    checkOngoing();
+    const interval = setInterval(checkOngoing, 2500);
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   // Xử lý khi nhấp vào lớp trong Thời khóa biểu: tự động chọn lớp & mở chuẩn bị tiết học
   const handleSelectClassFromTimetable = (targetClassName, targetGrade) => {
@@ -158,11 +176,6 @@ export default function App() {
     }
   };
 
-  const handleOpenExchangeModal = (studentId = null) => {
-    setExchangeStudentId(studentId);
-    setIsExchangeModalOpen(true);
-  };
-
   // Lưu lớp học khi state thay đổi vào localStorage
   useEffect(() => {
     saveClasses(classes);
@@ -189,33 +202,40 @@ export default function App() {
 
   const currentClass = classes.find(c => c.id === currentClassId) || classes[0];
 
-  // Cập nhật danh sách học sinh của lớp hiện tại (đồng bộ cả LocalStorage và SQLite)
-  const handleUpdateStudents = async (updatedStudents) => {
-    if (!currentClass) return;
+  // Cập nhật danh sách học sinh của lớp (đồng bộ cả LocalStorage và SQLite, hỗ trợ targetClassId cho Tiết dạy)
+  const handleUpdateStudents = async (updatedStudents, targetClassId = null) => {
+    const classIdToUpdate = targetClassId || currentClass?.id;
+    if (!classIdToUpdate) return;
     setClasses(prevClasses => {
       return prevClasses.map(c => {
-        if (c.id === currentClass.id) {
+        if (c.id === classIdToUpdate) {
           return { ...c, students: updatedStudents };
         }
         return c;
       });
     });
-    await syncStudentsToSqlite(currentClass.id, updatedStudents);
+    await syncStudentsToSqlite(classIdToUpdate, updatedStudents);
     refreshStudentStats();
   };
 
-  // Cập nhật sổ điểm tốt của lớp hiện tại (đồng bộ cả LocalStorage và SQLite)
-  const handleUpdateGoodScores = (updatedGoodScores) => {
-    if (!currentClass) return;
+  // Cập nhật sổ điểm tốt của lớp (đồng bộ cả LocalStorage và SQLite, hỗ trợ targetClassId cho Tiết dạy)
+  const handleUpdateGoodScores = (updatedGoodScores, targetClassId = null) => {
+    const classIdToUpdate = targetClassId || currentClass?.id;
+    if (!classIdToUpdate) return;
     setClasses(prevClasses => {
-      return prevClasses.map(c => {
-        if (c.id === currentClass.id) {
+      const nextClasses = prevClasses.map(c => {
+        if (c.id === classIdToUpdate) {
           return { ...c, goodScores: updatedGoodScores };
         }
         return c;
       });
+      saveClasses(nextClasses);
+      return nextClasses;
     });
-    syncClassToSqlite({ ...currentClass, goodScores: updatedGoodScores });
+    const targetClass = classes.find(c => c.id === classIdToUpdate) || currentClass;
+    if (targetClass) {
+      syncClassToSqlite({ ...targetClass, goodScores: updatedGoodScores });
+    }
   };
 
   // Thêm lớp mới (lưu vào state và ghi vào file SQLite)
@@ -343,6 +363,7 @@ export default function App() {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         currentClass={currentClass}
+        hasOngoingSession={Boolean(ongoingSession)}
       />
 
       {/* Main Right Column */}
@@ -381,6 +402,85 @@ export default function App() {
         {/* Main Content Area */}
         <ErrorBoundary title="Đã xảy ra sự cố khi tải nội dung chức năng">
           <main className="app-container" style={{ flex: 1, paddingTop: '1.25rem', width: '100%' }}>
+          {/* Thanh thông báo nổi bật khi đang có tiết học chưa kết thúc (hiển thị ở mọi tab ngoài tab sessions) */}
+          {activeTab !== 'sessions' && ongoingSession && ongoingSession.status !== 'COMPLETED' && (
+            <div style={{
+              background: 'linear-gradient(90deg, #059669 0%, #0284c7 100%)',
+              color: '#fff',
+              padding: '0.85rem 1.35rem',
+              borderRadius: 'var(--radius-lg, 12px)',
+              marginBottom: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              boxShadow: '0 6px 20px rgba(5, 150, 105, 0.35)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.2rem',
+                  flexShrink: 0
+                }}>
+                  ⚡
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>TIẾT HỌC ĐANG DIỄN RA: <strong>{ongoingSession.lesson_title || 'Tin học'}</strong></span>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      background: 'rgba(255, 255, 255, 0.25)',
+                      padding: '0.1rem 0.5rem',
+                      borderRadius: '999px',
+                      fontWeight: 700
+                    }}>
+                      Lớp {classes.find(c => c.id === (ongoingSession.class_id || ongoingSession.classId))?.name || 'Học sinh'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', opacity: 0.92, marginTop: '0.15rem' }}>
+                    Tiết học chưa kết thúc và vẫn đang được lưu an toàn. Bấm để quay lại điều khiển ngay.
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const sClassId = ongoingSession.class_id || ongoingSession.classId;
+                  if (sClassId) {
+                    setClassId(sClassId);
+                    setCurrentClassId(sClassId);
+                  }
+                  setActiveTab('sessions');
+                }}
+                className="btn"
+                style={{
+                  background: '#fff',
+                  color: '#059669',
+                  fontWeight: 900,
+                  padding: '0.5rem 1.15rem',
+                  fontSize: '0.875rem',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <span>▶ Tiếp Tục Tiết Học Ngay</span>
+              </button>
+            </div>
+          )}
+
           {/* Section 13: Thanh thông tin & chuyển lớp khi ở các màn hình chức năng (không để trên Header) */}
           {activeTab !== 'home' && currentClass && (
             <div style={{
@@ -513,7 +613,7 @@ export default function App() {
               isLoadingStats={isLoadingStats}
               currentSchoolYear={currentSchoolYear}
               onSelectTab={setActiveTab}
-              onOpenExchangeModal={handleOpenExchangeModal}
+              ongoingSession={ongoingSession}
             />
           )}
 
@@ -553,7 +653,6 @@ export default function App() {
             <Gradebook
               currentClass={currentClass}
               onUpdateStudents={handleUpdateStudents}
-              onOpenExchangeModal={handleOpenExchangeModal}
               soundEnabled={soundEnabled}
             />
           )}
@@ -563,7 +662,6 @@ export default function App() {
               currentClass={currentClass}
               onUpdateStudents={handleUpdateStudents}
               onUpdateGoodScores={handleUpdateGoodScores}
-              onOpenExchangeModal={handleOpenExchangeModal}
               soundEnabled={soundEnabled}
             />
           )}
@@ -597,7 +695,6 @@ export default function App() {
             <RewardShop
               currentClass={currentClass}
               onUpdateStudents={handleUpdateStudents}
-              onOpenExchangeModal={handleOpenExchangeModal}
               soundEnabled={soundEnabled}
             />
           )}
@@ -609,19 +706,6 @@ export default function App() {
           )}
         </main>
       </ErrorBoundary>
-
-      {/* Modal Quy Đổi Sao Sang Điểm (10⭐ = +1.0 Điểm) */}
-      <StarExchangeModal
-        isOpen={isExchangeModalOpen}
-        onClose={() => {
-          setIsExchangeModalOpen(false);
-          setExchangeStudentId(null);
-        }}
-        students={currentClass?.students || []}
-        initialStudentId={exchangeStudentId}
-        onUpdateStudents={handleUpdateStudents}
-        soundEnabled={soundEnabled}
-      />
 
       {/* Modal Thông Báo Khi Phát Hiện Năm Học Mới (Section IX) */}
       <NewSchoolYearDetectedModal

@@ -184,7 +184,7 @@ export const PARTICIPATION_BADGES = {
 const LOCAL_SESSIONS_KEY = 'edumaster_classroom_sessions_cache';
 const ACTIVE_SESSION_ID_KEY = 'edumaster_active_session_id';
 
-// Quản lý Active Session ID (để F5 không bị mất phiên đang chạy)
+// Quản lý Active Session ID (để F5, tắt trình duyệt không bị mất phiên đang chạy)
 export function getStoredActiveSessionId() {
   return localStorage.getItem(ACTIVE_SESSION_ID_KEY) || null;
 }
@@ -195,6 +195,29 @@ export function setStoredActiveSessionId(sessionId) {
   } else {
     localStorage.removeItem(ACTIVE_SESSION_ID_KEY);
   }
+}
+
+// Tìm phiên học đang diễn ra chưa kết thúc (RUNNING, PAUSED hoặc READY)
+export function getActiveOngoingSession() {
+  try {
+    const cached = getCachedSessions();
+    const storedId = getStoredActiveSessionId();
+    if (storedId) {
+      const found = cached.find(s => s.id === storedId);
+      if (found && found.status !== 'COMPLETED') {
+        return found;
+      }
+    }
+    // Quét tìm session gần nhất chưa hoàn thành
+    const ongoing = cached.find(s => s.status === 'RUNNING' || s.status === 'PAUSED' || s.status === 'READY');
+    if (ongoing) {
+      setStoredActiveSessionId(ongoing.id);
+      return ongoing;
+    }
+  } catch (err) {
+    console.warn('Error reading active ongoing session:', err);
+  }
+  return null;
 }
 
 // Lưu cache sessions cục bộ
@@ -221,8 +244,21 @@ export async function fetchSessionsFromApi(classId = null) {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
-        setCachedSessions(data);
-        return data;
+        // Hợp nhất dữ liệu để giữ lại activities, events, participation đã có trong cache
+        const prevCached = getCachedSessions();
+        const prevMap = new Map(prevCached.map(s => [s.id, s]));
+        const merged = data.map(item => {
+          const prev = prevMap.get(item.id);
+          return {
+            ...prev,
+            ...item,
+            activities: prev?.activities || item.activities || [],
+            events: prev?.events || item.events || [],
+            participation: prev?.participation || item.participation || []
+          };
+        });
+        setCachedSessions(merged);
+        return merged;
       }
     }
   } catch (e) {
@@ -241,6 +277,11 @@ export async function fetchSessionDetailFromApi(sessionId) {
     const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
     if (res.ok) {
       const data = await res.json();
+      if (data && data.id) {
+        const cached = getCachedSessions();
+        const updated = [data, ...cached.filter(s => s.id !== data.id)];
+        setCachedSessions(updated);
+      }
       return data;
     }
   } catch (e) {
@@ -376,6 +417,22 @@ export async function addSessionEventApi(sessionId, eventData) {
 }
 
 export async function addStudentParticipationApi(sessionId, participationData) {
+  // Cập nhật ngay vào cache local để F5 / offline không bao giờ bị mất
+  try {
+    const cached = getCachedSessions();
+    const targetSession = cached.find(s => s.id === sessionId);
+    if (targetSession) {
+      const prevParts = targetSession.participation || [];
+      const updatedSession = {
+        ...targetSession,
+        participation: [participationData, ...prevParts]
+      };
+      setCachedSessions([updatedSession, ...cached.filter(s => s.id !== sessionId)]);
+    }
+  } catch (err) {
+    console.warn('Error updating local cache for participation:', err);
+  }
+
   try {
     const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/participation`, {
       method: 'POST',

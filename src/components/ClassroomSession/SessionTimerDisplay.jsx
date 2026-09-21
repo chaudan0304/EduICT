@@ -3,7 +3,9 @@ import confetti from 'canvas-confetti';
 import { 
   RotateCcw, 
   Plus, 
-  Clock 
+  Clock,
+  Bell,
+  Calendar
 } from 'lucide-react';
 import { soundEffects } from '../../utils/audio';
 
@@ -17,7 +19,13 @@ export default function SessionTimerDisplay({
   soundEnabled,
   onAdjustTime, // (sec) => void
   onResetActivityTimer,
-  _onTogglePlayPause
+  _onTogglePlayPause,
+  isTimetableSynced = false,
+  activeSlot = null,
+  extraMinutes = 0,
+  onToggleTimetableSync = null,
+  onExtendSessionTime = null,
+  onTestTimeUpAlert = null
 }) {
   // Master Session Time formatted
   const formatTime = (totalSec) => {
@@ -79,7 +87,7 @@ export default function SessionTimerDisplay({
     }}>
       {/* Cột 1: Đồng hồ đếm ngược Tiết học Tổng (Master Timer) */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div style={{
             fontSize: '0.8125rem',
             fontWeight: 800,
@@ -110,6 +118,32 @@ export default function SessionTimerDisplay({
           </div>
         </div>
 
+        {/* Badge thông tin Tiết học theo Thời Khóa Biểu */}
+        {isTimetableSynced && activeSlot && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            padding: '0.2rem 0.65rem',
+            borderRadius: 'var(--radius-full)',
+            marginBottom: '0.45rem',
+            fontSize: '0.75rem',
+            fontWeight: 800,
+            color: '#059669'
+          }}>
+            <Calendar size={13} />
+            <span>Đồng bộ TKB: {activeSlot.label} ({activeSlot.startTime} - {activeSlot.endTime})</span>
+            {extraMinutes > 0 && (
+              <span style={{ color: '#d97706', background: 'rgba(245, 158, 11, 0.15)', padding: '0.05rem 0.4rem', borderRadius: 4 }}>
+                +{extraMinutes}p dạy thêm
+              </span>
+            )}
+            <span style={{ opacity: 0.85 }}>• Hết tiết: <strong>{activeSlot.endTime}</strong></span>
+          </div>
+        )}
+
         {/* Số đếm ngược khổng lồ */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
           <div style={{
@@ -123,8 +157,10 @@ export default function SessionTimerDisplay({
             {formatTime(sessionRemainingSec)}
           </div>
 
-          <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-            còn lại
+          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+            {isTimetableSynced && activeSlot 
+              ? `còn lại đến giờ hết tiết (${activeSlot.endTime})`
+              : 'còn lại'}
           </span>
 
           {isPaused && (
@@ -160,6 +196,67 @@ export default function SessionTimerDisplay({
             borderRadius: 999,
             transition: 'width 0.4s ease'
           }} />
+        </div>
+
+        {/* Thanh tiện ích điều khiển đồng hồ và thử chuông */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {onToggleTimetableSync && activeSlot && (
+              <button
+                type="button"
+                onClick={onToggleTimetableSync}
+                className="btn btn-outline btn-sm"
+                style={{
+                  padding: '0.2rem 0.55rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  borderColor: isTimetableSynced ? '#10b981' : 'var(--surface-border)',
+                  color: isTimetableSynced ? '#059669' : 'var(--text-muted)',
+                  background: isTimetableSynced ? 'rgba(16, 185, 129, 0.08)' : 'transparent'
+                }}
+                title={isTimetableSynced ? 'Đang đếm theo giờ kết thúc của tiết trên TKB' : 'Bật đếm theo giờ hết tiết của TKB'}
+              >
+                {isTimetableSynced ? '🟢 Chuông TKB: BẬT' : '⏱️ Chuông TKB: TẮT'}
+              </button>
+            )}
+
+            {onTestTimeUpAlert && (
+              <button
+                type="button"
+                onClick={onTestTimeUpAlert}
+                className="btn btn-outline btn-sm"
+                style={{ padding: '0.2rem 0.55rem', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                title="Thử nghiệm âm thanh chuông trường học & thông báo hết tiết ngay"
+              >
+                <Bell size={12} color="var(--primary)" />
+                <span>Thử chuông hết tiết</span>
+              </button>
+            )}
+          </div>
+
+          {onExtendSessionTime && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Dạy thêm:</span>
+              <button
+                type="button"
+                onClick={() => onExtendSessionTime(5)}
+                className="btn btn-outline btn-sm"
+                style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 700 }}
+                title="Gia hạn thêm 5 phút dạy"
+              >
+                +5p
+              </button>
+              <button
+                type="button"
+                onClick={() => onExtendSessionTime(10)}
+                className="btn btn-outline btn-sm"
+                style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 700 }}
+                title="Gia hạn thêm 10 phút dạy"
+              >
+                +10p
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

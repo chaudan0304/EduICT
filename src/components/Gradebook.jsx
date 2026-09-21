@@ -28,7 +28,6 @@ import AiClassAnalysisModal from './AI/AiClassAnalysisModal';
 export default function Gradebook({ 
   currentClass, 
   onUpdateStudents, 
-  onOpenExchangeModal,
   soundEnabled 
 }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -491,15 +490,6 @@ export default function Gradebook({
             >
               <ArrowUpDown size={15} />
               <span>Sắp xếp A-Z</span>
-            </button>
-
-            <button 
-              className="btn btn-amber btn-sm"
-              onClick={() => onOpenExchangeModal?.()}
-              title="Quy đổi sao sang điểm thưởng"
-            >
-              <Sparkles size={16} />
-              <span>Đổi Thưởng Sao (10⭐=1đ)</span>
             </button>
 
             <button 

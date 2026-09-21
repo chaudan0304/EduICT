@@ -214,7 +214,7 @@ export default function TimetableModal({
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => {
-                  onSelectClassForSession(periodStatus.className, periodStatus.grade);
+                  onSelectClassForSession(periodStatus.className, periodStatus.grade, periodStatus.slot);
                   onClose();
                 }}
                 style={{
@@ -334,7 +334,7 @@ export default function TimetableModal({
                             <div 
                               onClick={() => {
                                 if (onSelectClassForSession) {
-                                  onSelectClassForSession(cell.className, cell.grade);
+                                  onSelectClassForSession(cell.className, cell.grade, slot);
                                   onClose();
                                 }
                               }}
@@ -447,7 +447,7 @@ export default function TimetableModal({
                             <div 
                               onClick={() => {
                                 if (onSelectClassForSession) {
-                                  onSelectClassForSession(cell.className, cell.grade);
+                                  onSelectClassForSession(cell.className, cell.grade, slot);
                                   onClose();
                                 }
                               }}

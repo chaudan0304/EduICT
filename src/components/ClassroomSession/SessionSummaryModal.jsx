@@ -53,10 +53,10 @@ export default function SessionSummaryModal({
   const uniqueParticipantsCount = Object.keys(participantMap).length;
   const totalStarsInSession = participationRecords.reduce((acc, p) => acc + (p.stars_awarded || p.starsAwarded || 0), 0);
 
-  // Top 3 học sinh sôi nổi nhất trong tiết
-  const topParticipants = Object.entries(participantMap)
+  // Danh sách toàn bộ học sinh có tương tác hoặc nhận sao trong tiết
+  const allParticipants = Object.entries(participantMap)
     .map(([sId, data]) => {
-      const stu = students.find(s => s.id === sId);
+      const stu = students.find(s => String(s.id).trim() === String(sId).trim());
       return {
         id: sId,
         name: stu ? stu.name : sId,
@@ -65,8 +65,10 @@ export default function SessionSummaryModal({
         stars: data.stars
       };
     })
-    .sort((a, b) => (b.stars !== a.stars ? b.stars - a.stars : b.count - a.count))
-    .slice(0, 3);
+    .sort((a, b) => (b.stars !== a.stars ? b.stars - a.stars : b.count - a.count));
+
+  const topParticipants = allParticipants.slice(0, 3);
+  const otherParticipants = allParticipants.slice(3);
 
   return typeof document !== 'undefined' && createPortal(
     <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
@@ -212,8 +214,8 @@ export default function SessionSummaryModal({
               }}>
                 <Clock size={20} color="#06b6d4" style={{ margin: '0 auto 0.25rem' }} />
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Thời lượng</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                  {session?.duration_minutes || session?.durationMinutes || 35} phút
+                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  {session?.period_label || `${session?.duration_minutes || session?.durationMinutes || 35} phút`}
                 </div>
                 <div style={{ fontSize: '0.6875rem', color: '#06b6d4', fontWeight: 700 }}>
                   Hoàn thành trọn vẹn
@@ -269,6 +271,49 @@ export default function SessionSummaryModal({
                     </div>
                   ))}
                 </div>
+
+                {/* Danh sách các bạn khác có phát biểu hoặc nhận sao */}
+                {otherParticipants.length > 0 && (
+                  <div style={{ marginTop: '0.65rem', borderTop: '1px dashed var(--surface-border)', paddingTop: '0.65rem' }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                      Các bạn tích cực khác ({otherParticipants.length}):
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.4rem' }}>
+                      {otherParticipants.map((p) => (
+                        <div
+                          key={p.id}
+                          style={{
+                            background: 'var(--surface-secondary)',
+                            border: '1px solid var(--surface-border)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '0.4rem 0.65rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '0.8125rem'
+                          }}
+                        >
+                          <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{p.name}</span>
+                            {p.machineNumber && (
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: '0.3rem' }}>
+                                (M.{p.machineNumber})
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{p.count}l</span>
+                            {p.stars > 0 && (
+                              <span style={{ fontWeight: 800, color: '#f59e0b', fontSize: '0.8rem' }}>
+                                +{p.stars}⭐
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -19,10 +19,13 @@ export default function QuickQuizManager({
   const [summaryData, setSummaryData] = useState(null);
   const [isResultOpen, setIsResultOpen] = useState(false);
 
+  const [preselectedQuestions, setPreselectedQuestions] = useState([]);
+
   // Khởi chạy phiên Quiz
   const handleStartQuiz = (session) => {
     setActiveQuizSession(session);
     setIsCreatorOpen(false);
+    setPreselectedQuestions([]);
   };
 
   // Đóng trình phát Quiz
@@ -80,7 +83,10 @@ export default function QuickQuizManager({
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* 1. Màn hình Quản Lý Ngân Hàng Câu Hỏi */}
       <QuestionBankView
-        onLaunchQuizCreator={() => setIsCreatorOpen(true)}
+        onLaunchQuizCreator={(chosenQuestions = []) => {
+          setPreselectedQuestions(chosenQuestions);
+          setIsCreatorOpen(true);
+        }}
         currentClass={currentClass}
         availableLessons={availableLessons}
       />
@@ -88,11 +94,15 @@ export default function QuickQuizManager({
       {/* 2. Modal Thiết Lập & Tạo Đề Quick Quiz */}
       <CreateQuizModal
         isOpen={isCreatorOpen}
-        onClose={() => setIsCreatorOpen(false)}
+        onClose={() => {
+          setIsCreatorOpen(false);
+          setPreselectedQuestions([]);
+        }}
         onStartQuiz={handleStartQuiz}
         currentClass={currentClass}
         availableLessons={availableLessons}
         preselectedLesson={preselectedLesson}
+        preselectedQuestions={preselectedQuestions}
         sessionId={sessionId}
       />
 

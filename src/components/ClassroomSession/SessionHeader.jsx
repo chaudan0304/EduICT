@@ -15,7 +15,9 @@ export default function SessionHeader({
   currentClass,
   onBackToList,
   participationRecords = [],
-  onLaunchPresentation = null
+  onLaunchPresentation = null,
+  isTimetableSynced = false,
+  activeSlot = null
 }) {
   const [showNotes, setShowNotes] = useState(false);
 
@@ -102,7 +104,7 @@ export default function SessionHeader({
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.35rem', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.35rem', fontSize: '0.8125rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <Calendar size={14} />
                 {session.session_date || session.sessionDate || 'Hôm nay'}
@@ -110,7 +112,13 @@ export default function SessionHeader({
               <span>•</span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <Clock size={14} />
-                {session.duration_minutes || session.durationMinutes || 35} phút
+                {isTimetableSynced && activeSlot ? (
+                  <span style={{ color: '#059669', fontWeight: 700 }}>
+                    🟢 {activeSlot.label} ({activeSlot.startTime} - {activeSlot.endTime})
+                  </span>
+                ) : (
+                  <span>{session.duration_minutes || session.durationMinutes || 35} phút</span>
+                )}
               </span>
               <span>•</span>
               <span>Môn: {currentClass?.subject || 'Tin Học'}</span>

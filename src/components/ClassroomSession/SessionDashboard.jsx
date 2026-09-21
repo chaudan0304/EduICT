@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Bell, AlertTriangle, Flag, Clock } from 'lucide-react';
 import SessionHeader from './SessionHeader';
 import SessionTimerDisplay from './SessionTimerDisplay';
 import LessonFlowList from './LessonFlowList';
@@ -16,6 +17,13 @@ import {
   setStoredActiveSessionId 
 } from './sessionStorage';
 import { soundEffects } from '../../utils/audio';
+import { 
+  getSlotById, 
+  getActiveTeachingSlot, 
+  calculatePeriodRemainingSec, 
+  getCurrentPeriodStatus, 
+  formatTimeCountdown 
+} from '../../utils/timetable';
 import CreateQuizModal from '../QuickQuiz/CreateQuizModal';
 import QuizPlayer from '../QuickQuiz/QuizPlayer';
 import QuizResultModal from '../QuickQuiz/QuizResultModal';
@@ -37,24 +45,60 @@ export default function SessionDashboard({
 
   const [participationRecords, setParticipationRecords] = useState(() => initialSession.participation || []);
   
-  // Timer States (tính theo giây)
-  const sessionTotalSec = (session.duration_minutes || session.durationMinutes || 35) * 60;
-  const [sessionRemainingSec, setSessionRemainingSec] = useState(() => {
-    if (session.status === 'RUNNING' && session.started_at) {
-      const startMs = new Date(session.started_at).getTime();
-      const nowMs = Date.now();
-      const pausedSec = session.total_paused_seconds || 0;
-      const elapsed = Math.floor((nowMs - startMs) / 1000) - pausedSec;
-      return Math.max(0, sessionTotalSec - Math.max(0, elapsed));
+  // Khung giờ tiết học theo Thời Khóa Biểu
+  const [activeSlot, setActiveSlot] = useState(() => {
+    if (initialSession.period_slot_id) {
+      const found = getSlotById(initialSession.period_slot_id);
+      if (found) return found;
     }
-    return sessionTotalSec;
+    return getActiveTeachingSlot(new Date());
+  });
+
+  // Chế độ đồng bộ theo TKB (Mặc định BẬT nếu có activeSlot hoặc session.sync_timetable_period)
+  const [isTimetableSynced, setIsTimetableSynced] = useState(() => {
+    if (initialSession.sync_timetable_period !== undefined) {
+      return !!initialSession.sync_timetable_period;
+    }
+    const st = getCurrentPeriodStatus(new Date());
+    return !!(st.slot && st.slot.period !== null && !st.slot.isRecess && !st.slot.isLunch);
+  });
+
+  // Số phút dạy thêm giờ (+5p, +10p...)
+  const [extraMinutes, setExtraMinutes] = useState(0);
+
+  // Timer States (tính theo giây)
+  const initialPeriodCalc = (isTimetableSynced && activeSlot)
+    ? calculatePeriodRemainingSec(activeSlot, new Date(), extraMinutes)
+    : null;
+
+  const fallbackSessionTotalSec = (session.duration_minutes || session.durationMinutes || 35) * 60;
+  const sessionTotalSec = initialPeriodCalc ? initialPeriodCalc.totalSec : fallbackSessionTotalSec;
+
+  const [sessionRemainingSec, setSessionRemainingSec] = useState(() => {
+    if (initialPeriodCalc) {
+      return initialPeriodCalc.remainingSec;
+    }
+    if (session.started_at) {
+      const startMs = new Date(session.started_at).getTime();
+      const pausedSec = session.total_paused_seconds || 0;
+      let elapsed = 0;
+      if (session.status === 'RUNNING') {
+        const nowMs = Date.now();
+        elapsed = Math.floor((nowMs - startMs) / 1000) - pausedSec;
+      } else if (session.status === 'PAUSED' && session.paused_at) {
+        const pauseMs = new Date(session.paused_at).getTime();
+        elapsed = Math.floor((pauseMs - startMs) / 1000) - pausedSec;
+      }
+      return Math.max(0, fallbackSessionTotalSec - Math.max(0, elapsed));
+    }
+    return fallbackSessionTotalSec;
   });
 
   const currentActivity = activities[currentActivityIndex] || activities[0];
   const actDurationSec = (currentActivity?.duration_minutes || currentActivity?.durationMinutes || 5) * 60;
   const [activityRemainingSec, setActivityRemainingSec] = useState(actDurationSec);
 
-  // Modal states
+  // Modal & Notification states
   const [quickToolType, setQuickToolType] = useState(null); // 'wheel' | 'duckrace' | 'quiz' | null
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
@@ -64,6 +108,8 @@ export default function SessionDashboard({
   const [activeQuizSession, setActiveQuizSession] = useState(null);
   const [quizSummary, setQuizSummary] = useState(null);
   const [isQuizResultOpen, setIsQuizResultOpen] = useState(false);
+  const [showTimeUpModal, setShowTimeUpModal] = useState(false);
+  const hasPlayedTimeUpBellRef = useRef(false);
 
   // Mở trình chiếu bài học ngay trong tiết học
   const handleLaunchPresentation = async () => {
@@ -129,14 +175,31 @@ export default function SessionDashboard({
     }
   };
 
-  // Sync active session ID to localStorage
+  // Đồng bộ Active Session ID vào localStorage (kể cả READY, RUNNING, PAUSED) để F5/tắt nhầm không mất
   useEffect(() => {
-    if (session.status === 'RUNNING' || session.status === 'PAUSED') {
+    if (session.status === 'RUNNING' || session.status === 'PAUSED' || session.status === 'READY') {
       setStoredActiveSessionId(session.id);
     } else if (session.status === 'COMPLETED') {
       setStoredActiveSessionId(null);
     }
   }, [session.id, session.status]);
+
+  // Cảnh báo chống lỡ tay đóng tab / tắt trình duyệt khi tiết học chưa kết thúc
+  useEffect(() => {
+    const isOngoing = session.status === 'RUNNING' || session.status === 'PAUSED' || session.status === 'READY';
+    if (!isOngoing) return;
+
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Tiết học đang diễn ra! Thầy/cô có chắc chắn muốn rời khỏi không? Dữ liệu tiết học vẫn được lưu.';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [session.status]);
 
   // Master Timer Interval
   const isRunning = session.status === 'RUNNING';
@@ -146,22 +209,69 @@ export default function SessionDashboard({
     let timerId = null;
     if (isRunning) {
       timerId = setInterval(() => {
-        setSessionRemainingSec(prev => Math.max(0, prev - 1));
+        if (isTimetableSynced && activeSlot) {
+          const now = new Date();
+          const calc = calculatePeriodRemainingSec(activeSlot, now, extraMinutes);
+          if (calc) {
+            setSessionRemainingSec(calc.remainingSec);
+            if (calc.isTimeUp) {
+              if (!hasPlayedTimeUpBellRef.current) {
+                hasPlayedTimeUpBellRef.current = true;
+                if (soundEnabled) {
+                  soundEffects.playSchoolBell();
+                }
+                setShowTimeUpModal(true);
+              }
+            }
+          }
+        } else {
+          setSessionRemainingSec(prev => Math.max(0, prev - 1));
+        }
+
         setActivityRemainingSec(prev => Math.max(0, prev - 1));
       }, 1000);
     }
     return () => {
       if (timerId) clearInterval(timerId);
     };
-  }, [isRunning]);
+  }, [isRunning, isTimetableSynced, activeSlot, extraMinutes, soundEnabled]);
+
+  // Theo dõi khi Hết Giờ (sessionRemainingSec === 0): Phát chuông trường học & mở thông báo
+  useEffect(() => {
+    if (sessionRemainingSec === 0 && isRunning) {
+      if (!hasPlayedTimeUpBellRef.current) {
+        hasPlayedTimeUpBellRef.current = true;
+        if (soundEnabled) {
+          soundEffects.playSchoolBell();
+        }
+        setShowTimeUpModal(true);
+      }
+    }
+  }, [sessionRemainingSec, isRunning, soundEnabled]);
 
   // 1. Bắt đầu tiết học
   const handleStartSession = async () => {
     const nowIso = new Date().toISOString();
+    let currentSlot = activeSlot;
+    let shouldSync = isTimetableSynced;
+
+    if (!currentSlot) {
+      currentSlot = getActiveTeachingSlot(new Date());
+      if (currentSlot) {
+        setActiveSlot(currentSlot);
+        setIsTimetableSynced(true);
+        shouldSync = true;
+      }
+    }
+
     const updated = {
       ...session,
       status: 'RUNNING',
-      started_at: session.started_at || nowIso
+      started_at: session.started_at || nowIso,
+      period_slot_id: currentSlot ? currentSlot.id : session.period_slot_id,
+      period_label: currentSlot ? currentSlot.label : session.period_label,
+      period_end_time: currentSlot ? currentSlot.endTime : session.period_end_time,
+      sync_timetable_period: shouldSync
     };
     setSession(updated);
 
@@ -215,6 +325,7 @@ export default function SessionDashboard({
 
   // 4. Kết thúc tiết học
   const handleRequestEndSession = () => {
+    setShowTimeUpModal(false);
     setIsConfirmingEnd(true);
     setIsSummaryModalOpen(true);
   };
@@ -232,6 +343,37 @@ export default function SessionDashboard({
     await updateSessionApi(session.id, { status: 'COMPLETED', ended_at: nowIso });
     await addSessionEventApi(session.id, { eventType: 'SESSION_COMPLETED', details: 'Kết thúc tiết học thành công' });
     setStoredActiveSessionId(null);
+  };
+
+  // 4.1 Gia hạn thêm giờ khi hết thời gian (+5 phút, +10 phút)
+  const handleExtendSessionTime = (extraMins = 5) => {
+    const extraSec = extraMins * 60;
+    setExtraMinutes(prev => prev + extraMins);
+    setSessionRemainingSec(prev => prev + extraSec);
+    setActivityRemainingSec(prev => prev + extraSec);
+    setShowTimeUpModal(false);
+    hasPlayedTimeUpBellRef.current = false;
+    if (soundEnabled) soundEffects.playBoost();
+  };
+
+  // 4.1.1 Thử nghiệm chuông trường học & modal thông báo hết tiết
+  const handleTestTimeUpAlert = () => {
+    if (soundEnabled) {
+      soundEffects.playSchoolBell();
+    }
+    setShowTimeUpModal(true);
+  };
+
+  // 4.2 Rời màn hình có xác nhận an toàn (bảo đảm không mất tiết học)
+  const handleSafeBackToList = () => {
+    const isOngoing = session.status === 'RUNNING' || session.status === 'PAUSED' || session.status === 'READY';
+    if (isOngoing) {
+      const confirmLeave = window.confirm(
+        '⚠️ Tiết học đang diễn ra!\n\nThầy/Cô có muốn tạm rời màn hình này để xem danh sách hoặc chuyển sang chức năng khác?\n\n(Lưu ý: Tiết học vẫn được lưu an toàn và tiếp tục chạy trong nền. Thầy/Cô có thể quay lại bất cứ lúc nào qua nút "Tiếp Tục Tiết Học".)'
+      );
+      if (!confirmLeave) return;
+    }
+    onBackToList?.();
   };
 
   // 5. Chuyển hoạt động tiếp theo
@@ -315,13 +457,13 @@ export default function SessionDashboard({
   // 10. Ghi nhận học sinh tham gia & cộng Sao thi đua
   const handleAwardStudent = async (studentId, badgeType, starsDelta, note) => {
     const students = currentClass?.students || [];
-    const targetStudent = students.find(s => s.id === studentId);
+    const targetStudent = students.find(s => String(s.id) === String(studentId));
     if (!targetStudent) return;
 
     // a. Cập nhật học sinh trong state toàn cục App.jsx
     if (starsDelta !== 0) {
       const newStars = Math.max(0, (targetStudent.stars || 0) + starsDelta);
-      const updatedStudents = students.map(s => s.id === studentId ? { ...s, stars: newStars } : s);
+      const updatedStudents = students.map(s => String(s.id) === String(studentId) ? { ...s, stars: newStars } : s);
       onUpdateStudents(updatedStudents);
 
       // Phát âm thanh
@@ -383,9 +525,11 @@ export default function SessionDashboard({
       <SessionHeader
         session={session}
         currentClass={currentClass}
-        onBackToList={onBackToList}
+        onBackToList={handleSafeBackToList}
         participationRecords={participationRecords}
         onLaunchPresentation={handleLaunchPresentation}
+        isTimetableSynced={isTimetableSynced}
+        activeSlot={activeSlot}
       />
 
       {/* 2. Đồng hồ đếm ngược Master & Hoạt động */}
@@ -400,6 +544,12 @@ export default function SessionDashboard({
         onAdjustTime={handleAdjustActivityTime}
         onResetActivityTimer={handleResetActivityTimer}
         onTogglePlayPause={isRunning ? handlePauseSession : handleResumeSession}
+        isTimetableSynced={isTimetableSynced}
+        activeSlot={activeSlot}
+        extraMinutes={extraMinutes}
+        onToggleTimetableSync={() => setIsTimetableSynced(prev => !prev)}
+        onExtendSessionTime={handleExtendSessionTime}
+        onTestTimeUpAlert={handleTestTimeUpAlert}
       />
 
       {/* 3. Khu vực chính 2 cột: Cột trái Lesson Flow • Cột phải Bảng học sinh tương tác */}
@@ -455,7 +605,29 @@ export default function SessionDashboard({
         toolType={quickToolType}
         onClose={() => setQuickToolType(null)}
         currentClass={currentClass}
-        onUpdateStudents={onUpdateStudents}
+        onUpdateStudents={async (updatedStudents) => {
+          const prevMap = new Map((currentClass?.students || []).map(s => [String(s.id), s.stars || 0]));
+          for (const s of updatedStudents) {
+            const oldStars = prevMap.get(String(s.id)) || 0;
+            const delta = (s.stars || 0) - oldStars;
+            if (delta > 0) {
+              const partRecord = {
+                id: `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                session_id: session.id,
+                student_id: s.id,
+                student_name: s.name,
+                activity_id: currentActivity?.id || null,
+                badge_type: 'STAR',
+                stars_awarded: delta,
+                note: `Thưởng ${delta} ⭐ từ trò chơi ${quickToolType === 'wheel' ? 'Vòng quay' : 'Đua vịt'}`,
+                created_at: new Date().toISOString()
+              };
+              setParticipationRecords(prev => [partRecord, ...prev]);
+              addStudentParticipationApi(session.id, partRecord);
+            }
+          }
+          onUpdateStudents(updatedStudents);
+        }}
         soundEnabled={soundEnabled}
       />
 
@@ -486,7 +658,29 @@ export default function SessionDashboard({
           initialSlideIndex={0}
           onClose={() => setIsPresentationOpen(false)}
           currentClass={currentClass}
-          onUpdateStudents={onUpdateStudents}
+          onUpdateStudents={async (updatedStudents) => {
+            const prevMap = new Map((currentClass?.students || []).map(s => [String(s.id), s.stars || 0]));
+            for (const s of updatedStudents) {
+              const oldStars = prevMap.get(String(s.id)) || 0;
+              const delta = (s.stars || 0) - oldStars;
+              if (delta > 0) {
+                const partRecord = {
+                  id: `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                  session_id: session.id,
+                  student_id: s.id,
+                  student_name: s.name,
+                  activity_id: currentActivity?.id || null,
+                  badge_type: 'STAR',
+                  stars_awarded: delta,
+                  note: `Thưởng ${delta} ⭐ từ bài học trình chiếu`,
+                  created_at: new Date().toISOString()
+                };
+                setParticipationRecords(prev => [partRecord, ...prev]);
+                addStudentParticipationApi(session.id, partRecord);
+              }
+            }
+            onUpdateStudents(updatedStudents);
+          }}
           onUpdateGoodScores={onUpdateGoodScores}
           sessionTimerRemainingSec={sessionRemainingSec}
           soundEnabled={soundEnabled}
@@ -527,7 +721,22 @@ export default function SessionDashboard({
           onAwardStars={(starsMap) => {
             if (onUpdateStudents && currentClass?.students) {
               const updated = currentClass.students.map(s => {
-                const add = starsMap[s.id] || 0;
+                const add = starsMap[s.id] || starsMap[String(s.id)] || 0;
+                if (add > 0) {
+                  const partRecord = {
+                    id: `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                    session_id: session.id,
+                    student_id: s.id,
+                    student_name: s.name,
+                    activity_id: currentActivity?.id || null,
+                    badge_type: 'STAR',
+                    stars_awarded: add,
+                    note: `Thưởng ${add} ⭐ từ Quick Quiz`,
+                    created_at: new Date().toISOString()
+                  };
+                  setParticipationRecords(prev => [partRecord, ...prev]);
+                  addStudentParticipationApi(session.id, partRecord);
+                }
                 return add > 0 ? { ...s, stars: (s.stars || 0) + add } : s;
               });
               onUpdateStudents(updated);
@@ -544,6 +753,159 @@ export default function SessionDashboard({
         }}
         summaryData={quizSummary}
       />
+
+      {/* 9. Modal Thông Báo Khi Hết Giờ Tiết Học (Chuông reo) */}
+      {showTimeUpModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'var(--surface-card, #ffffff)',
+            borderRadius: 'var(--radius-2xl, 1.25rem)',
+            border: '2px solid #f59e0b',
+            boxShadow: '0 25px 50px -12px rgba(245, 158, 11, 0.4)',
+            width: '100%',
+            maxWidth: '520px',
+            overflow: 'hidden',
+            animation: 'scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}>
+            {/* Header Modal */}
+            <div style={{
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: '#fff',
+              padding: '1.5rem 1.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem'
+            }}>
+              <div style={{
+                width: 50,
+                height: 50,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.75rem',
+                flexShrink: 0
+              }}>
+                🔔
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900 }}>
+                  {isTimetableSynced && activeSlot ? `Đã Hết Giờ ${activeSlot.label || 'Tiết Học'}!` : 'Đã Hết Giờ Tiết Học!'}
+                </h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', opacity: 0.95 }}>
+                  {isTimetableSynced && activeSlot 
+                    ? `Chuông báo trường học đã reo (${activeSlot.startTime} - ${activeSlot.endTime}) • Lớp ${currentClass?.name || 'Học sinh'}`
+                    : `Chuông báo đã vang lên • Lớp ${currentClass?.name || 'Học sinh'}`}
+                </p>
+              </div>
+            </div>
+
+            {/* Nội dung */}
+            <div style={{ padding: '1.75rem' }}>
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: 'var(--radius-lg, 0.75rem)',
+                padding: '1rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.75rem',
+                marginBottom: '1.25rem'
+              }}>
+                <Clock size={22} color="#d97706" style={{ flexShrink: 0, marginTop: '0.15rem' }} />
+                <div style={{ fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                  {isTimetableSynced && activeSlot ? (
+                    <span>
+                      Đã đến giờ kết thúc <strong>{activeSlot.label} ({activeSlot.startTime} - {activeSlot.endTime})</strong> theo đúng Thời Khóa Biểu. Bài học <strong>"{session.lesson_title || 'Tin học'}"</strong> đã hoàn thành thời gian giảng dạy. Thầy/Cô có thể hoàn tất tiết học để xem báo cáo khen thưởng hoặc gia hạn thêm giờ nếu cần!
+                    </span>
+                  ) : (
+                    <span>
+                      Thời gian phân bổ cho bài học <strong>"{session.lesson_title || 'Tin học'}"</strong> đã kết thúc. Thầy/Cô có thể hoàn tất tiết học để xem báo cáo khen thưởng hoặc gia hạn thêm giờ nếu chưa hoàn thành nội dung.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Lựa chọn hành động */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={handleRequestEndSession}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '0.85rem 1.25rem',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.6rem'
+                  }}
+                >
+                  <Flag size={18} />
+                  <span>Kết Thúc Tiết Học & Xem Tổng Kết</span>
+                </button>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleExtendSessionTime(5)}
+                    className="btn btn-outline"
+                    style={{
+                      padding: '0.75rem',
+                      fontWeight: 700,
+                      fontSize: '0.875rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      borderColor: '#f59e0b',
+                      color: '#d97706'
+                    }}
+                  >
+                    <Clock size={16} />
+                    <span>Dạy thêm +5 phút</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExtendSessionTime(10)}
+                    className="btn btn-outline"
+                    style={{
+                      padding: '0.75rem',
+                      fontWeight: 700,
+                      fontSize: '0.875rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <Clock size={16} />
+                    <span>Dạy thêm +10 phút</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -516,7 +516,7 @@ export default function LuckyWheel({
                       #{calledHistory.length - idx}. {s.name}
                     </span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                      {s.machineNumber ? `Máy ${s.machineNumber}` : (s.id && !String(s.id).startsWith('hs_') ? s.id : `${s.stars || 0} ⭐`)}
+                      {s.machineNumber ? `Máy ${s.machineNumber}` : (s.id && !String(s.id).startsWith('hs_') ? `Mã: ${s.id}` : `${s.stars || 0} ⭐`)}
                     </span>
                   </div>
                 ))}

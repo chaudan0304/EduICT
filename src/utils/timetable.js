@@ -274,3 +274,108 @@ export function formatTimeCountdown(totalSeconds) {
   const s = Math.floor(totalSeconds % 60);
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
+
+/**
+ * Tìm slot theo slotId (vd: 'm1', 'm2', 'a1'...)
+ * @param {string} slotId 
+ */
+export function getSlotById(slotId) {
+  if (!slotId) return null;
+  return PERIOD_SLOTS.find(s => s.id === slotId) || null;
+}
+
+/**
+ * Lấy danh sách tất cả các tiết học chính thức (không bao gồm ra chơi, nghỉ trưa)
+ */
+export function getAllTeachingSlots() {
+  return PERIOD_SLOTS.filter(s => s.period !== null && !s.isRecess && !s.isLunch);
+}
+
+/**
+ * Tìm slot theo buổi và số tiết (vd: 'morning', 1)
+ * @param {'morning'|'afternoon'} sessionType 
+ * @param {number} periodNum 
+ */
+export function getSlotByPeriod(sessionType, periodNum) {
+  return PERIOD_SLOTS.find(s => s.session === sessionType && s.period === periodNum) || null;
+}
+
+/**
+ * Kiểm tra xem hiện tại có đang nằm trong khung giờ của một tiết học chính khóa hay không
+ * @param {Date} [now] 
+ */
+export function isTeachingPeriodNow(now = new Date()) {
+  const status = getCurrentPeriodStatus(now);
+  return !!(status.slot && status.slot.period !== null && !status.slot.isRecess && !status.slot.isLunch);
+}
+
+/**
+ * Lấy slot tiết học đang diễn ra hoặc slot được ưu tiên
+ * @param {Date} [now]
+ * @param {string} [preferredSlotId]
+ */
+export function getActiveTeachingSlot(now = new Date(), preferredSlotId = null) {
+  if (preferredSlotId) {
+    const preferred = getSlotById(preferredSlotId);
+    if (preferred && preferred.period !== null) return preferred;
+  }
+
+  const status = getCurrentPeriodStatus(now);
+  if (status.slot && status.slot.period !== null && !status.slot.isRecess && !status.slot.isLunch) {
+    return status.slot;
+  }
+
+  return null;
+}
+
+/**
+ * Tính toán thời gian còn lại đến giờ HẾT TIẾT theo Thời Khóa Biểu
+ * @param {object} slot - Đối tượng slot từ PERIOD_SLOTS
+ * @param {Date} [now] - Thời điểm hiện tại
+ * @param {number} [extraMinutes=0] - Số phút gia hạn thêm (dạy thêm giờ)
+ * @returns {object} Chi tiết thời gian đếm ngược chính xác đến từng giây
+ */
+export function calculatePeriodRemainingSec(slot, now = new Date(), extraMinutes = 0) {
+  if (!slot) return null;
+
+  const curMinutes = now.getHours() * 60 + now.getMinutes();
+  const curSeconds = now.getSeconds();
+  const curTotalSec = curMinutes * 60 + curSeconds;
+
+  const startSec = (slot.startHour * 60 + slot.startMin) * 60;
+  const baseEndSec = (slot.endHour * 60 + slot.endMin) * 60;
+  const endSec = baseEndSec + (extraMinutes * 60);
+
+  // Tính số giây còn lại đến đúng mốc kết thúc của tiết
+  const remainingSec = Math.max(0, endSec - curTotalSec);
+  const totalSec = Math.max(1, endSec - startSec);
+  const elapsedSec = Math.max(0, curTotalSec - startSec);
+  const progress = Math.min(100, Math.max(0, (elapsedSec / totalSec) * 100));
+
+  // Kiểm tra thời điểm hiện tại có đang nằm trong khung giờ tiết học hay không
+  const isCurrentlyInSlot = curTotalSec >= startSec && curTotalSec < endSec;
+  const isTimeUp = remainingSec === 0;
+
+  // Giờ kết thúc có định dạng HH:MM
+  const endHour = Math.floor(endSec / 3600) % 24;
+  const endMin = Math.floor((endSec % 3600) / 60);
+  const formattedEndTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+
+  return {
+    slot,
+    remainingSec,
+    remainingMin: Math.ceil(remainingSec / 60),
+    totalSec,
+    elapsedSec,
+    progress,
+    isCurrentlyInSlot,
+    isTimeUp,
+    curTotalSec,
+    startSec,
+    baseEndSec,
+    endSec,
+    extraMinutes,
+    formattedEndTime
+  };
+}
+

@@ -24,6 +24,7 @@ const INITIAL_CLASSES = [
     grade: 1,
     subject: 'Tin Học 1 (Làm quen & Vẽ Paint)',
     schoolYear: '2026 - 2027',
+    goodScores: [],
     students: [],
   },
   {
@@ -32,6 +33,7 @@ const INITIAL_CLASSES = [
     grade: 2,
     subject: 'Tin Học 2 (Luyện phím & Vẽ hình)',
     schoolYear: '2026 - 2027',
+    goodScores: [],
     students: [],
   },
   {
@@ -40,6 +42,7 @@ const INITIAL_CLASSES = [
     grade: 3,
     subject: 'Tin Học 3 (Gõ 10 ngón & Paint)',
     schoolYear: '2026 - 2027',
+    goodScores: [],
     students: [],
   },
   {
@@ -48,6 +51,7 @@ const INITIAL_CLASSES = [
     grade: 4,
     subject: 'Tin Học 4 (Word & PowerPoint)',
     schoolYear: '2026 - 2027',
+    goodScores: [],
     students: [],
   },
   {
@@ -56,6 +60,7 @@ const INITIAL_CLASSES = [
     grade: 5,
     subject: 'Tin Học 5 (Lập trình Scratch & Internet)',
     schoolYear: '2026 - 2027',
+    goodScores: [],
     students: [],
   }
 ];
@@ -76,10 +81,11 @@ export function getStoredClasses() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Đảm bảo mọi lớp đều có thuộc tính grade và học sinh sắp xếp A - Z
+        // Đảm bảo mọi lớp đều có thuộc tính grade, goodScores và học sinh sắp xếp A - Z
         return parsed.map(c => ({
           ...c,
           grade: c.grade || detectGradeFromName(c.name),
+          goodScores: Array.isArray(c.goodScores) ? c.goodScores : [],
           students: sortStudentsVietnamese(c.students || [])
         }));
       }
@@ -90,6 +96,7 @@ export function getStoredClasses() {
   // Khởi tạo mặc định nếu chưa có
   const defaultClasses = INITIAL_CLASSES.map(c => ({
     ...c,
+    goodScores: [],
     students: sortStudentsVietnamese(c.students || [])
   }));
   saveClasses(defaultClasses);

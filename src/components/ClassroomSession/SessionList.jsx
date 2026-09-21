@@ -445,14 +445,14 @@ export default function SessionList({
       <TimetableModal
         isOpen={showTimetable}
         onClose={() => setShowTimetable(false)}
-        onSelectClassForSession={(targetClassName, targetGrade) => {
+        onSelectClassForSession={(targetClassName, targetGrade, slot) => {
           setShowTimetable(false);
           const clean = (targetClassName || '').trim().toLowerCase();
           const matched = classes.find(c => {
             const cName = (c.name || '').trim().toLowerCase();
             return cName === clean || cName === `lớp ${clean}` || `lớp ${cName}` === clean;
           });
-          onOpenCreateModal(matched ? matched.id : null);
+          onOpenCreateModal(matched ? matched.id : null, slot);
         }}
       />
     </div>

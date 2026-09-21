@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { 
   GraduationCap, 
   ClipboardList, 
-  Sparkles, 
   Gamepad2, 
   RotateCcw, 
   Monitor, 
@@ -12,23 +11,23 @@ import {
   Star, 
   TrendingUp, 
   Users, 
-  CheckCircle2,
-  ChevronRight,
-  Flame,
-  Layers,
-  BookOpen,
-  Zap,
-  Target
+  CheckCircle2, 
+  ChevronRight, 
+  Flame, 
+  Layers, 
+  BookOpen, 
+  Zap, 
+  Target 
 } from 'lucide-react';
 
 export default function HomeDashboard({ 
   classes = [],
   currentClass, 
-  onSelectClass,
-  studentStats,
-  _isLoadingStats,
-  onSelectTab,
-  onOpenExchangeModal,
+  onSelectClass, 
+  studentStats, 
+  _isLoadingStats, 
+  onSelectTab, 
+  ongoingSession = null,
   currentSchoolYear = '2026 - 2027'
 }) {
   const [selectedGradeFilter, setSelectedGradeFilter] = useState('all');
@@ -42,15 +41,15 @@ export default function HomeDashboard({
     {
       id: 'sessions',
       title: 'Trung Tâm Tiết Học (Classroom Session)',
-      badge: 'MỚI • Trung tâm điều khiển',
-      badgeColor: '#ec4899',
+      badge: (ongoingSession && ongoingSession.status !== 'COMPLETED') ? '⚡ ĐANG DIỄN RA' : 'MỚI • Trung tâm điều khiển',
+      badgeColor: (ongoingSession && ongoingSession.status !== 'COMPLETED') ? '#10b981' : '#ec4899',
       icon: '🎯',
       description: 'Lên tiến trình bài học (Lesson Flow), bắt đầu, bấm giờ, ghi nhận phát biểu và thưởng sao 1-chạm trọn vẹn tiết học.',
-      highlight: 'Tiến trình 35p • Master Timer • Thưởng sao tức thì',
-      actionText: 'Vào Trung Tâm Tiết Học',
-      color: 'rgba(236, 72, 153, 0.08)',
-      borderColor: 'rgba(236, 72, 153, 0.25)',
-      accentColor: '#ec4899'
+      highlight: (ongoingSession && ongoingSession.status !== 'COMPLETED') ? `Đang dạy bài: ${ongoingSession.lesson_title || 'Tin học'}` : 'Tiến trình 35p • Master Timer • Thưởng sao tức thì',
+      actionText: (ongoingSession && ongoingSession.status !== 'COMPLETED') ? '▶ Tiếp Tục Tiết Học Đang Dạy' : 'Vào Trung Tâm Tiết Học',
+      color: (ongoingSession && ongoingSession.status !== 'COMPLETED') ? 'rgba(16, 185, 129, 0.08)' : 'rgba(236, 72, 153, 0.08)',
+      borderColor: (ongoingSession && ongoingSession.status !== 'COMPLETED') ? 'rgba(16, 185, 129, 0.35)' : 'rgba(236, 72, 153, 0.25)',
+      accentColor: (ongoingSession && ongoingSession.status !== 'COMPLETED') ? '#10b981' : '#ec4899'
     },
     {
       id: 'lessons',
@@ -147,13 +146,13 @@ export default function HomeDashboard({
     },
     {
       id: 'rewards',
-      title: 'Đổi Thưởng & Quy Đổi Điểm',
-      badge: '10⭐ = +1.0 Điểm',
+      title: 'Cửa Hàng Đổi Thưởng',
+      badge: 'Bảo bối & Quà',
       badgeColor: '#10b981',
       icon: '🎁',
-      description: 'Quy đổi sao thi đua sang điểm miệng/15p (10 sao = 1 điểm) và kho thẻ bảo bối quyền lợi lớp học hấp dẫn.',
-      highlight: 'Đổi điểm học tập & Thẻ miễn tử',
-      actionText: 'Mở Cửa Hàng Đổi Sao',
+      description: 'Kho thẻ bảo bối quyền lợi và phần thưởng thi đua lớp học hấp dẫn cho học sinh tích lũy sao.',
+      highlight: 'Thẻ miễn tử, cứu trợ, chọn chỗ...',
+      actionText: 'Mở Cửa Hàng Đổi Quà',
       color: 'rgba(16, 185, 129, 0.08)',
       borderColor: 'rgba(16, 185, 129, 0.25)',
       accentColor: '#10b981'
@@ -719,81 +718,51 @@ export default function HomeDashboard({
               <Star size={16} />
               <span>Điểm Tốt & Sao</span>
             </button>
-            <button
-              type="button"
-              onClick={() => onSelectTab?.('sessions')}
-              className="btn btn-primary"
-              style={{
-                fontWeight: 800,
-                fontSize: '0.85rem',
-                background: 'linear-gradient(135deg, #0284c7, #2563eb)',
-                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem'
-              }}
-            >
-              <Target size={16} />
-              <span>Vào Tiết Học</span>
-            </button>
+            {ongoingSession && ongoingSession.status !== 'COMPLETED' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const sClassId = ongoingSession.class_id || ongoingSession.classId;
+                  if (sClassId && onSelectClass) {
+                    onSelectClass(sClassId);
+                  }
+                  onSelectTab?.('sessions');
+                }}
+                className="btn btn-primary"
+                style={{
+                  fontWeight: 900,
+                  fontSize: '0.85rem',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.45)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem'
+                }}
+              >
+                <span>⚡ Tiếp Tục Tiết Học</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onSelectTab?.('sessions')}
+                className="btn btn-primary"
+                style={{
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+              >
+                <Target size={16} />
+                <span>Vào Tiết Học</span>
+              </button>
+            )}
           </div>
         </div>
       )}
-
-      {/* Banner Nổi Bật: Tỷ Lệ Quy Đổi Sao Sang Điểm */}
-      <div style={{
-        background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(16, 185, 129, 0.12) 100%)',
-        border: '1px solid rgba(245, 158, 11, 0.3)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '1rem 1.5rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 4px 10px rgba(245, 158, 11, 0.35)',
-            fontSize: '1.35rem'
-          }}>
-            ⭐
-          </div>
-          <div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>Cơ Chế Quy Đổi Sao Thi Đua: <strong>10 Sao (⭐) = +1.0 Điểm Số</strong></span>
-              <span style={{ fontSize: '0.75rem', background: '#10b981', color: '#fff', padding: '0.15rem 0.5rem', borderRadius: '999px', fontWeight: 600 }}>Mới</span>
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Quy đổi trực tiếp vào <strong>Điểm Miệng</strong> (m1, m2) và <strong>Điểm 15 Phút</strong> (p15_1, p15_2). Điểm tối đa đạt 10.0.
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <button
-            onClick={() => onOpenExchangeModal?.()}
-            className="btn btn-primary"
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              padding: '0.6rem 1.25rem',
-              fontWeight: 700,
-              fontSize: '0.9rem'
-            }}
-          >
-            <Sparkles size={18} />
-            Quy Đổi Sao Ngay
-          </button>
-        </div>
-      </div>
 
       {/* Lưới Danh Mục Các Chức Năng (Feature Cards) */}
       <div>

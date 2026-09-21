@@ -241,6 +241,7 @@ function initSchema(db) {
   try { db.exec(`ALTER TABLE lessons ADD COLUMN duplicate_of_id TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN content_fingerprint TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE students ADD COLUMN dob TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE classes ADD COLUMN good_scores TEXT DEFAULT '[]';`); } catch (e) {}
 
   // Bổ sung các cột theo dõi trạng thái kết xuất slide chi tiết (per-slide render status)
   try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch (e) {}
@@ -795,6 +796,178 @@ function seedInitialQuestions(db) {
   `);
 
   const sampleQuestions = [
+    // Khối 1
+    {
+      id: 'qb_k1_01',
+      question: 'Máy tính để bàn gồm có mấy bộ phận chính?',
+      grade: 1,
+      topic: 'TOPIC_A',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'NHẬN BIẾT',
+      options: ['4 bộ phận (Màn hình, thân máy, bàn phím, chuột)', '2 bộ phận', '1 bộ phận', '6 bộ phận'],
+      correct_answer: '4 bộ phận (Màn hình, thân máy, bàn phím, chuột)',
+      correct_index: 0,
+      explanation: 'Máy tính để bàn gồm 4 bộ phận cơ bản: Màn hình, Thân máy, Bàn phím và Chuột.',
+      points: 1
+    },
+    {
+      id: 'qb_k1_02',
+      question: 'Bộ phận nào của máy tính giúp em nhìn thấy chữ, tranh ảnh và video?',
+      grade: 1,
+      topic: 'TOPIC_A',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'NHẬN BIẾT',
+      options: ['Màn hình máy tính', 'Chuột máy tính', 'Bàn phím máy tính', 'Dây điện'],
+      correct_answer: 'Màn hình máy tính',
+      correct_index: 0,
+      explanation: 'Màn hình là nơi hiển thị kết quả làm việc, chữ viết và tranh ảnh cho em quan sát.',
+      points: 1
+    },
+    {
+      id: 'qb_k1_03',
+      question: 'Khi cầm chuột máy tính bằng tay phải, ngón trỏ của em đặt ở đâu?',
+      grade: 1,
+      topic: 'TOPIC_A',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'THÔNG HIỂU',
+      options: ['Đặt lên nút trái của chuột', 'Đặt lên nút phải của chuột', 'Đặt lên con lăn chuột', 'Đặt dưới đáy chuột'],
+      correct_answer: 'Đặt lên nút trái của chuột',
+      correct_index: 0,
+      explanation: 'Ngón trỏ đặt trên nút trái chuột, ngón giữa đặt trên nút phải chuột.',
+      points: 1
+    },
+    {
+      id: 'qb_k1_04',
+      question: 'Chuột máy tính thông thường gồm có các bộ phận nào?',
+      grade: 1,
+      topic: 'TOPIC_A',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'NHẬN BIẾT',
+      options: ['Nút trái, nút phải và bánh lăn (nút cuộn)', 'Chỉ có 1 nút bấm duy nhất', 'Bàn phím và màn hình', 'Hộp màu và bút chì'],
+      correct_answer: 'Nút trái, nút phải và bánh lăn (nút cuộn)',
+      correct_index: 0,
+      explanation: 'Chuột máy tính chuẩn có 3 bộ phận: nút trái, nút phải và nút cuộn ở giữa.',
+      points: 1
+    },
+    {
+      id: 'qb_k1_05',
+      question: 'Biểu tượng phần mềm tập vẽ Paint trên màn hình có hình gì?',
+      grade: 1,
+      topic: 'TOPIC_E',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'NHẬN BIẾT',
+      options: ['Hộp màu và cây cọ vẽ', 'Một bông hoa màu đỏ', 'Một chiếc máy bay', 'Một quyển truyện tranh'],
+      correct_answer: 'Hộp màu và cây cọ vẽ',
+      correct_index: 0,
+      explanation: 'Biểu tượng phần mềm Paint là hộp bút màu và bảng vẽ cọ nghệ thuật.',
+      points: 1
+    },
+    {
+      id: 'qb_k1_06',
+      question: 'Khi ngồi học máy tính, tư thế nào sau đây là ĐÚNG?',
+      grade: 1,
+      topic: 'TOPIC_D',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'VẬN DỤNG',
+      options: ['Ngồi thẳng lưng, mắt cách màn hình 50-70cm', 'Nằm ra bàn để nhìn cho gần', 'Ngồi vắt chân lên ghế', 'Ghé sát mắt vào màn hình'],
+      correct_answer: 'Ngồi thẳng lưng, mắt cách màn hình 50-70cm',
+      correct_index: 0,
+      explanation: 'Ngồi thẳng lưng và giữ khoảng cách an toàn giúp bảo vệ cột sống và mắt của em.',
+      points: 1
+    },
+
+    // Khối 2
+    {
+      id: 'qb_k2_01',
+      question: 'Trên bàn phím máy tính, phím dài nhất nằm ở hàng phím dưới cùng là phím gì?',
+      grade: 2,
+      topic: 'TOPIC_A',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'NHẬN BIẾT',
+      options: ['Phím cách (Spacebar)', 'Phím Enter', 'Phím Shift', 'Phím Caps Lock'],
+      correct_answer: 'Phím cách (Spacebar)',
+      correct_index: 0,
+      explanation: 'Phím cách (Spacebar) là phím dài nhất, dùng để tạo khoảng cách giữa các từ khi gõ.',
+      points: 1
+    },
+    {
+      id: 'qb_k2_02',
+      question: 'Phím nào sau đây dùng để xuống dòng khi em đang gõ văn bản?',
+      grade: 2,
+      topic: 'TOPIC_A',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'THÔNG HIỂU',
+      options: ['Phím Enter', 'Phím Space', 'Phím Delete', 'Phím Backspace'],
+      correct_answer: 'Phím Enter',
+      correct_index: 0,
+      explanation: 'Phím Enter dùng để kết thúc dòng hiện tại và chuyển con trỏ xuống đầu dòng tiếp theo.',
+      points: 1
+    },
+    {
+      id: 'qb_k2_03',
+      question: 'Hai phím nào trên hàng phím cơ sở có gờ nổi để đặt hai ngón trỏ?',
+      grade: 2,
+      topic: 'TOPIC_A',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'NHẬN BIẾT',
+      options: ['Phím F và phím J', 'Phím A và phím L', 'Phím G và phím H', 'Phím D và phím K'],
+      correct_answer: 'Phím F và phím J',
+      correct_index: 0,
+      explanation: 'Phím F và phím J có hai gờ nổi nhỏ giúp nhận biết vị trí đặt tay mà không cần nhìn bàn phím.',
+      points: 1
+    },
+    {
+      id: 'qb_k2_04',
+      question: 'Trong phần mềm Paint, công cụ hình Cục tẩy (Eraser) dùng để làm gì?',
+      grade: 2,
+      topic: 'TOPIC_E',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'NHẬN BIẾT',
+      options: ['Xóa các nét vẽ hoặc chi tiết chưa vừa ý', 'Tô màu toàn bộ bức tranh', 'Vẽ hình tròn', 'Viết chữ hoa'],
+      correct_answer: 'Xóa các nét vẽ hoặc chi tiết chưa vừa ý',
+      correct_index: 0,
+      explanation: 'Công cụ Tẩy (Eraser) dùng để xóa đi những nét vẽ hoặc vùng màu cần sửa lại.',
+      points: 1
+    },
+    {
+      id: 'qb_k2_05',
+      question: 'Để tắt máy tính an toàn và đúng cách, em thực hiện như thế nào?',
+      grade: 2,
+      topic: 'TOPIC_A',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'VẬN DỤNG',
+      options: ['Bấm nút Start -> Chọn Power -> Chọn Shut down', 'Rút phích cắm điện ngay lập tức', 'Bấm nút tắt trên màn hình rồi bỏ về', 'Giữ nút nguồn trên thân máy thật lâu'],
+      correct_answer: 'Bấm nút Start -> Chọn Power -> Chọn Shut down',
+      correct_index: 0,
+      explanation: 'Phải tắt máy bằng lệnh Start -> Power -> Shut down để hệ điều hành lưu dữ liệu an toàn.',
+      points: 1
+    },
+    {
+      id: 'qb_k2_06',
+      question: 'Hành động nào sau đây KHÔNG ĐƯỢC PHÉP làm trong phòng máy tính?',
+      grade: 2,
+      topic: 'TOPIC_D',
+      lesson_id: null,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: 'VẬN DỤNG',
+      options: ['Mang đồ ăn, bánh kẹo và nước uống vào bàn máy', 'Ngồi đúng số máy được thầy cô phân công', 'Báo thầy cô khi máy gặp sự cố', 'Tắt máy tính gọn gàng trước khi ra về'],
+      correct_answer: 'Mang đồ ăn, bánh kẹo và nước uống vào bàn máy',
+      correct_index: 0,
+      explanation: 'Nước uống và vụn đồ ăn có thể làm hỏng bàn phím hoặc gây cháy chập điện phòng máy.',
+      points: 1
+    },
+
     // Khối 3
     {
       id: 'qb_k3_01',
@@ -1703,12 +1876,21 @@ export function getAllClassesWithStudents(schoolYear = null) {
   return classes.map(c => {
     const classStudents = studentMap[c.id] || [];
     classStudents.sort(compareVietnameseNames);
+    let goodScores = [];
+    try {
+      if (c.good_scores) {
+        goodScores = typeof c.good_scores === 'string' ? JSON.parse(c.good_scores) : c.good_scores;
+      }
+    } catch (e) {
+      goodScores = [];
+    }
     return {
       id: c.id,
       name: c.name,
       grade: c.grade,
       subject: c.subject,
       schoolYear: c.school_year,
+      goodScores: Array.isArray(goodScores) ? goodScores : [],
       students: classStudents
     };
   });
@@ -1717,21 +1899,29 @@ export function getAllClassesWithStudents(schoolYear = null) {
 // Thêm hoặc cập nhật lớp học
 export function saveOrUpdateClass(classData) {
   const db = getDatabase();
+  const goodScoresJson = classData.goodScores !== undefined
+    ? JSON.stringify(classData.goodScores || [])
+    : null;
+
   const stmt = db.prepare(`
-    INSERT INTO classes (id, name, grade, subject, school_year)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO classes (id, name, grade, subject, school_year, good_scores)
+    VALUES (?, ?, ?, ?, ?, COALESCE(?, '[]'))
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       grade = excluded.grade,
       subject = excluded.subject,
-      school_year = excluded.school_year;
+      school_year = excluded.school_year,
+      good_scores = CASE WHEN ? IS NOT NULL THEN ? ELSE classes.good_scores END;
   `);
   stmt.run(
     classData.id,
     classData.name,
     classData.grade || 3,
     classData.subject || 'Tin Học',
-    classData.schoolYear ? normalizeSchoolYear(classData.schoolYear) : getCurrentSchoolYear()
+    classData.schoolYear ? normalizeSchoolYear(classData.schoolYear) : getCurrentSchoolYear(),
+    goodScoresJson,
+    goodScoresJson,
+    goodScoresJson
   );
 
   if (Array.isArray(classData.students)) {
@@ -1769,8 +1959,8 @@ export function saveStudentsForClass(classId, studentsList) {
         s.name,
         s.dob || '',
         s.gender || 'Nam',
-        s.machineNumber || null,
-        s.stars || 0,
+        s.machineNumber !== undefined ? s.machineNumber : (s.machine_number || null),
+        Number(s.stars) || 0,
         s.attendance || 'present',
         s.skill_mouse || 'T',
         s.skill_keyboard || 'H',
@@ -2479,24 +2669,47 @@ export function addSessionEvent(sessionId, eventData) {
   return { id: eventId, success: true };
 }
 
-// 8. Ghi nhận học sinh tham gia / cộng sao
+// 8. Ghi nhận học sinh tham gia / cộng sao (Đồng bộ trực tiếp số sao vào bảng students của lớp)
 export function addStudentParticipation(sessionId, pData) {
   const db = getDatabase();
   const partId = pData.id || `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-  const stmt = db.prepare(`
-    INSERT INTO student_participation (id, session_id, student_id, activity_id, badge_type, stars_awarded, note, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-  `);
-  stmt.run(
-    partId,
-    sessionId,
-    pData.student_id || pData.studentId,
-    pData.activity_id || pData.activityId || null,
-    pData.badge_type || pData.badgeType || 'PARTICIPATION',
-    Number(pData.stars_awarded || pData.starsAwarded) || 0,
-    pData.note || ''
-  );
-  return { id: partId, success: true };
+  const studentId = pData.student_id || pData.studentId;
+  const starsAwarded = Number(pData.stars_awarded || pData.starsAwarded) || 0;
+
+  db.exec('BEGIN TRANSACTION;');
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO student_participation (id, session_id, student_id, activity_id, badge_type, stars_awarded, note, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+    `);
+    stmt.run(
+      partId,
+      sessionId,
+      studentId,
+      pData.activity_id || pData.activityId || null,
+      pData.badge_type || pData.badgeType || 'PARTICIPATION',
+      starsAwarded,
+      pData.note || ''
+    );
+
+    // Đồng bộ số sao trực tiếp vào bảng students trong SQLite
+    if (starsAwarded !== 0 && studentId) {
+      const session = db.prepare('SELECT class_id FROM classroom_sessions WHERE id = ?;').get(sessionId);
+      if (session && session.class_id) {
+        db.prepare(`
+          UPDATE students 
+          SET stars = MAX(0, COALESCE(stars, 0) + ?) 
+          WHERE id = ? AND class_id = ?;
+        `).run(starsAwarded, String(studentId), session.class_id);
+      }
+    }
+
+    db.exec('COMMIT;');
+    return { id: partId, success: true };
+  } catch (err) {
+    db.exec('ROLLBACK;');
+    throw err;
+  }
 }
 
 // ========================================================

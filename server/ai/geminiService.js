@@ -87,7 +87,7 @@ export async function callGeminiStructured({
   systemInstruction = null,
   clientIp = 'default',
   maxRetries = 2,
-  timeoutMs = 45000
+  timeoutMs = 25000
 }) {
   const cfg = getGeminiConfig();
 
@@ -115,6 +115,13 @@ export async function callGeminiStructured({
     };
   }
 
+  // Danh sách mô hình dự phòng tự động nếu mô hình chính quá tải
+  const candidateModels = [
+    cfg.model,
+    'gemini-3.5-flash-lite',
+    'gemini-3.6-flash'
+  ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+
   // 1. Kiểm tra Cache trong SQLite theo inputHash
   const inputHash = computeHash(`${feature}:${cfg.model}:${inputDataString}`);
   const cached = getAiGenerationCache(feature, inputHash);
@@ -133,9 +140,10 @@ export async function callGeminiStructured({
   let lastError = null;
 
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    const currentModel = candidateModels[attempt - 1] || candidateModels[candidateModels.length - 1];
     const tStart = Date.now();
     try {
-      console.log(`[AI Request] Gọi Gemini feature=${feature} (Lần ${attempt}/${maxRetries + 1}, model=${cfg.model})...`);
+      console.log(`[AI Request] Gọi Gemini feature=${feature} (Lần ${attempt}/${maxRetries + 1}, model=${currentModel})...`);
 
       // Cấu hình request
       const config = {
@@ -147,7 +155,7 @@ export async function callGeminiStructured({
 
       // Tạo promise với timeout
       const requestPromise = ai.models.generateContent({
-        model: cfg.model,
+        model: currentModel,
         contents: promptText,
         config
       });
@@ -171,19 +179,19 @@ export async function callGeminiStructured({
         feature,
         entityType,
         entityId,
-        model: cfg.model,
+        model: currentModel,
         inputHash,
         status: 'SUCCESS',
         result: parsedData
       });
 
-      console.log(`[AI Request] ✅ Thành công feature=${feature} (${duration}ms)`);
+      console.log(`[AI Request] ✅ Thành công feature=${feature} (${duration}ms) với model=${currentModel}`);
 
       return {
         success: true,
         data: parsedData,
         isCached: false,
-        model: cfg.model
+        model: currentModel
       };
 
     } catch (err) {
@@ -191,7 +199,7 @@ export async function callGeminiStructured({
       lastError = err;
       const errMsg = err.message || '';
 
-      console.warn(`[AI Request] ⚠️ Thất bại lần ${attempt} feature=${feature} (${duration}ms): ${errMsg}`);
+      console.warn(`[AI Request] ⚠️ Thất bại lần ${attempt} feature=${feature} (model=${currentModel}, ${duration}ms): ${errMsg}`);
 
       // Phân loại lỗi
       if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('401') || errMsg.includes('unauthenticated')) {

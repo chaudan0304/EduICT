@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Sparkles, 
   ShieldCheck, 
   Users, 
   MapPin, 
@@ -40,15 +39,6 @@ const REWARD_CARDS = [
     color: '#f59e0b'
   },
   {
-    id: 'card_bonus_point',
-    title: 'Thẻ +1 Điểm Học Tập',
-    icon: '🎯',
-    cost: 10,
-    description: 'Quy đổi 10 sao (⭐) thành +1.0 điểm vào Điểm Miệng hoặc Điểm 15 Phút.',
-    color: '#10b981',
-    isGradeExchange: true
-  },
-  {
     id: 'card_music',
     title: 'Thẻ DJ Lớp Học',
     icon: '🎵',
@@ -61,7 +51,6 @@ const REWARD_CARDS = [
 export default function RewardShop({ 
   currentClass, 
   onUpdateStudents, 
-  onOpenExchangeModal,
   soundEnabled 
 }) {
   const students = currentClass?.students || [];
@@ -78,12 +67,6 @@ export default function RewardShop({
   const handleRedeem = (card) => {
     if (!selectedStudent) {
       alert('Vui lòng chọn học sinh đổi thẻ!');
-      return;
-    }
-
-    // Nếu là thẻ quy đổi sang điểm học tập
-    if (card.isGradeExchange) {
-      onOpenExchangeModal?.(selectedStudent.id);
       return;
     }
 
@@ -157,50 +140,6 @@ export default function RewardShop({
               </span>
             )}
           </div>
-        </div>
-
-        {/* Banner Quy Đổi Sao Sang Điểm Học Tập: 10 Sao = 1 Điểm */}
-        <div style={{
-          marginTop: '1.25rem',
-          padding: '0.875rem 1.25rem',
-          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(16, 185, 129, 0.12) 100%)',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
-          borderRadius: 'var(--radius-lg)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '0.75rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-            <span style={{ fontSize: '1.75rem' }}>🎯</span>
-            <div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>Quy Đổi Sao Sang Điểm Học Tập: <strong>10 Sao (⭐) = +1.0 Điểm</strong></span>
-                <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '0.1rem 0.45rem', borderRadius: '999px', fontWeight: 700 }}>
-                  Chính thức
-                </span>
-              </div>
-              <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-                Quy đổi trực tiếp vào Điểm Miệng (m1, m2) hoặc 15 Phút (p15_1, p15_2). Điểm tối đa không vượt quá 10.0.
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => onOpenExchangeModal?.(selectedStudent?.id)}
-            className="btn btn-primary"
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              fontWeight: 700,
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
-          >
-            <Sparkles size={16} />
-            <span>Quy Đổi Điểm Cho {selectedStudent?.name || 'Học Sinh'}</span>
-          </button>
         </div>
       </div>
 

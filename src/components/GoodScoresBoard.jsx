@@ -8,6 +8,8 @@ import {
   Trophy, 
   Calendar, 
   User, 
+  UserPlus,
+  Users,
   Trash2, 
   Star, 
   CheckCircle2, 
@@ -35,7 +37,8 @@ import {
   resetClassroomRulesToDefault,
   fetchClassroomRulesFromSqlite,
   syncClassroomRulesToSqlite,
-  DEFAULT_CLASSROOM_RULES 
+  DEFAULT_CLASSROOM_RULES,
+  sortStudentsVietnamese
 } from '../utils/storage';
 
 const QUICK_EMOJIS = ['🎯', '💻', '🤝', '💡', '🛡️', '🏆', '🎮', '🧃', '🪑', '📢', '🔌', '🧹', '⭐', '⚠️', '❌', '👍'];
@@ -71,55 +74,27 @@ export default function GoodScoresBoard({
     syncClassroomRulesToSqlite(updatedRules);
   };
 
-  // Danh sách nhật ký điểm tốt & điểm trừ
+  // Danh sách nhật ký điểm tốt & điểm trừ của lớp đang chọn (khởi tạo rỗng hoặc từ goodScores của lớp)
   const [meritRecords, setMeritRecords] = useState(() => {
-    return currentClass?.goodScores || [
-      {
-        id: 'gs_1',
-        studentId: 'HS301',
-        studentName: 'Nguyễn Thành Long',
-        date: new Date().toISOString().slice(0, 10),
-        type: 'positive',
-        category: 'Kỹ năng',
-        title: '💻 Thực hành xuất sắc / Về đích sớm',
-        points: 2,
-        note: 'Hoàn thành bài gõ 10 ngón đúng giờ và không sai lỗi nào.'
-      },
-      {
-        id: 'gs_2',
-        studentId: 'HS302',
-        studentName: 'Lê Thuỳ Trang',
-        date: new Date().toISOString().slice(0, 10),
-        type: 'positive',
-        category: 'Tương trợ',
-        title: '🤝 Giúp đỡ bạn cùng máy / bạn cùng tiến',
-        points: 1,
-        note: 'Nhiệt tình hướng dẫn bạn bên cạnh cách tạo thư mục cá nhân.'
-      },
-      {
-        id: 'gs_3',
-        studentId: 'HS305',
-        studentName: 'Phạm Đức Trọng',
-        date: new Date().toISOString().slice(0, 10),
-        type: 'negative',
-        category: 'Trật tự',
-        title: '📢 Làm ồn, la hét gây mất trật tự',
-        points: 1,
-        note: 'Nhắc nhở giữ im lặng để lớp thực hành tập trung.'
-      }
-    ];
+    return Array.isArray(currentClass?.goodScores) ? currentClass.goodScores : [];
   });
 
-  // Đồng bộ khi đổi lớp
+  // Đồng bộ khi đổi lớp: cập nhật ngay danh sách nhật ký của lớp mới và reset ô tìm kiếm
+  useEffect(() => {
+    setMeritRecords(Array.isArray(currentClass?.goodScores) ? currentClass.goodScores : []);
+    setSearchTerm('');
+  }, [currentClass?.id]);
+
+  // Cập nhật khi goodScores của lớp hiện tại thay đổi từ bên ngoài (tiết học, sơ đồ chỗ ngồi, v.v.)
   useEffect(() => {
     if (currentClass?.goodScores) {
-      setMeritRecords(currentClass.goodScores);
+      setMeritRecords(Array.isArray(currentClass.goodScores) ? currentClass.goodScores : []);
     }
-  }, [currentClass?.id]);
+  }, [currentClass?.goodScores]);
 
   const saveMerits = (records) => {
     setMeritRecords(records);
-    onUpdateGoodScores?.(records);
+    onUpdateGoodScores?.(records, currentClass?.id);
   };
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -137,6 +112,13 @@ export default function GoodScoresBoard({
     note: ''
   });
 
+  // Khi danh sách học sinh thay đổi do đổi lớp, cập nhật lại học sinh mặc định trong form
+  useEffect(() => {
+    if (students && students.length > 0 && !students.some(s => s.id === newRecord.studentId)) {
+      setNewRecord(prev => ({ ...prev, studentId: students[0].id }));
+    }
+  }, [students]);
+
   // Modal tạo / chỉnh sửa nội quy
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [editingRule, setEditingRule] = useState(null); // null: tạo mới, object: chỉnh sửa
@@ -148,6 +130,85 @@ export default function GoodScoresBoard({
     category: 'Thái độ',
     description: ''
   });
+
+  // Modal Bổ Sung Học Sinh Mới Nếu Thiếu
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [studentForm, setStudentForm] = useState({
+    name: '',
+    gender: 'Nam',
+    machineNumber: '',
+    dob: '',
+    stars: 0,
+    note: ''
+  });
+
+  // Mở modal bổ sung học sinh (tự động gợi ý số máy trống)
+  const handleOpenAddStudent = () => {
+    const usedMachines = new Set(students.map(s => s.machineNumber).filter(Boolean));
+    let suggestedMachine = 1;
+    while (usedMachines.has(suggestedMachine) && suggestedMachine <= 45) {
+      suggestedMachine++;
+    }
+    setStudentForm({
+      name: '',
+      gender: 'Nam',
+      machineNumber: suggestedMachine <= 45 ? suggestedMachine : '',
+      dob: '',
+      stars: 0,
+      note: ''
+    });
+    setShowAddStudentModal(true);
+  };
+
+  // Lưu học sinh mới bổ sung vào lớp
+  const handleAddStudentSubmit = (e) => {
+    e.preventDefault();
+    if (!studentForm.name.trim()) return;
+
+    let nextNum = 1;
+    students.forEach(s => {
+      const match = (s.id || '').match(/(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num >= nextNum) nextNum = num + 1;
+      }
+    });
+    if (students.length === 0) {
+      const g = currentClass?.grade || 3;
+      nextNum = g * 100 + 1;
+    }
+    const nextId = `HS${String(nextNum).padStart(3, '0')}`;
+
+    const studentToAdd = {
+      id: nextId,
+      name: studentForm.name.trim(),
+      gender: studentForm.gender || 'Nam',
+      dob: studentForm.dob?.trim() || '',
+      machineNumber: parseInt(studentForm.machineNumber, 10) || null,
+      stars: Math.max(0, parseInt(studentForm.stars, 10) || 0),
+      attendance: 'present',
+      skill_mouse: 'T',
+      skill_keyboard: 'H',
+      skill_paint: 'T',
+      eval_regular: 'T',
+      score_hk1: null,
+      score_ck: null,
+      note: studentForm.note?.trim() || ''
+    };
+
+    const updatedStudents = sortStudentsVietnamese([...students, studentToAdd]);
+    onUpdateStudents?.(updatedStudents, currentClass?.id);
+
+    // Tự động chọn học sinh vừa thêm trong form ghi nhận điểm
+    setNewRecord(prev => ({
+      ...prev,
+      studentId: studentToAdd.id
+    }));
+
+    setShowAddStudentModal(false);
+    if (soundEnabled) soundEffects.playStarDing?.();
+  };
+
 
   // Mở modal tạo nội quy mới
   const handleOpenCreateRule = (defaultType = 'positive') => {
@@ -591,6 +652,17 @@ export default function GoodScoresBoard({
           {/* Các nút hành động chính */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <button 
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleOpenAddStudent}
+              title={`Bổ sung học sinh mới vào ${currentClass?.name || 'lớp'}`}
+              style={{ fontWeight: 700, color: 'var(--primary)', borderColor: 'var(--primary)' }}
+            >
+              <UserPlus size={16} />
+              <span>Bổ Sung Học Sinh</span>
+            </button>
+
+            <button 
               className="btn btn-secondary btn-sm"
               onClick={handleExportExcel}
               title="Xuất dữ liệu ra file Excel"
@@ -652,21 +724,51 @@ export default function GoodScoresBoard({
                 </tr>
               </thead>
               <tbody>
-                {studentSummary
-                  .filter(item => item.student.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.student.id.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map((item, idx) => {
-                    const s = item.student;
-                    const isTop1 = idx === 0 && item.currentStars > 0;
-                    const isTop2 = idx === 1 && item.currentStars > 0;
-                    const isTop3 = idx === 2 && item.currentStars > 0;
+                {students.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--text-muted)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                        <Users size={42} style={{ opacity: 0.35, color: 'var(--primary)' }} />
+                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                          Lớp {currentClass?.name || ''} hiện chưa có danh sách học sinh
+                        </div>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', maxWidth: 460 }}>
+                          Thầy/cô có thể bổ sung từng học sinh mới ngay tại đây hoặc mở mục Sổ Điểm để nhập danh sách từ file Excel.
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={handleOpenAddStudent}
+                          style={{ marginTop: '0.5rem', fontWeight: 700 }}
+                        >
+                          <UserPlus size={16} />
+                          <span>Bổ Sung Học Sinh Vào {currentClass?.name}</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : studentSummary.filter(item => item.student.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.student.id.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                      Không tìm thấy học sinh nào khớp với từ khóa "{searchTerm}".
+                    </td>
+                  </tr>
+                ) : (
+                  studentSummary
+                    .filter(item => item.student.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.student.id.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map((item, idx) => {
+                      const s = item.student;
+                      const isTop1 = idx === 0 && item.currentStars > 0;
+                      const isTop2 = idx === 1 && item.currentStars > 0;
+                      const isTop3 = idx === 2 && item.currentStars > 0;
 
                     return (
                       <tr key={s.id} style={{ background: isTop1 ? 'rgba(245, 158, 11, 0.04)' : 'transparent' }}>
                         <td style={{ textAlign: 'center', fontWeight: 800 }}>
                           {isTop1 ? '🥇 1' : (isTop2 ? '🥈 2' : (isTop3 ? '🥉 3' : idx + 1))}
                         </td>
-                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                          {s.machineNumber ? `M.${s.machineNumber}` : (s.id && !String(s.id).startsWith('hs_') ? s.id : '--')}
+                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem', color: s.machineNumber ? 'var(--text-muted)' : 'var(--text-dim)' }}>
+                          {s.machineNumber ? `M.${s.machineNumber}` : '--'}
                         </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -688,6 +790,11 @@ export default function GoodScoresBoard({
                               <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>
                                 {s.name}
                               </div>
+                              {s.id && !String(s.id).startsWith('hs_') && (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500 }}>
+                                  Mã: {s.id}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -797,7 +904,7 @@ export default function GoodScoresBoard({
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
               </tbody>
             </table>
           </div>
@@ -851,7 +958,17 @@ export default function GoodScoresBoard({
                 {filteredRecords.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                      Chưa có lượt điểm tốt hoặc điểm trừ nào phù hợp.
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                        <Info size={32} style={{ opacity: 0.5, color: 'var(--text-muted)' }} />
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                          Chưa có lượt điểm tốt hoặc điểm trừ nào cho {currentClass?.name || 'lớp này'}
+                        </div>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                          {searchTerm || historyTypeFilter !== 'all' 
+                            ? 'Không tìm thấy kết quả phù hợp với bộ lọc hiện tại.' 
+                            : 'Thầy/cô có thể nhấn nút "Ghi Nhận (+ / -)" hoặc thưởng/nhắc nhở nhanh trong Bảng Thi Đua.'}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -863,11 +980,16 @@ export default function GoodScoresBoard({
                         <td style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
                           {record.date}
                         </td>
-                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                          {targetStudent?.machineNumber ? `M.${targetStudent.machineNumber}` : (record.studentId && !String(record.studentId).startsWith('hs_') ? record.studentId : '--')}
+                        <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem', color: targetStudent?.machineNumber ? 'var(--text-muted)' : 'var(--text-dim)' }}>
+                          {targetStudent?.machineNumber ? `M.${targetStudent.machineNumber}` : '--'}
                         </td>
                         <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>
-                          {record.studentName}
+                          <div>{record.studentName}</div>
+                          {record.studentId && !String(record.studentId).startsWith('hs_') && (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500 }}>
+                              Mã: {record.studentId}
+                            </div>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <span style={{
@@ -1307,21 +1429,66 @@ export default function GoodScoresBoard({
 
               {/* Chọn học sinh */}
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
-                  Học sinh áp dụng:
-                </label>
-                <select
-                  className="input-field"
-                  value={newRecord.studentId}
-                  onChange={(e) => setNewRecord({ ...newRecord, studentId: e.target.value })}
-                  required
-                >
-                  {students.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}{s.machineNumber ? ` [Máy ${s.machineNumber}]` : ''} • Đang có {s.stars || 0} ⭐
-                    </option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                  <label style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                    Học sinh áp dụng:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddStudent}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--primary)',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      padding: 0
+                    }}
+                  >
+                    <UserPlus size={13} />
+                    <span>+ Bổ sung học sinh nếu thiếu</span>
+                  </button>
+                </div>
+                {students.length === 0 ? (
+                  <div style={{
+                    padding: '0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px dashed #ef4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem'
+                  }}>
+                    <span style={{ fontSize: '0.8125rem', color: '#b91c1c', fontWeight: 600 }}>
+                      ⚠️ Lớp này chưa có học sinh nào.
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-primary"
+                      onClick={handleOpenAddStudent}
+                    >
+                      <UserPlus size={12} /> Bổ sung ngay
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    className="input-field"
+                    value={newRecord.studentId}
+                    onChange={(e) => setNewRecord({ ...newRecord, studentId: e.target.value })}
+                    required
+                  >
+                    {students.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}{s.machineNumber ? ` [Máy ${s.machineNumber}]` : ''} • Đang có {s.stars || 0} ⭐
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Chọn Quy định từ Nội quy phòng máy */}
@@ -1615,6 +1782,132 @@ export default function GoodScoresBoard({
                 <button type="submit" className="btn btn-primary" style={{ fontWeight: 800 }}>
                   <Check size={16} />
                   {editingRule ? 'Lưu Thay Đổi' : 'Tạo Quy Định'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: BỔ SUNG HỌC SINH MỚI VÀO LỚP */}
+      {showAddStudentModal && (
+        <div className="modal-overlay" onClick={() => setShowAddStudentModal(false)}>
+          <div className="modal-content" style={{ maxWidth: 500 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <UserPlus size={22} color="var(--primary)" />
+                Bổ Sung Học Sinh Vào {currentClass?.name || 'Lớp'}
+              </h3>
+              <button 
+                type="button" 
+                className="btn btn-sm btn-outline" 
+                style={{ padding: '0.2rem 0.5rem' }} 
+                onClick={() => setShowAddStudentModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStudentSubmit}>
+              {/* Họ và Tên */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                  Họ và Tên Học Sinh <span style={{ color: '#ef4444' }}>*</span>:
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ví dụ: Nguyễn Văn An"
+                  value={studentForm.name}
+                  onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              {/* Giới tính & Số máy */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                    Giới tính:
+                  </label>
+                  <select
+                    className="input-field"
+                    value={studentForm.gender}
+                    onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+                  >
+                    <option value="Nam">👦 Nam</option>
+                    <option value="Nữ">👧 Nữ</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                    Số máy phòng Tin học:
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="45"
+                    className="input-field"
+                    placeholder="VD: 1, 2..."
+                    value={studentForm.machineNumber}
+                    onChange={(e) => setStudentForm({ ...studentForm, machineNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Ngày sinh & Sao khởi đầu */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                    Ngày sinh (dd/mm/yyyy):
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="VD: 15/08/2016"
+                    value={studentForm.dob}
+                    onChange={(e) => setStudentForm({ ...studentForm, dob: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                    Quỹ sao khởi đầu:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className="input-field"
+                    value={studentForm.stars}
+                    onChange={(e) => setStudentForm({ ...studentForm, stars: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Ghi chú */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                  Ghi chú của giáo viên:
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ghi chú về năng lực, tiếp thu..."
+                  value={studentForm.note}
+                  onChange={(e) => setStudentForm({ ...studentForm, note: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddStudentModal(false)}>
+                  Hủy bỏ
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ fontWeight: 800 }}>
+                  <UserPlus size={16} />
+                  Thêm Vào Lớp
                 </button>
               </div>
             </form>
