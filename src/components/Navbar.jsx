@@ -82,7 +82,7 @@ export default function Navbar({
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [importTargetYear, setImportTargetYear] = useState(null);
   const [showAiAssistantModal, setShowAiAssistantModal] = useState(false);
-  const [aiStatus, setAiStatus] = useState({ enabled: true, configured: false, model: 'gemini-2.5-flash' });
+  const [aiStatus, setAiStatus] = useState({ enabled: true, configured: false, model: 'gemini-3.5-flash-lite' });
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newClassName, setNewClassName] = useState('');
   const [newClassGrade, setNewClassGrade] = useState(3);

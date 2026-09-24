@@ -3706,7 +3706,7 @@ export function saveAiGenerationCache({
   feature,
   entityType = null,
   entityId = null,
-  model = 'gemini-2.5-flash',
+  model = 'gemini-3.5-flash-lite',
   inputHash,
   status = 'SUCCESS',
   result = null,

@@ -12,7 +12,7 @@ export async function fetchAiStatus() {
   } catch (err) {
     console.warn('[AI Service] Không thể kiểm tra trạng thái AI:', err.message);
   }
-  return { enabled: false, configured: false, model: 'gemini-2.5-flash' };
+  return { enabled: false, configured: false, model: 'gemini-3.5-flash-lite' };
 }
 
 export async function analyzeLessonApi(lessonId) {

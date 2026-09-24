@@ -24,8 +24,19 @@ export default function AiAssistantModal({
   onOpenLessonFlow,
   onOpenClassAnalysis
 }) {
-  const [status, setStatus] = useState({ enabled: true, configured: false, model: 'gemini-2.5-flash' });
+  const [status, setStatus] = useState({ enabled: true, configured: false, model: 'gemini-3.5-flash-lite' });
   const [checking, setChecking] = useState(true);
+
+  // Định dạng tên mô hình hiển thị trên huy hiệu tiêu đề
+  const formatModelBadge = (modelName) => {
+    if (!modelName) return 'GEMINI 3.5 FLASH LITE';
+    return modelName
+      .toUpperCase()
+      .replace(/^GEMINI[-_]/i, 'GEMINI ')
+      .replace(/[-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -102,9 +113,10 @@ export default function AiAssistantModal({
                   background: 'linear-gradient(135deg, #0284c7, #a855f7)',
                   color: '#fff',
                   padding: '0.15rem 0.6rem',
-                  borderRadius: 99
+                  borderRadius: 99,
+                  letterSpacing: '0.03em'
                 }}>
-                  GEMINI 2.5 FLASH
+                  {formatModelBadge(status.model)}
                 </span>
               </div>
               <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted, #94a3b8)' }}>
@@ -150,7 +162,7 @@ export default function AiAssistantModal({
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted, #94a3b8)' }}>
             <Cpu size={15} />
-            <span>Mô hình: <strong>{status.model || 'gemini-2.5-flash'}</strong></span>
+            <span>Mô hình: <strong style={{ color: 'var(--text-main, #f8fafc)', fontFamily: 'monospace' }}>{status.model || 'gemini-3.5-flash-lite'}</strong></span>
           </div>
         </div>
 
@@ -181,7 +193,7 @@ export default function AiAssistantModal({
                   marginTop: '0.4rem',
                   color: '#38bdf8',
                   fontSize: '0.8rem'
-                }}>GEMINI_API_KEY=AIzaSy...&#10;GEMINI_MODEL=gemini-2.5-flash&#10;GEMINI_ENABLED=true</pre>
+                }}>GEMINI_API_KEY=AIzaSy...&#10;GEMINI_MODEL=gemini-3.5-flash-lite&#10;GEMINI_ENABLED=true</pre>
                 <em>Lưu ý: Mọi chức năng cốt lõi của EduICT vẫn hoạt động bình thường kể cả khi không kích hoạt AI.</em>
               </span>
             </div>
