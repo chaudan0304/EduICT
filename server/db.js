@@ -1758,10 +1758,12 @@ export function compareVietnameseNames(a, b) {
   return idA.localeCompare(idB);
 }
 
-// Sắp xếp lại học sinh của tất cả các lớp trong CSDL SQLite theo thứ tự A-Z
-export function sortAllStudentsInDatabase(customDb = null) {
+// Sắp xếp lại học sinh của tất cả các lớp (hoặc các lớp được chỉ định) trong CSDL SQLite theo thứ tự A-Z
+export function sortAllStudentsInDatabase(customDb = null, inTransaction = false, targetClassIds = null) {
   const db = customDb || getDatabase();
-  const classes = db.prepare('SELECT id, name FROM classes;').all();
+  const classes = targetClassIds && Array.isArray(targetClassIds) && targetClassIds.length > 0
+    ? db.prepare(`SELECT id, name FROM classes WHERE id IN (${targetClassIds.map(() => '?').join(',')});`).all(...targetClassIds)
+    : db.prepare('SELECT id, name FROM classes;').all();
 
   const getStudentsStmt = db.prepare('SELECT * FROM students WHERE class_id = ?;');
   const deleteStmt = db.prepare('DELETE FROM students WHERE class_id = ?;');
@@ -1772,7 +1774,9 @@ export function sortAllStudentsInDatabase(customDb = null) {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
   `);
 
-  db.exec('BEGIN TRANSACTION;');
+  if (!inTransaction) {
+    db.exec('BEGIN TRANSACTION;');
+  }
   let totalReorderedClasses = 0;
   let totalStudentsAffected = 0;
 
@@ -1816,12 +1820,20 @@ export function sortAllStudentsInDatabase(customDb = null) {
         totalStudentsAffected += sorted.length;
       }
     }
-    db.exec('COMMIT;');
+    if (!inTransaction) {
+      db.exec('COMMIT;');
+    }
     if (totalReorderedClasses > 0) {
       console.log(`[Database] Đã sắp xếp A-Z danh sách học sinh: ${totalReorderedClasses} lớp (${totalStudentsAffected} học sinh).`);
     }
   } catch (err) {
-    db.exec('ROLLBACK;');
+    if (!inTransaction) {
+      try {
+        db.exec('ROLLBACK;');
+      } catch (rbErr) {
+        console.warn('[Database] Rollback sort students failed:', rbErr.message);
+      }
+    }
     console.error('[Database] Lỗi khi sắp xếp lại học sinh trong CSDL:', err);
     throw err;
   }
@@ -2225,8 +2237,9 @@ export function batchImportClassesAndStudents(payload) {
       sheetResults.push(sheetRes);
     }
 
-    // Sắp xếp lại học sinh các lớp vừa import theo chuẩn A-Z
-    sortAllStudentsInDatabase(db);
+    // Sắp xếp lại học sinh các lớp vừa import theo chuẩn A-Z (tận dụng transaction đang mở)
+    const affectedClassIds = sheetResults.map(r => r.classId).filter(Boolean);
+    sortAllStudentsInDatabase(db, true, affectedClassIds);
 
     db.exec('COMMIT;');
     return {
@@ -2237,7 +2250,11 @@ export function batchImportClassesAndStudents(payload) {
       sheetsSkipped: payload.sheetsSkipped !== undefined ? payload.sheetsSkipped : 0
     };
   } catch (err) {
-    db.exec('ROLLBACK;');
+    try {
+      db.exec('ROLLBACK;');
+    } catch (rbErr) {
+      console.warn('[Database] Rollback transaction batch import failed:', rbErr.message);
+    }
     throw err;
   }
 }
