@@ -308,8 +308,8 @@ export function parseExcelWorkbook(file, existingClasses = []) {
 
           // Kiểm tra lớp đã có trong cơ sở dữ liệu chưa
           const matchedClass = existingClasses.find(c =>
-            c.name.trim().toLowerCase() === trimmedSheetName.toLowerCase() ||
-            normalizeClassName(c.name) === normalizeClassName(trimmedSheetName)
+            (c.name || '').trim().toLowerCase() === trimmedSheetName.toLowerCase() ||
+            normalizeClassName(c.name || '') === normalizeClassName(trimmedSheetName)
           );
 
           const classExists = !!matchedClass;

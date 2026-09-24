@@ -50,10 +50,19 @@ export default function GoodScoresBoard({
   onOpenExchangeModal,
   soundEnabled 
 }) {
-  const students = currentClass?.students || [];
+  const students = useMemo(() => currentClass?.students || [], [currentClass?.students]);
 
   // Quản lý danh sách Nội quy phòng máy & Tiêu chí cộng/trừ điểm
   const [rules, setRules] = useState(() => getClassroomRules());
+
+  // Danh sách nhật ký điểm tốt & điểm trừ của lớp đang chọn (khởi tạo rỗng hoặc từ goodScores của lớp)
+  const [meritRecords, setMeritRecords] = useState(() => {
+    return Array.isArray(currentClass?.goodScores) ? currentClass.goodScores : [];
+  });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState('all'); // 'all' | 'positive' | 'negative'
+  const [activeTab, setActiveTab] = useState('summary'); // 'summary' | 'history' | 'rules'
 
   // Đồng bộ nội quy từ SQLite khi khởi động
   useEffect(() => {
@@ -74,16 +83,11 @@ export default function GoodScoresBoard({
     syncClassroomRulesToSqlite(updatedRules);
   };
 
-  // Danh sách nhật ký điểm tốt & điểm trừ của lớp đang chọn (khởi tạo rỗng hoặc từ goodScores của lớp)
-  const [meritRecords, setMeritRecords] = useState(() => {
-    return Array.isArray(currentClass?.goodScores) ? currentClass.goodScores : [];
-  });
-
   // Đồng bộ khi đổi lớp: cập nhật ngay danh sách nhật ký của lớp mới và reset ô tìm kiếm
   useEffect(() => {
     setMeritRecords(Array.isArray(currentClass?.goodScores) ? currentClass.goodScores : []);
     setSearchTerm('');
-  }, [currentClass?.id]);
+  }, [currentClass?.id, currentClass?.goodScores]);
 
   // Cập nhật khi goodScores của lớp hiện tại thay đổi từ bên ngoài (tiết học, sơ đồ chỗ ngồi, v.v.)
   useEffect(() => {
@@ -96,10 +100,6 @@ export default function GoodScoresBoard({
     setMeritRecords(records);
     onUpdateGoodScores?.(records, currentClass?.id);
   };
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [historyTypeFilter, setHistoryTypeFilter] = useState('all'); // 'all' | 'positive' | 'negative'
-  const [activeTab, setActiveTab] = useState('summary'); // 'summary' | 'history' | 'rules'
 
   // Modal ghi nhận điểm tốt / điểm trừ
   const [showAddModal, setShowAddModal] = useState(false);
@@ -304,7 +304,8 @@ export default function GoodScoresBoard({
   const studentSummary = useMemo(() => {
     const map = {};
     students.forEach(s => {
-      map[s.id] = {
+      const key = String(s.id || '').trim();
+      map[key] = {
         student: s,
         currentStars: s.stars || 0,
         positiveCount: 0,
@@ -313,15 +314,19 @@ export default function GoodScoresBoard({
       };
     });
 
-    meritRecords.forEach(rec => {
-      if (map[rec.studentId]) {
+    (meritRecords || []).forEach(rec => {
+      const key = String(rec?.studentId || '').trim();
+      if (map[key]) {
         if (rec.type === 'negative') {
-          map[rec.studentId].negativeCount += 1;
+          map[key].negativeCount += 1;
         } else {
-          map[rec.studentId].positiveCount += 1;
+          map[key].positiveCount += 1;
         }
-        if (!map[rec.studentId].lastRecord || new Date(rec.date) >= new Date(map[rec.studentId].lastRecord.date)) {
-          map[rec.studentId].lastRecord = rec;
+        const recTime = rec?.date ? new Date(rec.date).getTime() : (rec?.timestamp ? new Date(rec.timestamp).getTime() : 0);
+        const lastRec = map[key].lastRecord;
+        const lastTime = lastRec ? (lastRec.date ? new Date(lastRec.date).getTime() : (lastRec.timestamp ? new Date(lastRec.timestamp).getTime() : 0)) : -1;
+        if (recTime >= lastTime) {
+          map[key].lastRecord = rec;
         }
       }
     });
@@ -462,16 +467,19 @@ export default function GoodScoresBoard({
 
   // Xuất file Excel
   const handleExportExcel = () => {
-    const data = meritRecords.map((r, idx) => ({
-      'STT': idx + 1,
-      'Ngày': r.date,
-      'Mã HS': r.studentId,
-      'Họ và Tên': r.studentName,
-      'Loại': r.type === 'positive' ? 'Điểm tốt / Khen thưởng (+)' : 'Điểm trừ / Nhắc nhở (-)',
-      'Nội Quy / Lý Do': r.title,
-      'Số Sao Thay Đổi': r.type === 'positive' ? `+${r.points}` : `-${r.points}`,
-      'Ghi Chú': r.note || ''
-    }));
+    const data = (meritRecords || []).map((r, idx) => {
+      const targetStudent = students.find(s => String(s.id).trim() === String(r.studentId).trim());
+      return {
+        'STT': idx + 1,
+        'Ngày': r.date || (r.timestamp ? r.timestamp.slice(0, 10) : ''),
+        'Mã HS': r.studentId || '',
+        'Họ và Tên': r.studentName || targetStudent?.name || 'Học sinh',
+        'Loại': r.type === 'positive' ? 'Điểm tốt / Khen thưởng (+)' : 'Điểm trừ / Nhắc nhở (-)',
+        'Nội Quy / Lý Do': r.title || 'Khen thưởng / nhắc nhở',
+        'Số Sao Thay Đổi': r.type === 'positive' ? `+${r.points || 1}` : `-${r.points || 1}`,
+        'Ghi Chú': r.note || ''
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
@@ -494,14 +502,34 @@ export default function GoodScoresBoard({
 
   // Lọc nhật ký
   const filteredRecords = useMemo(() => {
-    return meritRecords.filter(r => {
-      const matchSearch = r.studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          r.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          r.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const q = (searchTerm || '').trim().toLowerCase();
+    return (meritRecords || []).filter(r => {
+      if (!r) return false;
+      const targetStudent = students.find(s => String(s.id).trim() === String(r.studentId).trim());
+      const studentName = String(r.studentName || targetStudent?.name || '').toLowerCase();
+      const studentId = String(r.studentId || '').toLowerCase();
+      const title = String(r.title || '').toLowerCase();
+      const note = String(r.note || '').toLowerCase();
+
+      const matchSearch = !q || studentName.includes(q) || studentId.includes(q) || title.includes(q) || note.includes(q);
       const matchType = historyTypeFilter === 'all' || r.type === historyTypeFilter;
       return matchSearch && matchType;
     });
-  }, [meritRecords, searchTerm, historyTypeFilter]);
+  }, [meritRecords, searchTerm, historyTypeFilter, students]);
+
+  // Lọc bảng tổng kết thi đua học sinh theo từ khóa tìm kiếm
+  const filteredStudentSummary = useMemo(() => {
+    const q = (searchTerm || '').trim().toLowerCase();
+    if (!q) return studentSummary;
+    return studentSummary.filter(item => {
+      const s = item?.student;
+      if (!s) return false;
+      const name = String(s.name || '').toLowerCase();
+      const id = String(s.id || '').toLowerCase();
+      const machine = s.machineNumber ? `máy ${s.machineNumber}` : '';
+      return name.includes(q) || id.includes(q) || machine.includes(q);
+    });
+  }, [studentSummary, searchTerm]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -747,15 +775,14 @@ export default function GoodScoresBoard({
                       </div>
                     </td>
                   </tr>
-                ) : studentSummary.filter(item => item.student.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.student.id.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                ) : filteredStudentSummary.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                       Không tìm thấy học sinh nào khớp với từ khóa "{searchTerm}".
                     </td>
                   </tr>
                 ) : (
-                  studentSummary
-                    .filter(item => item.student.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.student.id.toLowerCase().includes(searchTerm.toLowerCase()))
+                  filteredStudentSummary
                     .map((item, idx) => {
                       const s = item.student;
                       const isTop1 = idx === 0 && item.currentStars > 0;
@@ -974,17 +1001,17 @@ export default function GoodScoresBoard({
                 ) : (
                   filteredRecords.map((record) => {
                     const isPos = record.type !== 'negative';
-                    const targetStudent = students.find(s => s.id === record.studentId);
+                    const targetStudent = students.find(s => String(s.id).trim() === String(record.studentId).trim());
                     return (
-                      <tr key={record.id}>
+                      <tr key={record.id || `${record.studentId}_${record.date}_${record.title}`}>
                         <td style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                          {record.date}
+                          {record.date || (record.timestamp ? record.timestamp.slice(0, 10) : '--')}
                         </td>
                         <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '0.8125rem', color: targetStudent?.machineNumber ? 'var(--text-muted)' : 'var(--text-dim)' }}>
                           {targetStudent?.machineNumber ? `M.${targetStudent.machineNumber}` : '--'}
                         </td>
                         <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>
-                          <div>{record.studentName}</div>
+                          <div>{record.studentName || targetStudent?.name || 'Học sinh'}</div>
                           {record.studentId && !String(record.studentId).startsWith('hs_') && (
                             <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500 }}>
                               Mã: {record.studentId}

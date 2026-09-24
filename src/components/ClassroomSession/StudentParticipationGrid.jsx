@@ -65,10 +65,10 @@ export default function StudentParticipationGrid({
   // Lọc và sắp xếp danh sách học sinh
   const filteredStudents = useMemo(() => {
     const list = students.filter(s => {
-      const sId = String(s.id).trim();
-      const q = searchTerm.toLowerCase().trim();
+      const sId = String(s?.id || '').trim();
+      const q = (searchTerm || '').toLowerCase().trim();
       const matchSearch = !q ||
-                          s.name.toLowerCase().includes(q) ||
+                          String(s?.name || '').toLowerCase().includes(q) ||
                           sId.toLowerCase().includes(q) ||
                           (s.machineNumber && `máy ${s.machineNumber}`.includes(q)) ||
                           (s.machineNumber && String(s.machineNumber).includes(q));

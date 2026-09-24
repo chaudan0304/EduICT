@@ -403,13 +403,16 @@ export default function PresentationView({
       const merit = {
         id: `gs_${Date.now()}`,
         studentId: target.id,
+        studentName: target.name,
+        date: new Date().toISOString().slice(0, 10),
         ruleId: 'rule_pos_1',
         type: 'positive',
         points: starCount,
+        scoreChange: starCount,
         title: `Phát biểu trong bài: ${activeLesson?.title || 'Slide'}`,
         timestamp: new Date().toISOString()
       };
-      const existingMerits = currentClass.goodScores || [];
+      const existingMerits = currentClass?.goodScores || [];
       onUpdateGoodScores([merit, ...existingMerits]);
     }
 

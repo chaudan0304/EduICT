@@ -179,8 +179,8 @@ export default function ImportExcelModal({
       const newGrade = detectGradeFromName(trimmed) || nextSheets[index].grade || 3;
       
       const matchedClass = existingClasses.find(c =>
-        c.name.trim().toLowerCase() === trimmed.toLowerCase() ||
-        normalizeClassName(c.name) === normalizeClassName(trimmed)
+        (c.name || '').trim().toLowerCase() === trimmed.toLowerCase() ||
+        normalizeClassName(c.name || '') === normalizeClassName(trimmed)
       );
 
       nextSheets[index] = {

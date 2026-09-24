@@ -222,10 +222,11 @@ export default function App() {
   const handleUpdateGoodScores = (updatedGoodScores, targetClassId = null) => {
     const classIdToUpdate = targetClassId || currentClass?.id;
     if (!classIdToUpdate) return;
+    const safeScores = Array.isArray(updatedGoodScores) ? updatedGoodScores : [];
     setClasses(prevClasses => {
       const nextClasses = prevClasses.map(c => {
         if (c.id === classIdToUpdate) {
-          return { ...c, goodScores: updatedGoodScores };
+          return { ...c, goodScores: safeScores };
         }
         return c;
       });
@@ -234,7 +235,7 @@ export default function App() {
     });
     const targetClass = classes.find(c => c.id === classIdToUpdate) || currentClass;
     if (targetClass) {
-      syncClassToSqlite({ ...targetClass, goodScores: updatedGoodScores });
+      syncClassToSqlite({ ...targetClass, goodScores: safeScores });
     }
   };
 

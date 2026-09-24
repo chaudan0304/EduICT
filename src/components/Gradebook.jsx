@@ -126,10 +126,11 @@ export default function Gradebook({
 
   // Lọc học sinh
   const filteredStudents = useMemo(() => {
+    const q = (searchTerm || '').trim().toLowerCase();
     return students.filter(s => {
-      const q = searchTerm.toLowerCase();
-      const matchSearch = s.name.toLowerCase().includes(q) || 
-                          s.id.toLowerCase().includes(q) ||
+      const matchSearch = !q ||
+                          String(s.name || '').toLowerCase().includes(q) || 
+                          String(s.id || '').toLowerCase().includes(q) ||
                           (s.machineNumber && `máy ${s.machineNumber}`.includes(q)) ||
                           (s.machineNumber && String(s.machineNumber).includes(q));
       const matchGender = genderFilter === 'all' || s.gender === genderFilter;

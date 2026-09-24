@@ -202,7 +202,7 @@ export default function SeatingChart({
   const filteredUnassignedStudents = useMemo(() => {
     if (!unassignedSearch.trim()) return unassignedStudents;
     const q = unassignedSearch.toLowerCase().trim();
-    return unassignedStudents.filter(s => s.name.toLowerCase().includes(q));
+    return unassignedStudents.filter(s => String(s?.name || '').toLowerCase().includes(q));
   }, [unassignedStudents, unassignedSearch]);
 
   // Xóa toàn bộ chỗ ngồi hiện tại của lớp (đưa về trạng thái chưa xếp)
