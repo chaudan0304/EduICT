@@ -27,7 +27,10 @@ import {
   Minus,
   Check,
   Flame,
-  Info
+  Info,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { soundEffects } from '../utils/audio';
@@ -40,6 +43,7 @@ import {
   DEFAULT_CLASSROOM_RULES,
   sortStudentsVietnamese
 } from '../utils/storage';
+import { compareVietnameseNames } from '../utils/vietnameseSort';
 
 const QUICK_EMOJIS = ['🎯', '💻', '🤝', '💡', '🛡️', '🏆', '🎮', '🧃', '🪑', '📢', '🔌', '🧹', '⭐', '⚠️', '❌', '👍'];
 
@@ -63,6 +67,7 @@ export default function GoodScoresBoard({
   const [searchTerm, setSearchTerm] = useState('');
   const [historyTypeFilter, setHistoryTypeFilter] = useState('all'); // 'all' | 'positive' | 'negative'
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' | 'history' | 'rules'
+  const [sortMode, setSortMode] = useState('stars_desc'); // 'stars_desc' | 'stars_asc' | 'name_asc' | 'name_desc'
 
   // Đồng bộ nội quy từ SQLite khi khởi động
   useEffect(() => {
@@ -142,6 +147,17 @@ export default function GoodScoresBoard({
     note: ''
   });
 
+  // Modal Chỉnh Sửa Thông Tin Học Sinh
+  const [showEditStudentModal, setShowEditStudentModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editStudentForm, setEditStudentForm] = useState({
+    name: '',
+    gender: 'Nam',
+    machineNumber: '',
+    dob: '',
+    note: ''
+  });
+
   // Mở modal bổ sung học sinh (tự động gợi ý số máy trống)
   const handleOpenAddStudent = () => {
     const usedMachines = new Set(students.map(s => s.machineNumber).filter(Boolean));
@@ -207,6 +223,44 @@ export default function GoodScoresBoard({
 
     setShowAddStudentModal(false);
     if (soundEnabled) soundEffects.playStarDing?.();
+  };
+
+  // Mở modal chỉnh sửa thông tin học sinh
+  const handleOpenEditStudent = (student) => {
+    setEditingStudent(student);
+    setEditStudentForm({
+      name: student.name || '',
+      gender: student.gender || 'Nam',
+      machineNumber: student.machineNumber || '',
+      dob: student.dob || '',
+      note: student.note || ''
+    });
+    setShowEditStudentModal(true);
+  };
+
+  // Lưu thông tin chỉnh sửa học sinh
+  const handleEditStudentSubmit = (e) => {
+    e.preventDefault();
+    if (!editingStudent || !editStudentForm.name.trim()) return;
+
+    const updatedStudents = students.map(s => {
+      if (s.id === editingStudent.id) {
+        return {
+          ...s,
+          name: editStudentForm.name.trim(),
+          gender: editStudentForm.gender || 'Nam',
+          machineNumber: parseInt(editStudentForm.machineNumber, 10) || null,
+          dob: editStudentForm.dob?.trim() || '',
+          note: editStudentForm.note?.trim() || ''
+        };
+      }
+      return s;
+    });
+
+    const sorted = sortStudentsVietnamese(updatedStudents);
+    onUpdateStudents?.(sorted, currentClass?.id);
+    setShowEditStudentModal(false);
+    setEditingStudent(null);
   };
 
 
@@ -300,7 +354,7 @@ export default function GoodScoresBoard({
   const positiveRules = useMemo(() => rules.filter(r => r.type === 'positive'), [rules]);
   const negativeRules = useMemo(() => rules.filter(r => r.type === 'negative'), [rules]);
 
-  // Tính tổng điểm tốt / sao thi đua cho từng học sinh
+  // Tính tổng điểm tốt / điểm trừ / sao thi đua cho từng học sinh
   const studentSummary = useMemo(() => {
     const map = {};
     students.forEach(s => {
@@ -308,6 +362,8 @@ export default function GoodScoresBoard({
       map[key] = {
         student: s,
         currentStars: s.stars || 0,
+        positiveStars: 0,
+        negativeStars: 0,
         positiveCount: 0,
         negativeCount: 0,
         lastRecord: null
@@ -317,10 +373,13 @@ export default function GoodScoresBoard({
     (meritRecords || []).forEach(rec => {
       const key = String(rec?.studentId || '').trim();
       if (map[key]) {
+        const pts = Math.max(1, parseInt(rec.points, 10) || 1);
         if (rec.type === 'negative') {
           map[key].negativeCount += 1;
+          map[key].negativeStars += pts;
         } else {
           map[key].positiveCount += 1;
+          map[key].positiveStars += pts;
         }
         const recTime = rec?.date ? new Date(rec.date).getTime() : (rec?.timestamp ? new Date(rec.timestamp).getTime() : 0);
         const lastRec = map[key].lastRecord;
@@ -517,19 +576,40 @@ export default function GoodScoresBoard({
     });
   }, [meritRecords, searchTerm, historyTypeFilter, students]);
 
-  // Lọc bảng tổng kết thi đua học sinh theo từ khóa tìm kiếm
+  // Lọc bảng tổng kết thi đua học sinh theo từ khóa tìm kiếm + sắp xếp theo chế độ
   const filteredStudentSummary = useMemo(() => {
     const q = (searchTerm || '').trim().toLowerCase();
-    if (!q) return studentSummary;
-    return studentSummary.filter(item => {
-      const s = item?.student;
-      if (!s) return false;
-      const name = String(s.name || '').toLowerCase();
-      const id = String(s.id || '').toLowerCase();
-      const machine = s.machineNumber ? `máy ${s.machineNumber}` : '';
-      return name.includes(q) || id.includes(q) || machine.includes(q);
-    });
-  }, [studentSummary, searchTerm]);
+    let result = studentSummary;
+    if (q) {
+      result = result.filter(item => {
+        const s = item?.student;
+        if (!s) return false;
+        const name = String(s.name || '').toLowerCase();
+        const id = String(s.id || '').toLowerCase();
+        const machine = s.machineNumber ? `máy ${s.machineNumber}` : '';
+        return name.includes(q) || id.includes(q) || machine.includes(q);
+      });
+    }
+
+    // Sắp xếp theo chế độ đã chọn
+    const sorted = [...result];
+    switch (sortMode) {
+      case 'name_asc':
+        sorted.sort((a, b) => compareVietnameseNames(a.student, b.student));
+        break;
+      case 'name_desc':
+        sorted.sort((a, b) => compareVietnameseNames(b.student, a.student));
+        break;
+      case 'stars_asc':
+        sorted.sort((a, b) => a.currentStars - b.currentStars);
+        break;
+      case 'stars_desc':
+      default:
+        sorted.sort((a, b) => b.currentStars - a.currentStars);
+        break;
+    }
+    return sorted;
+  }, [studentSummary, searchTerm, sortMode]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -743,12 +823,42 @@ export default function GoodScoresBoard({
                 <tr>
                   <th style={{ width: 60, textAlign: 'center' }}>Hạng</th>
                   <th style={{ width: 85, textAlign: 'center' }}>Số Máy</th>
-                  <th style={{ minWidth: 200 }}>Họ và Tên</th>
-                  <th style={{ width: 140, textAlign: 'center', color: '#d97706' }}>Sao Thi Đua</th>
+                  <th 
+                    style={{ minWidth: 200, cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => setSortMode(prev => prev === 'name_asc' ? 'name_desc' : 'name_asc')}
+                    title="Sắp xếp theo tên"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      Họ và Tên
+                      {sortMode === 'name_asc' ? (
+                        <ArrowUp size={14} style={{ color: '#6366f1' }} />
+                      ) : sortMode === 'name_desc' ? (
+                        <ArrowDown size={14} style={{ color: '#6366f1' }} />
+                      ) : (
+                        <ArrowUpDown size={13} style={{ opacity: 0.35 }} />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ width: 140, textAlign: 'center', color: '#d97706', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => setSortMode(prev => prev === 'stars_desc' ? 'stars_asc' : 'stars_desc')}
+                    title="Sắp xếp theo sao"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                      Sao Thi Đua
+                      {sortMode === 'stars_desc' ? (
+                        <ArrowDown size={14} style={{ color: '#d97706' }} />
+                      ) : sortMode === 'stars_asc' ? (
+                        <ArrowUp size={14} style={{ color: '#d97706' }} />
+                      ) : (
+                        <ArrowUpDown size={13} style={{ opacity: 0.35 }} />
+                      )}
+                    </div>
+                  </th>
                   <th style={{ width: 120, textAlign: 'center', color: '#10b981' }}>Điểm Tốt (+)</th>
                   <th style={{ width: 120, textAlign: 'center', color: '#ef4444' }}>Điểm Trừ (-)</th>
+                  <th style={{ width: 180, textAlign: 'center' }}>Thao Tác Nhanh</th>
                   <th style={{ minWidth: 240 }}>Lần Ghi Nhận Gần Nhất</th>
-                  <th style={{ width: 190, textAlign: 'center' }}>Thao Tác Nhanh</th>
                 </tr>
               </thead>
               <tbody>
@@ -799,34 +909,50 @@ export default function GoodScoresBoard({
                         </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                            <div style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: '50%',
-                              background: s.gender === 'Nữ' ? '#fdf2f8' : '#eff6ff',
-                              color: s.gender === 'Nữ' ? '#db2777' : '#2563eb',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.8125rem',
-                              fontWeight: 700
-                            }}>
+                            <div 
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: '50%',
+                                background: s.gender === 'Nữ' ? '#fdf2f8' : '#eff6ff',
+                                color: s.gender === 'Nữ' ? '#db2777' : '#2563eb',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.8125rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: '2px solid transparent',
+                                transition: 'border-color 0.2s, box-shadow 0.2s'
+                              }}
+                              onClick={() => handleOpenEditStudent(s)}
+                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = s.gender === 'Nữ' ? '#db2777' : '#2563eb'; e.currentTarget.style.boxShadow = '0 0 0 3px ' + (s.gender === 'Nữ' ? 'rgba(219,39,119,0.15)' : 'rgba(37,99,235,0.15)'); }}
+                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.boxShadow = 'none'; }}
+                              title={`Sửa thông tin ${s.name}`}
+                            >
                               {s.name.trim().split(' ').pop()?.[0] || 'H'}
                             </div>
                             <div>
                               <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>
                                 {s.name}
                               </div>
-                              {s.id && !String(s.id).startsWith('hs_') && (
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500 }}>
-                                  Mã: {s.id}
-                                </div>
-                              )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                {s.id && !String(s.id).startsWith('hs_') && (
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500 }}>
+                                    Mã: {s.id}
+                                  </span>
+                                )}
+                                {s.dob && (
+                                  <span style={{ fontSize: '0.72rem', color: '#8b5cf6', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                                    🎂 {s.dob}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Tổng Sao Hiện Có */}
+                        {/* Sao Thi Đua = số sao cuối cùng */}
                         <td style={{ textAlign: 'center' }}>
                           <span style={{
                             display: 'inline-flex',
@@ -843,37 +969,14 @@ export default function GoodScoresBoard({
                           </span>
                         </td>
 
-                        {/* Số Lượt Khen Thưởng */}
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: '#10b981' }}>
-                          +{item.positiveCount}
+                        {/* Điểm Tốt (+) = tổng sao được cộng */}
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: item.positiveStars > 0 ? '#10b981' : 'var(--text-dim)' }}>
+                          {item.positiveStars > 0 ? `+${item.positiveStars}` : '0'}
                         </td>
 
-                        {/* Số Lượt Nhắc Nhở */}
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: item.negativeCount > 0 ? '#ef4444' : 'var(--text-dim)' }}>
-                          {item.negativeCount > 0 ? `-${item.negativeCount}` : '0'}
-                        </td>
-
-                        {/* Lần ghi gần nhất */}
-                        <td>
-                          {item.lastRecord ? (
-                            <div style={{ fontSize: '0.8125rem' }}>
-                              <span style={{
-                                fontWeight: 700,
-                                color: item.lastRecord.type === 'negative' ? '#ef4444' : '#10b981'
-                              }}>
-                                {item.lastRecord.title}
-                              </span>
-                              {item.lastRecord.note && (
-                                <span style={{ color: 'var(--text-muted)', marginLeft: '0.35rem' }}>
-                                  — "{item.lastRecord.note}"
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: 'var(--text-dim)', fontSize: '0.8125rem', fontStyle: 'italic' }}>
-                              Chưa có ghi nhận
-                            </span>
-                          )}
+                        {/* Điểm Trừ (-) = tổng sao bị trừ */}
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: item.negativeStars > 0 ? '#ef4444' : 'var(--text-dim)' }}>
+                          {item.negativeStars > 0 ? `-${item.negativeStars}` : '0'}
                         </td>
 
                         {/* Thao Tác Nhanh */}
@@ -928,6 +1031,29 @@ export default function GoodScoresBoard({
                               ⚖️ Ghi điểm
                             </button>
                           </div>
+                        </td>
+
+                        {/* Lần ghi gần nhất */}
+                        <td>
+                          {item.lastRecord ? (
+                            <div style={{ fontSize: '0.8125rem' }}>
+                              <span style={{
+                                fontWeight: 700,
+                                color: item.lastRecord.type === 'negative' ? '#ef4444' : '#10b981'
+                              }}>
+                                {item.lastRecord.title}
+                              </span>
+                              {item.lastRecord.note && (
+                                <span style={{ color: 'var(--text-muted)', marginLeft: '0.35rem' }}>
+                                  — "{item.lastRecord.note}"
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-dim)', fontSize: '0.8125rem', fontStyle: 'italic' }}>
+                              Chưa có ghi nhận
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1935,6 +2061,133 @@ export default function GoodScoresBoard({
                 <button type="submit" className="btn btn-primary" style={{ fontWeight: 800 }}>
                   <UserPlus size={16} />
                   Thêm Vào Lớp
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: CHỈNH SỬA THÔNG TIN HỌC SINH */}
+      {showEditStudentModal && editingStudent && (
+        <div className="modal-overlay" onClick={() => setShowEditStudentModal(false)}>
+          <div className="modal-content" style={{ maxWidth: 500 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Edit2 size={22} color="#6366f1" />
+                Chỉnh Sửa Thông Tin Học Sinh
+              </h3>
+              <button 
+                type="button" 
+                className="btn btn-sm btn-outline" 
+                style={{ padding: '0.2rem 0.5rem' }} 
+                onClick={() => setShowEditStudentModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEditStudentSubmit}>
+              {/* Họ và Tên */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                  Họ và Tên Học Sinh <span style={{ color: '#ef4444' }}>*</span>:
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ví dụ: Nguyễn Văn An"
+                  value={editStudentForm.name}
+                  onChange={(e) => setEditStudentForm({ ...editStudentForm, name: e.target.value })}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              {/* Giới tính & Số máy */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                    Giới tính:
+                  </label>
+                  <select
+                    className="input-field"
+                    value={editStudentForm.gender}
+                    onChange={(e) => setEditStudentForm({ ...editStudentForm, gender: e.target.value })}
+                  >
+                    <option value="Nam">👦 Nam</option>
+                    <option value="Nữ">👧 Nữ</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                    Số máy phòng Tin học:
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="45"
+                    className="input-field"
+                    placeholder="VD: 1, 2..."
+                    value={editStudentForm.machineNumber}
+                    onChange={(e) => setEditStudentForm({ ...editStudentForm, machineNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Ngày sinh */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                  Ngày sinh (dd/mm/yyyy):
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="VD: 15/08/2016"
+                  value={editStudentForm.dob}
+                  onChange={(e) => setEditStudentForm({ ...editStudentForm, dob: e.target.value })}
+                />
+              </div>
+
+              {/* Ghi chú */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
+                  Ghi chú của giáo viên:
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ghi chú về năng lực, tiếp thu..."
+                  value={editStudentForm.note}
+                  onChange={(e) => setEditStudentForm({ ...editStudentForm, note: e.target.value })}
+                />
+              </div>
+
+              {/* Thông tin Mã HS (chỉ hiển thị, không sửa) */}
+              {editingStudent.id && (
+                <div style={{ 
+                  marginBottom: '1.25rem', 
+                  padding: '0.6rem 0.8rem', 
+                  background: 'var(--surface-secondary)', 
+                  borderRadius: 'var(--radius-md)', 
+                  fontSize: '0.8125rem', 
+                  color: 'var(--text-muted)' 
+                }}>
+                  📋 Mã học sinh: <strong style={{ color: 'var(--text-main)' }}>{editingStudent.id}</strong>
+                  {editingStudent.stars !== undefined && (
+                    <span style={{ marginLeft: '1rem' }}>⭐ Sao hiện có: <strong style={{ color: '#d97706' }}>{editingStudent.stars || 0}</strong></span>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditStudentModal(false)}>
+                  Hủy bỏ
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ fontWeight: 800 }}>
+                  <Check size={16} />
+                  Lưu Thay Đổi
                 </button>
               </div>
             </form>
