@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { 
+import { applyCorsHeaders } from './services/corsConfig.js';
+import {
   getAllClassesWithStudents, 
   getStudentStatistics,
   saveOrUpdateClass, 
@@ -159,10 +160,8 @@ export async function handleApiRequest(req, res) {
   const pathname = url.pathname;
   const method = req.method.toUpperCase();
 
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // CORS headers (Part 12: config-driven, mặc định '*' giữ nguyên hành vi WEB)
+  applyCorsHeaders(res, req.headers.origin);
 
   if (method === 'OPTIONS') {
     res.statusCode = 204;
