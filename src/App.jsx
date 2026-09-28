@@ -1,21 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import DialogService from './services/DialogService';
 import StorageService from './services/StorageService';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
-import Gradebook from './components/Gradebook';
-import DuckRace from './components/DuckRace';
-import LuckyWheel from './components/LuckyWheel';
-import SeatingChart from './components/SeatingChart';
-import RewardShop from './components/RewardShop';
 import ClassroomTimer from './components/ClassroomTimer';
-import GoodScoresBoard from './components/GoodScoresBoard';
 import HomeDashboard from './components/HomeDashboard';
 import NewSchoolYearDetectedModal from './components/NewSchoolYearDetectedModal';
-import SessionManager from './components/ClassroomSession/SessionManager';
-import LessonManager from './components/LessonPresentation/LessonManager';
-import QuickQuizManager from './components/QuickQuiz/QuickQuizManager';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// Part F (Giai đoạn 1B) — Code splitting: các tab NẶNG tải theo yêu cầu (React.lazy).
+// Vỏ ứng dụng (Navbar/Sidebar/HomeDashboard/ClassroomTimer/modal năm học) giữ eager
+// để hiện NGAY. Chỉ tách các manager lớn thành chunk riêng → giảm bundle khởi động.
+// Mỗi component đích đều là `export default` (đã kiểm chứng) nên lazy() dùng trực tiếp.
+const Gradebook = lazy(() => import('./components/Gradebook'));
+const DuckRace = lazy(() => import('./components/DuckRace'));
+const LuckyWheel = lazy(() => import('./components/LuckyWheel'));
+const SeatingChart = lazy(() => import('./components/SeatingChart'));
+const RewardShop = lazy(() => import('./components/RewardShop'));
+const GoodScoresBoard = lazy(() => import('./components/GoodScoresBoard'));
+const SessionManager = lazy(() => import('./components/ClassroomSession/SessionManager'));
+const LessonManager = lazy(() => import('./components/LessonPresentation/LessonManager'));
+const QuickQuizManager = lazy(() => import('./components/QuickQuiz/QuickQuizManager'));
 import { getActiveOngoingSession } from './components/ClassroomSession/sessionStorage';
 import { 
   getStoredClasses, 
@@ -607,6 +612,28 @@ export default function App() {
             </div>
           )}
 
+          <Suspense fallback={
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.85rem',
+              padding: '4rem 1rem',
+              color: 'var(--text-muted)'
+            }}>
+              <div style={{
+                width: 40,
+                height: 40,
+                border: '4px solid var(--surface-border, #e2e8f0)',
+                borderTopColor: 'var(--primary, #0284c7)',
+                borderRadius: '50%',
+                animation: 'eduict-spin 0.8s linear infinite'
+              }} />
+              <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Đang tải chức năng…</div>
+              <style>{'@keyframes eduict-spin { to { transform: rotate(360deg); } }'}</style>
+            </div>
+          }>
           {activeTab === 'home' && (
             <HomeDashboard
               classes={classes}
@@ -707,6 +734,7 @@ export default function App() {
               soundEnabled={soundEnabled}
             />
           )}
+          </Suspense>
         </main>
       </ErrorBoundary>
 

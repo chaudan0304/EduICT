@@ -30,6 +30,41 @@ const CACHE_DIR = path.join(UPLOADS_DIR, 'cache');
 const RENDERER_SCRIPT = pathService.getRendererScript();
 const FALLBACK_SCRIPT = pathService.getFallbackRendererScript();
 
+// ============================================================================
+// COM SERIALIZATION MUTEX (Giai đoạn 1B — Phần B)
+// ----------------------------------------------------------------------------
+// PowerPoint tự động hóa qua COM KHÔNG an toàn khi chạy song song: mở 2 tiến
+// trình PowerPoint.exe COM cùng lúc gây race condition / treo / hỏng PDF.
+// Vì vậy ta serial hóa RIÊNG bước COM bằng một hàng đợi promise-chain: mỗi lời
+// gọi withComLock() chờ lời gọi COM trước đó KẾT THÚC (thành công HAY thất bại)
+// rồi mới chạy. Phần còn lại của pipeline (LibreOffice, PyMuPDF/Python) VẪN giữ
+// nguyên concurrency của PptxBackgroundQueue (MAX_CONCURRENT_PPTX_RENDER).
+//
+// An toàn:
+//   - Không nuốt lỗi: promise trả về phản ánh đúng kết quả/khước từ của fn.
+//   - Không deadlock: mỗi hàm COM chỉ giữ khóa trong đúng 1 lần spawn và KHÔNG
+//     gọi lồng một hàm COM khác khi đang giữ khóa (các bước COM là await tuần tự).
+//   - Lỗi/timeout của fn không làm đứng hàng đợi (chain tiếp tục ở cả 2 nhánh).
+let comLockChain = Promise.resolve();
+let comLockActive = 0;   // số job COM đang chạy (bất biến: luôn 0 hoặc 1)
+let comLockWaiting = 0;  // số job COM đang chờ tới lượt
+
+export function getComLockStats() {
+  return { active: comLockActive, waiting: comLockWaiting };
+}
+
+export function withComLock(fn) {
+  comLockWaiting++;
+  const run = comLockChain.then(() => {
+    comLockWaiting--;
+    comLockActive++;
+    return Promise.resolve().then(fn).finally(() => { comLockActive--; });
+  });
+  // Nối chain bất kể run thành/bại, KHÔNG đổi kết quả trả về cho caller.
+  comLockChain = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 // Đảm bảo các thư mục cần thiết tồn tại
 export function initUploadDirectories() {
   if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -152,7 +187,12 @@ export function validateImageFile(filePath) {
 }
 
 // Xuất file PowerPoint sang PDF (Giai đoạn 1 của Decoupled Pipeline)
+// Wrapper serial hóa COM (Phần B): chỉ 1 tiến trình PowerPoint COM tại một thời điểm.
 export function renderPptxToPdf(pptxPath, targetPdfPath, timeoutMs = 60000, context = {}) {
+  return withComLock(() => renderPptxToPdfImpl(pptxPath, targetPdfPath, timeoutMs, context));
+}
+
+function renderPptxToPdfImpl(pptxPath, targetPdfPath, timeoutMs = 60000, context = {}) {
   return new Promise((resolve, reject) => {
     const tStart = Date.now();
     if (!fs.existsSync(pptxPath)) {
@@ -449,9 +489,9 @@ export async function renderSingleSlideFallback({ pptxPath, pdfPath, slideNumber
     }
   }
 
-  // Phương án 2: Xuất trực tiếp slide từ PowerPoint COM
+  // Phương án 2: Xuất trực tiếp slide từ PowerPoint COM (serial hóa qua COM lock — Phần B)
   if (pptxPath && fs.existsSync(pptxPath) && process.platform === 'win32') {
-    return new Promise((resolve, reject) => {
+    return withComLock(() => new Promise((resolve, reject) => {
       const args = [
         '-NoProfile',
         '-NonInteractive',
@@ -488,14 +528,19 @@ export async function renderSingleSlideFallback({ pptxPath, pdfPath, slideNumber
           reject(e);
         }
       });
-    });
+    }));
   }
 
   throw new Error(`Không thể kết xuất slide ${slideNumber}: Thiếu cả PDF và file gốc PPTX hợp lệ.`);
 }
 
 // Gọi script PowerShell legacy all_png (giữ để tương thích)
+// Wrapper serial hóa COM (Phần B): legacy all_png cũng chạy PowerPoint COM.
 export function renderPptxWithPowerPoint(pptxPath, outputDir, timeoutMs = 60000) {
+  return withComLock(() => renderPptxWithPowerPointImpl(pptxPath, outputDir, timeoutMs));
+}
+
+function renderPptxWithPowerPointImpl(pptxPath, outputDir, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
     if (!fs.existsSync(pptxPath)) {
       return reject(new Error(`File PowerPoint không tồn tại: ${pptxPath}`));

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import StorageService from '../services/StorageService';
+import apiClient from '../services/apiClient';
 export {
   parseExcelWorkbook,
   exportAllClassesToExcel,
@@ -350,16 +351,11 @@ export async function fetchAcademicYearSettings() {
 }
 
 export async function saveAcademicYearSettings(startMonth, startDay) {
-  const res = await fetch('/api/school-year/settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ startMonth, startDay })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Lỗi máy chủ (${res.status})`);
-  }
-  return data;
+  // Part E (Giai đoạn 1B): dùng apiClient. Hành vi GIỮ NGUYÊN — thành công trả
+  // JSON đã parse ({} nếu body rỗng, như .catch(()=>({})) cũ); thất bại HTTP ném
+  // ApiError với message y hệt (data.error || "Lỗi máy chủ (<status>)"). Call-site
+  // chỉ đọc err.message nên tương thích (ApiError kế thừa Error).
+  return (await apiClient.post('/api/school-year/settings', { startMonth, startDay })) ?? {};
 }
 
 export async function checkNewSchoolYearFromSqlite() {
@@ -412,16 +408,9 @@ export async function setCurrentSchoolYearToSqlite(schoolYear) {
 }
 
 export async function transitionSchoolYearInSqlite(fromYear, toYear) {
-  const res = await fetch('/api/school-year/transition', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fromYear, toYear })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `Lỗi máy chủ (${res.status})`);
-  }
-  return data;
+  // Part E (Giai đoạn 1B): dùng apiClient. Hành vi GIỮ NGUYÊN (xem ghi chú ở
+  // saveAcademicYearSettings) — throw-on-error, message y hệt, {} nếu body rỗng.
+  return (await apiClient.post('/api/school-year/transition', { fromYear, toYear })) ?? {};
 }
 
 export async function fetchClassesFromSqlite(schoolYear = null) {
@@ -495,17 +484,10 @@ export async function sortClassStudentsInSqlite() {
 }
 
 export async function batchImportClassesToSqlite(payload) {
+  // Part E (Giai đoạn 1B): dùng apiClient. GIỮ NGUYÊN wrapper try/catch (log lỗi
+  // rồi rethrow) và message ném ra (data.error || "Lỗi máy chủ (<status>)").
   try {
-    const res = await fetch('/api/classes/batch-import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || `Lỗi máy chủ (${res.status})`);
+    return await apiClient.post('/api/classes/batch-import', payload);
   } catch (e) {
     console.error('Failed to batch import classes to SQLite:', e);
     throw e;

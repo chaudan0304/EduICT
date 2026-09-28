@@ -17,8 +17,17 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-// Trỏ DB sang file tạm TRƯỚC mọi import chạm DB.
-const TMP_DB = path.join(os.tmpdir(), `eduict_smoke_${Date.now()}.sqlite`);
+// Cô lập HOÀN TOÀN khỏi CSDL thật, TRƯỚC mọi import chạm DB.
+//
+// LƯU Ý QUAN TRỌNG: envLoader.loadEnv() ghi đè process.env bằng giá trị trong
+// .env (kể cả EDUICT_DB_PATH). Nếu chỉ set EDUICT_DB_PATH mà không chặn .env,
+// getDatabase() sẽ kết nối vào CSDL thật ghi trong .env → test ghi vào DB thật.
+// Vì vậy ta trỏ EDUICT_APP_ROOT sang thư mục tạm (không có .env) để loadEnv()
+// KHÔNG tìm thấy .env và không ghi đè, rồi trỏ EDUICT_DB_PATH sang file tạm.
+const TMP_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'eduict_smoke_'));
+const TMP_DB = path.join(TMP_ROOT, `smoke_${Date.now()}.sqlite`);
+process.env.EDUICT_APP_ROOT = TMP_ROOT;
+process.env.EDUICT_DATA_DIR = TMP_ROOT;
 process.env.EDUICT_DB_PATH = TMP_DB;
 
 // --- Part 12: corsConfig ---
@@ -86,10 +95,52 @@ test('db: validateSqlDump chặn ATTACH/load_extension/VACUUM INTO', () => {
   assert.throws(() => db.validateSqlDump(''), /trống|không hợp lệ/);
 });
 
-// Dọn file DB tạm sau khi chạy xong.
+// --- Part B (Giai đoạn 1B): COM mutex serial hóa tự động hóa PowerPoint ---
+// Không cần PowerPoint thật: chỉ kiểm chứng TÍNH CHẤT loại trừ tương hỗ của
+// withComLock (chain promise). Import động SAU khi env đã cô lập.
+const pptx = await import('../server/pptxService.js');
+
+test('pptx: withComLock chạy tuần tự, không cho 2 job COM chồng lấn', async () => {
+  let active = 0;
+  let maxActive = 0;
+  const order = [];
+  const mk = (id, ms) => pptx.withComLock(async () => {
+    active++;
+    maxActive = Math.max(maxActive, active);
+    order.push(`start:${id}`);
+    await new Promise(r => setTimeout(r, ms));
+    order.push(`end:${id}`);
+    active--;
+    return id;
+  });
+
+  // 3 job "gần như đồng thời" — mutex phải ép chúng chạy nối tiếp.
+  const results = await Promise.all([mk('a', 15), mk('b', 5), mk('c', 10)]);
+
+  assert.equal(maxActive, 1, 'KHÔNG được có 2 job COM chạy song song');
+  assert.deepEqual(results, ['a', 'b', 'c'], 'kết quả trả đúng theo từng job');
+  // FIFO: mỗi job phải end trước khi job kế tiếp start.
+  assert.deepEqual(order, [
+    'start:a', 'end:a', 'start:b', 'end:b', 'start:c', 'end:c',
+  ], 'phải theo thứ tự FIFO, không chồng lấn');
+  assert.equal(pptx.getComLockStats().active, 0, 'sau khi xong active phải về 0');
+});
+
+test('pptx: withComLock — 1 job lỗi KHÔNG làm đứng hàng đợi', async () => {
+  const p1 = pptx.withComLock(async () => { throw new Error('COM job hỏng'); });
+  await assert.rejects(p1, /COM job hỏng/, 'lỗi của job phải được truyền lại nguyên vẹn');
+
+  // Job sau vẫn phải chạy được (chain không kẹt).
+  const v = await pptx.withComLock(async () => 'ok-sau-loi');
+  assert.equal(v, 'ok-sau-loi');
+  assert.equal(pptx.getComLockStats().active, 0);
+});
+
+// Dọn file DB tạm + thư mục gốc tạm sau khi chạy xong.
 after(() => {
   for (const suffix of ['', '-wal', '-shm']) {
     try { fs.unlinkSync(TMP_DB + suffix); } catch { /* bỏ qua */ }
   }
+  try { fs.rmSync(TMP_ROOT, { recursive: true, force: true }); } catch { /* bỏ qua */ }
 });
 

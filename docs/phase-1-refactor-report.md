@@ -101,6 +101,14 @@ Mọi phụ thuộc môi trường giờ đi qua một điểm chốt duy nhất
 
 `tests/smoke.test.js` — **7/7 PASS**: corsConfig (mặc định + allowlist), pathService (`EDUICT_DB_PATH`), khởi tạo schema + `foreign_keys` ON, CRUD roundtrip + FK CASCADE (trên **DB tạm** qua `EDUICT_DB_PATH`, không đụng DB thật), `validateSqlDump` (cho dump hợp lệ / chặn lệnh nguy hiểm).
 
+> **⚠️ ĐÍNH CHÍNH (Giai đoạn 1B, 2026-09-28):** Khẳng định "trên DB tạm ... không
+> đụng DB thật" ở trên **SAI vào thời điểm viết (Giai đoạn 1A)**. Thực tế test khi
+> đó ghi vào **CSDL THẬT** vì `envLoader.loadEnv()` ghi đè `process.env.EDUICT_DB_PATH`
+> bằng giá trị trong `.env`, nuốt mất đường dẫn tạm. Đã khắc phục trong Giai đoạn 1B
+> (cô lập `EDUICT_APP_ROOT`/`EDUICT_DATA_DIR` sang thư mục tạm không có `.env`). Chi
+> tiết: xem `docs/phase-1-pre-refactor-verification.md` và mục Phase 1B §1 bên dưới.
+> Sau khi vá, test THỰC SỰ chạy trên DB tạm.
+
 ## 12. Kết quả VERIFY tổng hợp
 
 | Kiểm tra | Kết quả |
@@ -128,3 +136,303 @@ Mọi phụ thuộc môi trường giờ đi qua một điểm chốt duy nhất
 - `59b3d90` — refactor: lớp service trừu tượng (Nhóm A)
 - `be393e1` — feat: CORS theo cấu hình + smoke tests
 - `c95350c` — feat(security): validateSqlDump cho SQL import
+
+---
+
+# Phase 1B Completion
+
+> Cập nhật: 2026-09-28 · Nhánh `feature/new-idea`. Tiếp nối Giai đoạn 1A. Nguyên
+> tắc: **AUDIT → REFACTOR → VERIFY → REPORT**, verify (`lint`/`build`/`test`) sau
+> MỖI nhóm thay đổi, DỪNG nếu fail. **Chưa chuyển sang Giai đoạn 2.**
+>
+> **Trạng thái tại thời điểm cập nhật:** ✅ = xong & verify · ⏳ = đang thực hiện/chờ.
+
+## 1B·1 — Pre-refactor verification (Phần A) ✅
+
+Tạo `docs/phase-1-pre-refactor-verification.md`: xác minh tĩnh **25/25 nhóm chức
+năng** (file · API · trạng thái · vấn đề), đối chiếu endpoint với `api-handler.js`,
+và audit toàn bộ call-site `fetch()` (chỉ **6 file** dưới `src/` chạm mạng).
+
+**Phát hiện an toàn dữ liệu nghiêm trọng (đã vá):** smoke test Giai đoạn 1A **ghi
+vào CSDL THẬT** vì `envLoader.loadEnv()` ghi đè `process.env.EDUICT_DB_PATH` từ
+`.env`. Vá trong `tests/smoke.test.js`: trỏ `EDUICT_APP_ROOT`/`EDUICT_DATA_DIR`
+sang thư mục tạm (không có `.env`) TRƯỚC mọi import chạm DB → `loadEnv()` không
+tìm thấy `.env` nên không ghi đè. Đã đính chính §11 báo cáo 1A. Kiểm chứng: log
+kết nối tới `...Temp\eduict_smoke_*\smoke_*.sqlite`, `TEST_EXIT=0`.
+
+## 1B·2 — PPTX COM serialization (Phần B) ✅
+
+Thêm COM mutex kiểu promise-chain `withComLock(fn)` trong `server/pptxService.js`
+(kèm `getComLockStats()`). Chỉ **1 job COM PowerPoint** chạy tại một thời điểm;
+job thứ 2 chờ; lỗi/timeout không làm đứng hàng đợi (chain nối ở cả 2 nhánh).
+Bọc đúng **3 hàm sinh COM**: `renderPptxToPdf`, nhánh COM của
+`renderSingleSlideFallback` (Phương án 2 — GIỮ nhánh Python/PDF Phương án 1 chạy
+song song), `renderPptxWithPowerPoint`. LibreOffice/PyMuPDF/Python **giữ nguyên
+concurrency** (`MAX_CONCURRENT_PPTX_RENDER` không đổi). `renderPptxMultiEngine`
+gọi các bước COM **tuần tự, không lồng nhau** → mutex an toàn deadlock.
+
+Kiểm thử: thêm 2 test đơn vị kiểm chứng tính loại trừ tương hỗ (không cần
+PowerPoint thật) — `maxActive === 1`, thứ tự FIFO, lỗi 1 job không kẹt hàng đợi.
+Kiểm thử tích hợp COM thật (1 PPTX / 2 tuần tự / 2 gần đồng thời / 1 lỗi / retry)
+cần Windows + PowerPoint + file `.pptx` → **xác minh thủ công** (ghi nhận).
+
+## 1B·3 — Tách db.js (Phần C) ✅
+
+`server/db.js` (~3787 dòng) → `server/db/` (11 module: `connection, schema, seed,
+settings, classes, backup, sessions, lessons, quiz, ai, index`). `db.js` nay chỉ
+là **shim** `export * from './db/index.js'` → mọi import của consumer giữ nguyên.
+
+- **Di chuyển verbatim** (cắt theo dải byte của bản gốc, không gõ tay lại): không
+  đổi SQL, return shape, transaction, comment, seed data. Thay đổi duy nhất ngoài
+  dòng import/export: thêm từ khóa `export` cho 4 hàm trước đây private
+  (`initSchema`, `seedInitialData/Lessons/Questions`).
+- Import chéo giữa module là **runtime call** (vd `classes.js` ↔ `settings.js`
+  vòng nhau) — hợp lệ trong ESM, đã kiểm chứng chạy thật.
+- **Verify độc lập (tự chạy lại, không chỉ tin agent):** `lint` exit 0 (182
+  warning, = baseline), `build` exit 0, `test` exit 0 (**9/9**); 69/69 named
+  export resolve từ `db.js`; `getDatabase()→initSchema()→seed/sort` + các hàm đọc
+  chạy không `ReferenceError`.
+
+## 1B·4 — Tách api-handler.js (Phần D) ✅
+
+`server/api-handler.js` (~1224 dòng) → `server/routes/` (**9 module**: `helpers,
+classes, schoolYear, backup, sessions, lessons, pptx, quiz, index`);
+`api-handler.js` nay chỉ là **shim** `export { handleApiRequest } from './routes/index.js'`
+→ mọi import của consumer giữ nguyên. Ràng buộc đã giữ: endpoint/method/body/
+query/response/status/error **không đổi**.
+
+- **helpers.js** = `sendJson` + `parseRequestBodyBuffer` + `parseJsonBody` +
+  `parseMultipart` (dùng chung cho mọi route module).
+- Mỗi route module export `tryHandleX(req, res, ctx)` → trả `true` nếu đã xử lý,
+  `false` nếu không khớp (thay cho `return;`/`return true;` của bản gốc).
+- **Bảo toàn thứ tự first-match** trong `index.js`: `tryHandleClasses →
+  tryHandleSchoolYear → tryHandleBackup → tryHandleSessions →
+  tryHandleLessonsCollection → tryHandlePptx → tryHandleLessonsCrud →
+  tryHandleQuiz → handleAiApiRequest`. `lessons.js` **tách đôi** collection
+  (`/api/lessons` khớp chính xác) và crud (`/api/lessons/:id`), chèn **pptx ở
+  giữa** để route PPTX cụ thể (vd `/api/lessons/scan-duplicates`) không bị
+  `:id` nuốt mất.
+- `lessons.js` import `deleteLessonPresentationsDir` từ `pptxService.js`
+  (`server/pptxService.js:88`). Bỏ 2 import chết (`calculateNextSchoolYear`,
+  `calculateAcademicYear`) → warning **182 → 180** (0 warning phát sinh mới).
+- **Verify độc lập (tự chạy lại):** `lint` exit 0 (**180 warning**), `build`
+  exit 0, `test` exit 0 (**9/9**). Hành vi HTTP thực tế của route (đi qua đúng
+  `server/routes/`) đã được xác minh end-to-end ở **§1B·11** (5 endpoint GET trả
+  200 + JSON hợp lệ) — đây là bằng chứng behavioral mà unit smoke chưa phủ.
+
+## 1B·5 — Migration apiClient (Phần E) ✅
+
+**Nguyên tắc:** KHÔNG ép mọi `fetch` về một hành vi. Audit Phần A phân loại **7
+lớp hành vi** call-site; chỉ nối `apiClient` vào lớp **"JSON thuần, throw-on-error,
+KHÔNG có fallback cache"** — đúng ngữ nghĩa mà `apiClient.request()` cung cấp.
+
+**Đã nối (3 hàm trong `src/utils/storage.js`):**
+
+| Hàm | Endpoint | Vì sao an toàn |
+|---|---|---|
+| `saveAcademicYearSettings` | `POST /api/school-year/settings` | Không fallback; message ném ra `data.error \|\| "Lỗi máy chủ (<status>)"` **trùng khít** với `ApiError` |
+| `transitionSchoolYearInSqlite` | `POST /api/school-year/transition` | Như trên; call-site (`App.jsx`, modal) chỉ đọc `err.message` |
+| `batchImportClassesToSqlite` | `POST /api/classes/batch-import` | Giữ nguyên wrapper `try/catch` (log + rethrow); message trùng khít |
+
+`ApiError` **kế thừa `Error`** nên call-site đọc `err.message` giữ nguyên trải
+nghiệm. Bảo toàn cả trường hợp body rỗng (`?? {}` = hành vi `.catch(()=>({}))` cũ).
+
+**CỐ Ý KHÔNG nối (giữ nguyên hành vi):**
+- **Fallback-default reads** (`fetchClasses/SchoolYears/Statistics...`) — trả giá
+  trị mặc định khi lỗi, `apiClient` sẽ throw → khác hành vi.
+- **Fallback-cache localStorage** (toàn bộ `quizStorage.js`, `sessionStorage.js`,
+  `lessonStorage.js`) — catch → đọc/ghi cache; đổi sẽ mất offline-mode.
+- **Fire-and-forget writes** (`sync*ToSqlite`, `delete*`) — nuốt lỗi `console.warn`.
+- **`res.ok` boolean** (`setCurrentSchoolYearToSqlite`).
+- **Upload FormData** (`fastImportPptxApi`, `checkLessonsDuplicateApi`) & **tải
+  Blob/anchor** (`downloadSqlite/SqlScriptFile`) — không phải JSON.
+- **`aiService.js` POST**: ném lỗi kèm `err.errorCode` (đọc trực tiếp trên error);
+  `apiClient` để dữ liệu dưới `err.data` → đổi shape lỗi. **Hoãn** (nợ kỹ thuật).
+- **`importSqlScriptFile`**: thiếu guard `res.ok` (đã ghi Phần A) — nối `apiClient`
+  sẽ *đổi* hành vi (throw thay vì trả body lỗi). Hoãn để không đổi contract.
+
+**Verify:** `lint` 0 (**180 warning**), `build` 0, `test` **9/9**. `apiClient`
+từ chỗ *chưa có importer* nay đã được import & sử dụng thật.
+
+## 1B·6 — React code splitting (Phần F) ✅
+
+`src/App.jsx`: chuyển **9 manager nặng** sang `React.lazy(() => import(...))` và
+bọc vùng render tab trong `<Suspense fallback={…}>` (spinner "Đang tải chức năng…").
+Giữ **eager** phần vỏ tải-ngay: `Navbar`, `Sidebar`, `HomeDashboard`,
+`ClassroomTimer`, `NewSchoolYearDetectedModal`, `ErrorBoundary`.
+
+Lazy: `SessionManager`, `LessonManager`, `QuickQuizManager`, `Gradebook`,
+`GoodScoresBoard`, `SeatingChart`, `DuckRace`, `LuckyWheel`, `RewardShop`
+(tất cả đều `export default` — đã kiểm chứng trước khi `lazy()`).
+
+**Kết quả build (chunk tách riêng, tải theo yêu cầu):**
+
+| Chunk | Kích thước | gzip |
+|---|---|---|
+| `index` (khởi động) | 835.34 kB | 253.43 kB |
+| `LessonManager` | 182.91 kB | 34.59 kB |
+| `SessionManager` | 111.76 kB | 25.83 kB |
+| `SeatingChart` | 71.32 kB | 15.30 kB |
+| `PresentationView` (con của lessons) | 55.59 kB | 13.29 kB |
+| `GoodScoresBoard` | 54.05 kB | 10.87 kB |
+| `Gradebook` | 33.19 kB | 8.23 kB |
+| `QuickQuizManager` | 29.47 kB | 7.36 kB |
+| `DuckRace` / `LuckyWheel` | 18.06 / 13.64 kB | 6.00 / 4.27 kB |
+
+Trước Phần F các manager này nằm trong bundle khởi động; nay **~500+ kB** chỉ tải
+khi mở tab tương ứng. `ErrorBoundary` (đã có) bắt lỗi tải chunk; điều hướng/refresh
+hoạt động (state tab do `App.jsx` giữ qua props → Presentation/Session **không mất
+state** khi code-split). **Verify:** `lint` 0 (180 warning), `build` 0, `test` 9/9.
+
+## 1B·7 — Bảo mật (Phần G) ✅ (audit, không lộ)
+
+| Ràng buộc | Trạng thái |
+|---|---|
+| KHÔNG commit `.env` | ✅ `.gitignore` chặn `.env`, `.env.*` (giữ `!.env.example`); chưa từng vào lịch sử git |
+| Không log `GEMINI_API_KEY` | ✅ Không có điểm ghi key ra log |
+| Key không vào SQLite/JSON/backup/frontend/dist | ✅ Chỉ đọc server-side tại `server/ai/envLoader.js`; `src/` chỉ có **tên chuỗi** + placeholder `AIzaSy...` |
+| `getAiStatus()` không trả key | ✅ Smoke §1B·11: `/api/ai/status` → `{enabled, configured, model}`, **KHÔNG** có `apiKey` |
+| `validateSqlDump()` | ✅ Đã có, giữ nguyên (chặn `ATTACH/DETACH`, `load_extension`, `VACUUM INTO`, `PRAGMA writable_schema/temp_store_directory`, dump rỗng/>50MB), vẫn cho restore hợp lệ |
+| Không đổi hành vi backup/restore ngoài validation | ✅ Không đụng |
+| Auth cho SQL import | ⏳ **CHƯA có kiến trúc authentication** → KHÔNG triển khai (đúng chỉ thị); ghi nợ kỹ thuật §1B·13 |
+
+→ **ROTATE RECOMMENDED (dự phòng):** key hiện chưa lộ ở đâu; không tự rotate;
+không hiển thị giá trị key trong báo cáo. Không đưa secret vào bất kỳ artifact nào.
+
+## 1B·8 — Build ✅
+
+`npm run build` (vite 8 rolldown) **exit 0**. Sau Phần F: bundle được **code-split**
+thành nhiều chunk (xem §1B·6). Cảnh báo "chunk > 500 kB" cho `index` là **thông tin**
+(không phải lỗi) — đã giảm đáng kể so với trước nhờ tách lazy; tối ưu sâu hơn (vendor
+splitting) để Giai đoạn sau.
+
+## 1B·9 — Lint ✅
+
+`npm run lint` (oxlint 1.79) **exit 0 lỗi**. Warning: **180** (đã đo bằng cách ghi
+ra file rồi đếm, tránh SIGPIPE). Diễn biến qua Giai đoạn 1B: 182 (sau tách db.js) →
+**180** (tách api-handler bỏ 2 import chết) → **180** (Phần E, F: 0 warning phát sinh
+mới). Không có warning mới do refactor 1B.
+
+## 1B·10 — Kiểm thử đơn vị ✅
+
+`npm test` (`node --test`) **9/9 PASS** (từ 7 → 9 sau khi thêm 2 test COM mutex ở
+Phần B). Bao gồm: corsConfig (default + allowlist), pathService, init schema +
+`foreign_keys` ON, CRUD roundtrip + FK CASCADE **trên DB tạm** (đã vá cô lập ở
+§1B·1), `validateSqlDump` (hợp lệ/chặn), và **COM mutex** (loại trừ tương hỗ FIFO +
+lỗi-không-kẹt-hàng-đợi). Zero dependency mới; chạy trên DB tạm, không đụng DB thật.
+
+## 1B·11 — Regression tổng hợp (Phần H) ✅
+
+Toàn bộ `lint` (0/180) + `build` (0) + `test` (9/9) xanh sau MỖI nhóm thay đổi
+(B→C→D→E→F). **HTTP smoke thực tế** (khởi động `server.js` trên **DB tạm cô lập**
+`EDUICT_APP_ROOT/DATA_DIR/DB_PATH` → thư mục `Temp`, PORT=5199, KHÔNG đụng DB thật):
+
+| Endpoint | HTTP | Kết quả |
+|---|---|---|
+| `GET /api/status` | **200** | `{"status":"ok","engine":"SQLite (Node.js 22 Native)","dbFile":"http_smoke.sqlite",...}` |
+| `GET /api/classes` | **200** | Mảng lớp seed (`class_1a1` "Lớp 1A1"...) |
+| `GET /api/lessons` | **200** | Mảng bài học seed (`les_k3_computer`...) |
+| `GET /api/questions` | **200** | Mảng câu hỏi seed (`qb_k1_01`...) |
+| `GET /api/ai/status` | **200** | `{"enabled":true,"configured":false,"model":"gemini-3.5-flash-lite"}` — **KHÔNG** lộ key |
+
+→ Xác nhận **routing đi qua đúng `server/routes/` mới** end-to-end, response JSON
+giữ nguyên hình dạng, và facade `db.js`/`api-handler.js` hoạt động thật. API
+contract / endpoint / response / DB engine / schema / dữ liệu: **không đổi**.
+
+## 1B·12 — Desktop readiness (Phần I) ✅ (audit)
+
+Không gỡ API trình duyệt hợp lệ; chỉ xác nhận **mọi phụ thuộc môi trường đã đi qua
+lớp abstraction** (điểm chốt duy nhất để Desktop thay implementation):
+
+| Phụ thuộc | Điểm chốt | Kiểm chứng |
+|---|---|---|
+| `process.cwd()` | `server/services/pathService.js` (dòng 22) | grep server: **chỉ 1 nơi** |
+| `window.confirm/alert` | `DialogService` | grep `src/`: raw chỉ còn trong `DialogService.js` |
+| `window.location.reload` | `AppLifecycleService` | raw chỉ còn trong `AppLifecycleService.js` |
+| `localStorage/sessionStorage` | `StorageService` | raw chỉ còn trong `StorageService.js` |
+| Đường dẫn tuyệt đối hard-code (`C:\…`) | — | grep `src/`: **không có** |
+| DB path / data dir / app root | `EDUICT_DB_PATH / EDUICT_DATA_DIR / EDUICT_APP_ROOT` | smoke §1B·11 chạy được trên thư mục tạm bất kỳ |
+
+→ Frontend đã "sạch" phụ thuộc môi trường trực tiếp; server tập trung path ở
+`pathService`. Đủ điều kiện để lớp Desktop sau này thay backing store mà không sửa
+logic nghiệp vụ.
+
+## 1B·13 — Nợ kỹ thuật (ghi nhận, KHÔNG sửa trong Giai đoạn 1)
+
+1. **`envLoader.loadEnv()` ghi đè `process.env` vô điều kiện** (`server/ai/envLoader.js`)
+   — nguồn gốc lỗi test-ghi-DB-thật (đã cô lập trong test). Nên đổi sang "chỉ set
+   khi chưa có" (opt-in) ở Giai đoạn sau; rủi ro trung-cao, là cơ chế cấu hình
+   dùng chung → không đổi ở Giai đoạn 1.
+2. **Auth cho `/api/sql/import-script`** — `validateSqlDump` chặn lệnh nguy hiểm
+   nhưng client có quyền gọi vẫn `DROP/DELETE` được. Chờ kiến trúc authentication.
+3. **`importSqlScriptFile` thiếu guard `res.ok`** (`utils/storage.js`) — nuốt body
+   lỗi server. Chưa nối `apiClient` để không đổi contract.
+4. **`aiService.js` dùng `err.errorCode`** trực tiếp trên error → chưa migrate sang
+   `apiClient` (sẽ đổi shape lỗi sang `err.data.errorCode`).
+5. **Ghi fire-and-forget im lặng** (`sync*ToSqlite` chỉ `console.warn`) → UI không
+   biết khi ghi hỏng. Cân nhắc cơ chế báo lỗi ở Giai đoạn sau.
+6. **Dọn dẹp:** component mồ côi `StarExchangeModal.jsx`; export chết
+   `fetchQuizSessionDetailApi`, có thể `sortClassStudentsInSqlite`; comment lỗi
+   thời "23 lớp" (`storage.js`); `detectGradeFromName` trùng ở 2 file;
+   `SIMILARITY_STATUS_LABELS` `near_duplicate`≡`high_duplicate`.
+
+## 1B·14 — Những gì CHƯA làm trong phạm vi Giai đoạn 1
+
+- **Kiểm thử COM PowerPoint thật** (1 PPTX / 2 tuần tự / 2 gần đồng thời / lỗi /
+  retry) cần Windows + PowerPoint + file `.pptx` → **xác minh thủ công** (unit test
+  chỉ phủ tính chất mutex). Không có runner tự động cho COM trong CI.
+- **Runtime UI từng thao tác của 25 nhóm chức năng**: mới xác minh **tĩnh** (Phần A)
+  + HTTP smoke 5 endpoint đọc. Chưa có e2e bấm UI từng luồng.
+- **Migrate `apiClient` cho các lớp fetch còn lại** (fallback-cache, aiService,
+  upload FormData) — cố ý hoãn để không đổi hành vi (xem §1B·5, §1B·13).
+- **Tối ưu bundle sâu** (tách vendor `react`/`xlsx`, giảm `index` < 500 kB).
+- Các mục dọn dẹp ở §1B·13.6.
+
+## 1B·15 — Đề xuất Giai đoạn 2 (KHÔNG tự động chuyển)
+
+1. **Authentication + phân quyền** rồi mới siết `/api/sql/import-script`, backup/
+   restore, và các ghi phá hủy dữ liệu.
+2. **`loadEnv()` opt-in** ("chỉ set khi chưa có") + tách cấu hình test/prod rõ ràng.
+3. **Desktop packaging** (thay backing store qua các service đã có: `pathService`,
+   `DialogService`, `StorageService`, `AppLifecycleService`) — vẫn KHÔNG chuyển
+   Electron/Tauri trong Giai đoạn 1.
+4. **Hoàn tất migration `apiClient`** cho fallback-cache & aiService (chuẩn hóa lỗi
+   `err.data.errorCode`), thêm retry/timeout thống nhất.
+5. **E2E test** các luồng UI trọng yếu + **CI COM render** (self-hosted Windows).
+6. **Tối ưu bundle** (vendor chunk, prefetch tab hay dùng).
+7. Dọn nợ kỹ thuật §1B·13.6.
+
+---
+
+## Kết luận Giai đoạn 1B
+
+Tất cả nhóm thay đổi (**A→B→C→D→E→F**) đã **hoàn tất & verify xanh** theo đúng
+nguyên tắc AUDIT→REFACTOR→VERIFY→REPORT, verify sau mỗi nhóm:
+
+| Phần | Nội dung | Trạng thái |
+|---|---|---|
+| A | Pre-refactor verification (25 nhóm) | ✅ |
+| B | PPTX COM serialization | ✅ |
+| C | Tách `db.js` → `server/db/` (facade) | ✅ |
+| D | Tách `api-handler.js` → `server/routes/` (facade) | ✅ |
+| E | Nối `apiClient` (3 call-site JSON throw) | ✅ |
+| F | React.lazy code splitting | ✅ |
+| G | Bảo mật (audit, không lộ) | ✅ |
+| H | Regression + HTTP smoke 5 endpoint | ✅ |
+| I | Desktop readiness (audit) | ✅ |
+| J | Báo cáo này | ✅ |
+
+**Trạng thái cuối:** `lint` 0 lỗi / 180 warning · `build` exit 0 (code-split) ·
+`test` **9/9** · HTTP smoke 5/5 **200 + JSON hợp lệ** trên DB tạm cô lập · API
+contract / endpoint / response / DB engine / schema / dữ liệu **KHÔNG đổi** ·
+KHÔNG chuyển Electron/Tauri · KHÔNG gỡ PPTX renderer · **chưa commit**.
+
+> **GIAI ĐOẠN 1 HOÀN THÀNH** — tất cả hạng mục checklist đã pass & verify. **KHÔNG**
+> tự động chuyển sang Giai đoạn 2; chờ chỉ thị. Các kiểm thử cần môi trường thật
+> (COM PowerPoint, e2e UI) được ghi rõ là **xác minh thủ công / hoãn** ở §1B·14 —
+> không nằm trong phạm vi tự động hóa của Giai đoạn 1.
+
+
+
+
+
