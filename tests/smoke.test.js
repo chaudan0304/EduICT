@@ -73,6 +73,19 @@ test('db: CRUD roundtrip bảng classes + students (FK cascade)', () => {
   assert.equal(left.n, 0, 'FK CASCADE phải xóa học sinh khi xóa lớp');
 });
 
+// --- Part 11: validateSqlDump chặn lệnh nguy hiểm, cho dump hợp lệ ---
+test('db: validateSqlDump cho phép dump app-generated hợp lệ', () => {
+  const ok = `PRAGMA foreign_keys = ON;\nCREATE TABLE IF NOT EXISTS classes (id TEXT PRIMARY KEY);\nINSERT OR REPLACE INTO classes (id) VALUES ('c1');`;
+  assert.doesNotThrow(() => db.validateSqlDump(ok));
+});
+
+test('db: validateSqlDump chặn ATTACH/load_extension/VACUUM INTO', () => {
+  assert.throws(() => db.validateSqlDump("ATTACH DATABASE 'evil.db' AS e;"), /ATTACH/);
+  assert.throws(() => db.validateSqlDump('SELECT load_extension("x");'), /load_extension/);
+  assert.throws(() => db.validateSqlDump('VACUUM INTO "/tmp/x.db";'), /VACUUM INTO/);
+  assert.throws(() => db.validateSqlDump(''), /trống|không hợp lệ/);
+});
+
 // Dọn file DB tạm sau khi chạy xong.
 after(() => {
   for (const suffix of ['', '-wal', '-shm']) {

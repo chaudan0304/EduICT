@@ -2455,7 +2455,39 @@ export function saveDbRules(rules) {
 }
 
 // Nhập và chạy file kịch bản SQL
+/**
+ * validateSqlDump — chốt an toàn cho kịch bản SQL nhập từ client (Part 11).
+ *
+ * KHÔNG đổi hành vi restore hợp lệ: vẫn cho CREATE/INSERT/UPDATE/DELETE/DROP
+ * (các dump do app xuất ra dùng CREATE IF NOT EXISTS + INSERT OR REPLACE).
+ * CHỈ chặn các lệnh biến "khôi phục dữ liệu" thành "chiếm quyền host":
+ * truy cập file/DB khác, nạp extension, ghi file, sửa schema thô.
+ */
+export function validateSqlDump(sqlString) {
+  if (typeof sqlString !== 'string' || !sqlString.trim()) {
+    throw new Error('Kịch bản SQL trống hoặc không hợp lệ.');
+  }
+  if (sqlString.length > 50 * 1024 * 1024) {
+    throw new Error('Kịch bản SQL quá lớn (>50MB), từ chối để đảm bảo an toàn.');
+  }
+  const normalized = sqlString.toLowerCase();
+  const forbidden = [
+    { re: /\battach\s+database\b/, msg: 'ATTACH DATABASE' },
+    { re: /\bdetach\s+database\b/, msg: 'DETACH DATABASE' },
+    { re: /\bload_extension\s*\(/, msg: 'load_extension()' },
+    { re: /\bvacuum\s+into\b/, msg: 'VACUUM INTO' },
+    { re: /\bpragma\s+writable_schema\b/, msg: 'PRAGMA writable_schema' },
+    { re: /\bpragma\s+temp_store_directory\b/, msg: 'PRAGMA temp_store_directory' },
+  ];
+  for (const f of forbidden) {
+    if (f.re.test(normalized)) {
+      throw new Error(`Kịch bản SQL chứa lệnh bị chặn vì lý do an toàn: ${f.msg}`);
+    }
+  }
+}
+
 export function executeSqlDump(sqlString) {
+  validateSqlDump(sqlString);
   const db = getDatabase();
   db.exec(sqlString);
 }
