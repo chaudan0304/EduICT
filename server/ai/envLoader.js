@@ -1,10 +1,10 @@
 import fs from 'node:fs';
-import path from 'node:path';
+import * as pathService from '../services/pathService.js';
 
 let lastMtimeMs = 0;
 
 export function loadEnv(force = false) {
-  const envPath = path.resolve(process.cwd(), '.env');
+  const envPath = pathService.getEnvPath();
   if (!fs.existsSync(envPath)) return;
 
   try {

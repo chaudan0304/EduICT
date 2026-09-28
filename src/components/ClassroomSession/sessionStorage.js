@@ -1,4 +1,5 @@
 // Service layer kết nối API SQLite và Fallback LocalStorage cho Classroom Sessions
+import StorageService from '../../services/StorageService';
 
 export const ACTIVITY_TYPES = {
   WARMUP: {
@@ -186,14 +187,14 @@ const ACTIVE_SESSION_ID_KEY = 'edumaster_active_session_id';
 
 // Quản lý Active Session ID (để F5, tắt trình duyệt không bị mất phiên đang chạy)
 export function getStoredActiveSessionId() {
-  return localStorage.getItem(ACTIVE_SESSION_ID_KEY) || null;
+  return StorageService.get(ACTIVE_SESSION_ID_KEY) || null;
 }
 
 export function setStoredActiveSessionId(sessionId) {
   if (sessionId) {
-    localStorage.setItem(ACTIVE_SESSION_ID_KEY, sessionId);
+    StorageService.set(ACTIVE_SESSION_ID_KEY, sessionId);
   } else {
-    localStorage.removeItem(ACTIVE_SESSION_ID_KEY);
+    StorageService.remove(ACTIVE_SESSION_ID_KEY);
   }
 }
 
@@ -223,7 +224,7 @@ export function getActiveOngoingSession() {
 // Lưu cache sessions cục bộ
 function getCachedSessions() {
   try {
-    const raw = localStorage.getItem(LOCAL_SESSIONS_KEY);
+    const raw = StorageService.get(LOCAL_SESSIONS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -232,7 +233,7 @@ function getCachedSessions() {
 
 function setCachedSessions(sessions) {
   try {
-    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions));
+    StorageService.set(LOCAL_SESSIONS_KEY, JSON.stringify(sessions));
   } catch {}
 }
 

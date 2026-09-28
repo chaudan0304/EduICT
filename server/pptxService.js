@@ -21,13 +21,14 @@ import {
   extractTitleFromSlide1Xml,
   extractTitleFromFileName
 } from './duplicateDetector.js';
+import * as pathService from './services/pathService.js';
 
-const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
+const UPLOADS_DIR = pathService.getUploadsDir();
 const PRESENTATIONS_DIR = path.join(UPLOADS_DIR, 'presentations');
 const TEMP_DIR = path.join(UPLOADS_DIR, 'temp');
 const CACHE_DIR = path.join(UPLOADS_DIR, 'cache');
-const RENDERER_SCRIPT = path.resolve(process.cwd(), 'server', 'pptx-renderer.ps1');
-const FALLBACK_SCRIPT = path.resolve(process.cwd(), 'server', 'pptx-renderer-fallback.py');
+const RENDERER_SCRIPT = pathService.getRendererScript();
+const FALLBACK_SCRIPT = pathService.getFallbackRendererScript();
 
 // Đảm bảo các thư mục cần thiết tồn tại
 export function initUploadDirectories() {
@@ -1519,7 +1520,7 @@ export async function ensureLessonThumbnail(lessonId) {
   // 1. Nếu đã có thumbnail_url và file ảnh thực tế hợp lệ trên đĩa
   if (lesson.thumbnail_url && lesson.thumbnail_url.trim() !== '') {
     const rel = lesson.thumbnail_url.split('?')[0];
-    const diskPath = path.resolve(process.cwd(), rel.startsWith('/') ? rel.slice(1) : rel);
+    const diskPath = pathService.resolveFromRoot(rel);
     if (validateImageFile(diskPath).valid) {
       return { success: true, thumbnailUrl: lesson.thumbnail_url };
     }

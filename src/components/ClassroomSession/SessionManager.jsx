@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DialogService from '../../services/DialogService';
 import SessionList from './SessionList';
 import SessionDashboard from './SessionDashboard';
 import CreateSessionModal from './CreateSessionModal';
@@ -42,7 +43,7 @@ export default function SessionManager({
           onClearAutoOpen?.();
           return;
         } else {
-          const keepOngoing = window.confirm(
+          const keepOngoing = DialogService.confirm(
             `Đang có tiết học "${activeSession.lesson_title || 'Tin học'}" chưa kết thúc!\n\nThầy/Cô có muốn tiếp tục tiết học đang diễn ra không?\n(Bấm OK để tiếp tục tiết học này, bấm Cancel nếu muốn tạo tiết học mới)`
           );
           if (keepOngoing) {
@@ -149,7 +150,7 @@ export default function SessionManager({
 
   // Xóa session
   const handleDeleteSession = async (sessionId, title) => {
-    if (window.confirm(`Thầy/cô có chắc muốn xóa tiết học "${title}"?`)) {
+    if (DialogService.confirm(`Thầy/cô có chắc muốn xóa tiết học "${title}"?`)) {
       await deleteSessionApi(sessionId);
       setSessions(prev => prev.filter(s => s.id !== sessionId));
       if (activeSession?.id === sessionId) {

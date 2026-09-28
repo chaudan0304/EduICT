@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  ArrowLeft, 
+import DialogService from '../../services/DialogService';
+import {
+  ArrowLeft,
   Save, 
   Play, 
   Plus, 
@@ -113,7 +114,7 @@ export default function LessonEditor({
       alert('⚠️ Bài học cần có tối thiểu 1 slide!');
       return;
     }
-    if (!window.confirm(`Xóa slide số ${index + 1}?`)) return;
+    if (!DialogService.confirm(`Xóa slide số ${index + 1}?`)) return;
 
     const next = slides.filter((_, idx) => idx !== index);
     setSlides(next);

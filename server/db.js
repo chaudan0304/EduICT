@@ -1,21 +1,11 @@
 import { DatabaseSync } from 'node:sqlite';
-import path from 'node:path';
-import fs from 'node:fs';
 import { loadEnv } from './ai/envLoader.js';
+import * as pathService from './services/pathService.js';
 
 export function getDatabasePath() {
   loadEnv();
-  const customPath = (process.env.EDUICT_DB_PATH || '').trim();
-  if (customPath) {
-    const resolved = path.resolve(customPath);
-    const dir = path.dirname(resolved);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    return resolved;
-  }
-  // Mặc định: edumaster.sqlite tại thư mục dự án (được bảo vệ tuyệt đối bởi .gitignore)
-  return path.resolve(process.cwd(), 'edumaster.sqlite');
+  // Toàn bộ logic đường dẫn (EDUICT_DB_PATH / mặc định) đã gom về pathService.
+  return pathService.getDatabasePath();
 }
 
 let dbInstance = null;

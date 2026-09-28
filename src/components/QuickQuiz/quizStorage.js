@@ -1,4 +1,5 @@
 // quizStorage.js: Định nghĩa, REST API client & Caching cho phân hệ Quick Quiz
+import StorageService from '../../services/StorageService';
 
 export const LOCAL_QUESTIONS_KEY = 'eduict_question_bank_cache_v1';
 export const LOCAL_QUIZ_SESSIONS_KEY = 'eduict_quiz_sessions_cache_v1';
@@ -99,7 +100,7 @@ export function shuffleQuestionOptions(question) {
 
 export function getLocalQuestionsCache() {
   try {
-    const raw = localStorage.getItem(LOCAL_QUESTIONS_KEY);
+    const raw = StorageService.get(LOCAL_QUESTIONS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -108,7 +109,7 @@ export function getLocalQuestionsCache() {
 
 export function saveLocalQuestionsCache(questions) {
   try {
-    localStorage.setItem(LOCAL_QUESTIONS_KEY, JSON.stringify(questions));
+    StorageService.set(LOCAL_QUESTIONS_KEY, JSON.stringify(questions));
   } catch {}
 }
 

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Monitor, 
+import DialogService from '../services/DialogService';
+import {
+  Monitor,
   Star, 
   CheckCircle2, 
   RotateCcw, 
@@ -212,7 +213,7 @@ export default function SeatingChart({
       return;
     }
 
-    const ok = window.confirm(
+    const ok = DialogService.confirm(
       `Thầy/Cô có chắc chắn muốn XÓA TOÀN BỘ CHỖ NGỒI hiện tại của lớp ${currentClass?.name || ''}?\n\n` +
       `Tất cả ${seatedStudentIds.size} học sinh đang ngồi sẽ được đưa về danh sách "Chưa Xếp Chỗ" để Thầy/Cô tự sắp xếp lại từ đầu.`
     );

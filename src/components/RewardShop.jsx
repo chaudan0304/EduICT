@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  ShieldCheck, 
+import DialogService from '../services/DialogService';
+import {
+  ShieldCheck,
   Users, 
   MapPin, 
   Award, 
@@ -76,7 +77,7 @@ export default function RewardShop({
       return;
     }
 
-    if (window.confirm(`Xác nhận đổi "${card.title}" cho ${selectedStudent.name} với giá ${card.cost}⭐?`)) {
+    if (DialogService.confirm(`Xác nhận đổi "${card.title}" cho ${selectedStudent.name} với giá ${card.cost}⭐?`)) {
       const updated = students.map(s => {
         if (s.id === selectedStudent.id) {
           return { ...s, stars: currentStars - card.cost };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import DialogService from '../../services/DialogService';
 import { Bell, AlertTriangle, Flag, Clock } from 'lucide-react';
 import SessionHeader from './SessionHeader';
 import SessionTimerDisplay from './SessionTimerDisplay';
@@ -368,7 +369,7 @@ export default function SessionDashboard({
   const handleSafeBackToList = () => {
     const isOngoing = session.status === 'RUNNING' || session.status === 'PAUSED' || session.status === 'READY';
     if (isOngoing) {
-      const confirmLeave = window.confirm(
+      const confirmLeave = DialogService.confirm(
         '⚠️ Tiết học đang diễn ra!\n\nThầy/Cô có muốn tạm rời màn hình này để xem danh sách hoặc chuyển sang chức năng khác?\n\n(Lưu ý: Tiết học vẫn được lưu an toàn và tiếp tục chạy trong nền. Thầy/Cô có thể quay lại bất cứ lúc nào qua nút "Tiếp Tục Tiết Học".)'
       );
       if (!confirmLeave) return;

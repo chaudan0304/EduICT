@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import DialogService from './services/DialogService';
+import StorageService from './services/StorageService';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Gradebook from './components/Gradebook';
@@ -60,7 +62,7 @@ export default function App() {
   const [autoOpenSessionForClassId, setAutoOpenSessionForClassId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
-      return localStorage.getItem('eduict_sidebar_collapsed') === 'true';
+      return StorageService.get('eduict_sidebar_collapsed') === 'true';
     } catch {
       return false;
     }
@@ -68,7 +70,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduict_sidebar_collapsed', sidebarCollapsed);
+      StorageService.set('eduict_sidebar_collapsed', sidebarCollapsed);
     } catch {}
   }, [sidebarCollapsed]);
 
@@ -321,7 +323,7 @@ export default function App() {
     const target = classes.find(c => c.id === classIdToDelete);
     if (!target) return;
 
-    const confirmed = window.confirm(
+    const confirmed = DialogService.confirm(
       `Thầy/cô có chắc chắn muốn xóa lớp "${target.name}" (${target.students?.length || 0} học sinh)?\n\n` +
       `⚠️ CẢNH BÁO: Toàn bộ dữ liệu điểm số, điểm tốt / sao và sơ đồ phòng máy của lớp này sẽ bị xóa khỏi file SQLite!`
     );

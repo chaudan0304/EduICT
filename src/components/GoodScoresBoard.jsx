@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
+import DialogService from '../services/DialogService';
+import {
   Award, 
   PlusCircle, 
   Search, 
@@ -335,7 +336,7 @@ export default function GoodScoresBoard({
   const handleDeleteRule = (ruleId) => {
     const target = rules.find(r => r.id === ruleId);
     if (!target) return;
-    if (window.confirm(`Thầy/cô có chắc muốn xóa quy định "${target.title}"?`)) {
+    if (DialogService.confirm(`Thầy/cô có chắc muốn xóa quy định "${target.title}"?`)) {
       const updated = rules.filter(r => r.id !== ruleId);
       handleSaveRules(updated);
     }
@@ -343,7 +344,7 @@ export default function GoodScoresBoard({
 
   // Khôi phục nội quy mặc định
   const handleResetDefaultRules = () => {
-    if (window.confirm('Khôi phục toàn bộ 12 nội quy mẫu chuẩn của phòng máy Tin học Tiểu học?')) {
+    if (DialogService.confirm('Khôi phục toàn bộ 12 nội quy mẫu chuẩn của phòng máy Tin học Tiểu học?')) {
       const reset = resetClassroomRulesToDefault();
       setRules(reset);
       syncClassroomRulesToSqlite(reset);
@@ -506,7 +507,7 @@ export default function GoodScoresBoard({
     const recToDelete = meritRecords.find(r => r.id === recordId);
     if (!recToDelete) return;
 
-    if (window.confirm(`Xóa bản ghi "${recToDelete.title}" của học sinh ${recToDelete.studentName}?`)) {
+    if (DialogService.confirm(`Xóa bản ghi "${recToDelete.title}" của học sinh ${recToDelete.studentName}?`)) {
       saveMerits(meritRecords.filter(r => r.id !== recordId));
       // Hoàn tác số sao
       const updated = students.map(s => {

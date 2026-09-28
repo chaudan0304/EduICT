@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import * as pathService from './services/pathService.js';
 
-const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
+const UPLOADS_DIR = pathService.getUploadsDir();
 
 const MIME_TYPES = {
   '.png': 'image/png',

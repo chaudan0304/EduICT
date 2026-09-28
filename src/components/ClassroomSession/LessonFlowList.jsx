@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  Play, 
+import DialogService from '../../services/DialogService';
+import {
+  Play,
   CheckCircle2, 
   SkipForward, 
   ArrowUp, 
@@ -120,7 +121,7 @@ export default function LessonFlowList({
       alert('Tiết học cần có ít nhất 1 hoạt động!');
       return;
     }
-    if (window.confirm(`Xóa hoạt động "${activities[index].title}"?`)) {
+    if (DialogService.confirm(`Xóa hoạt động "${activities[index].title}"?`)) {
       const updated = activities.filter((_, idx) => idx !== index).map((act, idx) => ({
         ...act,
         order_index: idx

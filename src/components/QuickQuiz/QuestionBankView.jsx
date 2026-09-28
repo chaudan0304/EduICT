@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Search, 
+import DialogService from '../../services/DialogService';
+import {
+  Search,
   Plus, 
   Edit3, 
   Copy, 
@@ -114,7 +115,7 @@ export default function QuestionBankView({
   // Xử lý Xóa câu hỏi
   const handleDelete = async (q, e) => {
     e.stopPropagation();
-    if (!window.confirm(`Thầy/cô có chắc chắn muốn xóa câu hỏi:\n"${q.question}"?`)) {
+    if (!DialogService.confirm(`Thầy/cô có chắc chắn muốn xóa câu hỏi:\n"${q.question}"?`)) {
       return;
     }
     try {

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import AppLifecycleService from '../services/AppLifecycleService';
 import { 
   Tv, 
   Volume2, 
@@ -191,7 +192,7 @@ export default function Navbar({
       const result = importAllBackupData(event.target.result);
       if (result.success) {
         alert(`✅ Đã phục hồi thành công dữ liệu ${result.count} lớp học!`);
-        window.location.reload();
+        AppLifecycleService.reloadApplication();
       } else {
         alert(`❌ Lỗi phục hồi: ${result.error}`);
       }
@@ -211,7 +212,7 @@ export default function Navbar({
         const res = await importSqlScriptFile(sqlText);
         if (res.success) {
           alert('✅ Đã nạp và thực thi kịch bản SQL vào cơ sở dữ liệu SQLite thành công!');
-          window.location.reload();
+          AppLifecycleService.reloadApplication();
         } else {
           alert(`❌ Lỗi thực thi SQL: ${res.error}`);
         }

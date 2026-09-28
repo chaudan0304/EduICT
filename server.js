@@ -4,9 +4,10 @@ import path from 'node:path';
 import { handleApiRequest } from './server/api-handler.js';
 import { handleUploadsRequest } from './server/static-file-handler.js';
 import { getDatabase, getDatabasePath } from './server/db.js';
+import * as pathService from './server/services/pathService.js';
 
 const PORT = process.env.PORT || 5173;
-const DIST_DIR = path.resolve(process.cwd(), 'dist');
+const DIST_DIR = pathService.getDistDir();
 
 // Khởi tạo Database SQLite
 getDatabase();

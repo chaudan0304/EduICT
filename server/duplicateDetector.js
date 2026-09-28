@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import path from 'node:path';
+import * as pathService from './services/pathService.js';
 
 /**
  * Cache dữ liệu bảng PPCT chuẩn (ppct-mapping.json)
@@ -10,7 +11,7 @@ let cachedPpctMapping = null;
 export function getPpctMappingData() {
   if (cachedPpctMapping) return cachedPpctMapping;
   try {
-    const filePath = path.resolve(process.cwd(), 'server', 'data', 'ppct-mapping.json');
+    const filePath = pathService.getPptMappingPath();
     if (fs.existsSync(filePath)) {
       cachedPpctMapping = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     }

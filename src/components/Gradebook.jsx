@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { 
+import DialogService from '../services/DialogService';
+import {
   Search, 
   UserPlus, 
   FileSpreadsheet, 
@@ -179,7 +180,7 @@ export default function Gradebook({
 
   // Xóa học sinh
   const handleDeleteStudent = (studentId, studentName) => {
-    if (window.confirm(`Thầy/cô có chắc muốn xóa học sinh "${studentName}" khỏi lớp?`)) {
+    if (DialogService.confirm(`Thầy/cô có chắc muốn xóa học sinh "${studentName}" khỏi lớp?`)) {
       const updated = students.filter(s => s.id !== studentId);
       onUpdateStudents(updated);
     }
@@ -247,7 +248,7 @@ export default function Gradebook({
         return;
       }
       if (importedList && importedList.length > 0) {
-        if (window.confirm(`Đã tìm thấy ${importedList.length} học sinh trong file. Thầy/cô muốn nạp danh sách này vào lớp ${currentClass.name}?`)) {
+        if (DialogService.confirm(`Đã tìm thấy ${importedList.length} học sinh trong file. Thầy/cô muốn nạp danh sách này vào lớp ${currentClass.name}?`)) {
           const sorted = sortStudentsVietnamese(importedList);
           onUpdateStudents(sorted);
           if (soundEnabled) soundEffects.playVictory();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  BookOpen, 
+import DialogService from '../../services/DialogService';
+import {
+  BookOpen,
   Search, 
   Plus, 
   Play, 
@@ -251,7 +252,7 @@ export default function LessonLibrary({
 
   // Thao tác: Xóa bài giảng trùng lặp
   const handleDeleteDuplicateLesson = async (targetLesson) => {
-    if (!window.confirm(`Thầy/cô có chắc chắn muốn xóa bài "${targetLesson.title}" khỏi thư viện?\nThao tác này sẽ xóa toàn bộ nội dung và slide của bài.`)) {
+    if (!DialogService.confirm(`Thầy/cô có chắc chắn muốn xóa bài "${targetLesson.title}" khỏi thư viện?\nThao tác này sẽ xóa toàn bộ nội dung và slide của bài.`)) {
       return;
     }
     try {
@@ -377,7 +378,7 @@ export default function LessonLibrary({
   // Xóa bài học
   const handleDeleteLesson = async (lesson, e) => {
     e.stopPropagation();
-    if (!window.confirm(`Thầy/cô có chắc chắn muốn xóa bài học "${lesson.title}"?\nThao tác này sẽ xóa toàn bộ các slide con trong bài.`)) {
+    if (!DialogService.confirm(`Thầy/cô có chắc chắn muốn xóa bài học "${lesson.title}"?\nThao tác này sẽ xóa toàn bộ các slide con trong bài.`)) {
       return;
     }
 

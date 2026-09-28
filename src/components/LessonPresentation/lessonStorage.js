@@ -3,6 +3,7 @@
  * Quản lý dữ liệu Bài học (Lessons) & Slides cho module Lesson Library + Presentation
  * Hỗ trợ đồng bộ SQLite REST API và fallback an toàn sang LocalStorage
  */
+import StorageService from '../../services/StorageService';
 
 // Danh mục các chủ đề bộ môn Tin học chuẩn GDPT 2018
 export const INFORMATICS_TOPICS = [
@@ -376,7 +377,7 @@ export function createDefaultSlide(type = 'CONTENT', orderIndex = 0) {
 // ----------------------------------------------------
 export function getLocalLessonsCache() {
   try {
-    const raw = localStorage.getItem(LOCAL_LESSONS_KEY);
+    const raw = StorageService.get(LOCAL_LESSONS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -385,7 +386,7 @@ export function getLocalLessonsCache() {
 
 export function saveLocalLessonsCache(lessons) {
   try {
-    localStorage.setItem(LOCAL_LESSONS_KEY, JSON.stringify(lessons));
+    StorageService.set(LOCAL_LESSONS_KEY, JSON.stringify(lessons));
   } catch {}
 }
 

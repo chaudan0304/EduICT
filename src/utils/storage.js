@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import StorageService from '../services/StorageService';
 export {
   parseExcelWorkbook,
   exportAllClassesToExcel,
@@ -77,7 +78,7 @@ export function detectGradeFromName(className) {
 
 export function getStoredClasses() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = StorageService.get(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -105,24 +106,24 @@ export function getStoredClasses() {
 
 export function saveClasses(classes) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(classes));
+    StorageService.set(STORAGE_KEY, JSON.stringify(classes));
   } catch (e) {
     console.error('Failed to save classes to localStorage', e);
   }
 }
 
 export function getCurrentClassId() {
-  return localStorage.getItem(CURRENT_CLASS_KEY) || 'class_3a1';
+  return StorageService.get(CURRENT_CLASS_KEY) || 'class_3a1';
 }
 
 export function setCurrentClassId(id) {
-  localStorage.setItem(CURRENT_CLASS_KEY, id);
+  StorageService.set(CURRENT_CLASS_KEY, id);
 }
 
 // Quản lý máy hỏng dùng chung cho toàn trường (phòng máy 31 máy)
 export function getGlobalBrokenMachines() {
   try {
-    const raw = localStorage.getItem(BROKEN_MACHINES_KEY);
+    const raw = StorageService.get(BROKEN_MACHINES_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed;
@@ -135,7 +136,7 @@ export function getGlobalBrokenMachines() {
 
 export function saveGlobalBrokenMachines(machines) {
   try {
-    localStorage.setItem(BROKEN_MACHINES_KEY, JSON.stringify(machines));
+    StorageService.set(BROKEN_MACHINES_KEY, JSON.stringify(machines));
   } catch (e) {
     console.error('Failed to save broken machines', e);
   }
@@ -702,7 +703,7 @@ export const DEFAULT_CLASSROOM_RULES = [
 
 export function getClassroomRules() {
   try {
-    const raw = localStorage.getItem(RULES_STORAGE_KEY);
+    const raw = StorageService.get(RULES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -715,7 +716,7 @@ export function getClassroomRules() {
 
 export function saveClassroomRules(rules) {
   try {
-    localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(rules));
+    StorageService.set(RULES_STORAGE_KEY, JSON.stringify(rules));
   } catch (e) {
     console.error('Failed to save rules to localStorage', e);
   }
