@@ -8,3 +8,4 @@ export * from './sessions.js';
 export * from './lessons.js';
 export * from './quiz.js';
 export * from './ai.js';
+export * from './gamification.js';

@@ -380,6 +380,80 @@ export function initSchema(db) {
   try { db.exec(`ALTER TABLE question_bank ADD COLUMN source TEXT DEFAULT 'MANUAL';`); } catch (e) {}
   try { db.exec(`ALTER TABLE question_bank ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
 
+  // Bảng 1 Phân Hệ Gamification: Star Transactions (Lịch sử sao)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS star_transactions (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      class_id TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      source TEXT NOT NULL,
+      session_id TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id, class_id) REFERENCES students(id, class_id) ON DELETE CASCADE
+    );
+  `);
+
+  // Bảng 2 Phân Hệ Gamification: Rewards Catalog (Danh mục phần thưởng)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rewards (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      cost INTEGER NOT NULL,
+      icon TEXT DEFAULT '🎁',
+      color TEXT DEFAULT '#8b5cf6',
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Bảng 3 Phân Hệ Gamification: Reward Redemptions (Lịch sử đổi quà)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reward_redemptions (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      class_id TEXT NOT NULL,
+      reward_id TEXT NOT NULL,
+      cost INTEGER NOT NULL,
+      session_id TEXT,
+      redeemed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id, class_id) REFERENCES students(id, class_id) ON DELETE CASCADE,
+      FOREIGN KEY (reward_id) REFERENCES rewards(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Bảng 4 Phân Hệ Gamification: Challenges (Thử thách)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS challenges (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      type TEXT NOT NULL,
+      target INTEGER NOT NULL,
+      reward INTEGER NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Bảng 5 Phân Hệ Gamification: Student Progress (Tiến độ thử thách)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS student_progress (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      class_id TEXT NOT NULL,
+      challenge_id TEXT NOT NULL,
+      progress INTEGER DEFAULT 0,
+      completed INTEGER DEFAULT 0,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id, class_id) REFERENCES students(id, class_id) ON DELETE CASCADE,
+      FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
+      UNIQUE(student_id, class_id, challenge_id)
+    );
+  `);
+
   // Kiểm tra nếu chưa có dữ liệu thì nạp dữ liệu mẫu 5 khối lớp
   const countRow = db.prepare('SELECT COUNT(*) as count FROM classes;').get();
   if (countRow.count === 0) {
@@ -399,5 +473,14 @@ export function initSchema(db) {
   }
 
   // Đảm bảo toàn bộ học sinh trong cơ sở dữ liệu được sắp xếp theo thứ tự A-Z chuẩn tiếng Việt
+  // Kiểm tra nếu chưa có phần thưởng thì nạp phần thưởng mặc định
+  const countRewards = db.prepare('SELECT COUNT(*) as count FROM rewards;').get();
+  if (countRewards.count === 0) {
+    db.prepare("INSERT INTO rewards (id, name, description, cost, icon, color) VALUES ('card_immunity', 'Thẻ Miễn Tử', 'Được miễn trừ 1 lần kiểm tra bài cũ bất chợt trong tháng.', 15, '🛡️', '#8b5cf6')").run();
+    db.prepare("INSERT INTO rewards (id, name, description, cost, icon, color) VALUES ('card_helper', 'Thẻ Cứu Trợ Đồng Đội', 'Được quyền chỉ định 1 bạn trong lớp hỗ trợ khi gặp câu hỏi hóc búa.', 10, '🤝', '#06b6d4')").run();
+    db.prepare("INSERT INTO rewards (id, name, description, cost, icon, color) VALUES ('card_seat', 'Thẻ Chọn Chỗ VIP', 'Quyền ưu tiên chọn vị trí ngồi mong muốn trong 1 tuần học.', 12, '💺', '#f59e0b')").run();
+    db.prepare("INSERT INTO rewards (id, name, description, cost, icon, color) VALUES ('card_music', 'Thẻ DJ Lớp Học', 'Được chọn 1 bài hát yêu thích phát vào giờ giải lao 5 phút cuối giờ.', 5, '🎵', '#ec4899')").run();
+  }
+
   sortAllStudentsInDatabase(db);
 }

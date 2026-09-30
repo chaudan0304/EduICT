@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { compareVietnameseNames, sortStudentsVietnamese } from './vietnameseSort';
+import { compareVietnameseNames, sortStudentsVietnamese } from './vietnameseSort.js';
 
 // Danh sách các từ khóa tên Sheet mang tính hướng dẫn/hệ thống cần bỏ qua
 const IGNORED_SHEET_NAMES = [

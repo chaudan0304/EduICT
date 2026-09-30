@@ -11,6 +11,7 @@ import { tryHandleSessions } from './sessions.js';
 import { tryHandleLessonsCollection, tryHandleLessonsCrud } from './lessons.js';
 import { tryHandlePptx } from './pptx.js';
 import { tryHandleQuiz } from './quiz.js';
+import { tryHandleGamification } from './gamification.js';
 
 export async function handleApiRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -56,6 +57,7 @@ export async function handleApiRequest(req, res) {
   if (await tryHandlePptx(req, res, ctx)) return true;
   if (await tryHandleLessonsCrud(req, res, ctx)) return true;
   if (await tryHandleQuiz(req, res, ctx)) return true;
+  if (await tryHandleGamification(req, res, ctx)) return true;
 
   // ====================================================
   // 14. PHÂN HỆ TRỢ GIẢNG AI (AI TEACHING ASSISTANT)

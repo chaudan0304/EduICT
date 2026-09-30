@@ -6,11 +6,73 @@ import {
   executeSqlDump,
   getDatabasePath
 } from '../db.js';
+import {
+  listBackups,
+  createBackup,
+  deleteBackup,
+  verifyBackup,
+  restoreBackup
+} from '../services/backupService.js';
 
 export async function tryHandleBackup(req, res, ctx) {
   const { pathname, method } = ctx;
 
-  // 8. Xuất file kịch bản SQL dạng văn bản (.sql script)
+  if (pathname === '/api/backup/list' && method === 'GET') {
+    try {
+      sendJson(res, 200, { success: true, data: listBackups() });
+    } catch (err) {
+      sendJson(res, 500, { success: false, error: err.message });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/backup/create' && method === 'POST') {
+    try {
+      const result = await createBackup();
+      sendJson(res, 200, result);
+    } catch (err) {
+      sendJson(res, 500, { success: false, error: err.message });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/backup/verify' && method === 'POST') {
+    try {
+      const { backupId } = await parseJsonBody(req);
+      if (!backupId) return sendJson(res, 400, { success: false, error: 'Thiếu backupId' });
+      const result = await verifyBackup(backupId);
+      sendJson(res, 200, result);
+    } catch (err) {
+      sendJson(res, 400, { success: false, error: err.message });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/backup/restore' && method === 'POST') {
+    try {
+      const { backupId } = await parseJsonBody(req);
+      if (!backupId) return sendJson(res, 400, { success: false, error: 'Thiếu backupId' });
+      const result = await restoreBackup(backupId);
+      sendJson(res, 200, result);
+    } catch (err) {
+      sendJson(res, 500, { success: false, error: err.message });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/backup/delete' && method === 'POST') {
+    try {
+      const { backupId } = await parseJsonBody(req);
+      if (!backupId) return sendJson(res, 400, { success: false, error: 'Thiếu backupId' });
+      const result = deleteBackup(backupId);
+      sendJson(res, 200, result);
+    } catch (err) {
+      sendJson(res, 500, { success: false, error: err.message });
+    }
+    return true;
+  }
+
+  // --- Hỗ trợ cũ (nếu có frontend dùng tới, giữ tương thích) ---
   if (pathname === '/api/sql/export-script' && method === 'GET') {
     try {
       const sqlDump = generateSqlScriptDump();
@@ -24,7 +86,6 @@ export async function tryHandleBackup(req, res, ctx) {
     return true;
   }
 
-  // 8. Tải trực tiếp file cơ sở dữ liệu SQLite binary (.sqlite)
   if (pathname === '/api/sql/download-db' && method === 'GET') {
     try {
       const dbPath = getDatabasePath();
@@ -44,7 +105,6 @@ export async function tryHandleBackup(req, res, ctx) {
     return true;
   }
 
-  // 9. Thực thi kịch bản SQL từ client
   if (pathname === '/api/sql/import-script' && method === 'POST') {
     try {
       const body = await parseJsonBody(req);

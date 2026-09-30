@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DialogService from '../services/DialogService';
 import {
   ShieldCheck,
@@ -14,41 +14,6 @@ import {
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
 
-const REWARD_CARDS = [
-  {
-    id: 'card_immunity',
-    title: 'Thẻ Miễn Tử',
-    icon: '🛡️',
-    cost: 15,
-    description: 'Được miễn trừ 1 lần kiểm tra bài cũ bất chợt trong tháng.',
-    color: '#8b5cf6'
-  },
-  {
-    id: 'card_helper',
-    title: 'Thẻ Cứu Trợ Đồng Đội',
-    icon: '🤝',
-    cost: 10,
-    description: 'Được quyền chỉ định 1 bạn trong lớp hỗ trợ khi gặp câu hỏi hóc búa.',
-    color: '#06b6d4'
-  },
-  {
-    id: 'card_seat',
-    title: 'Thẻ Chọn Chỗ VIP',
-    icon: '💺',
-    cost: 12,
-    description: 'Quyền ưu tiên chọn vị trí ngồi mong muốn trong 1 tuần học.',
-    color: '#f59e0b'
-  },
-  {
-    id: 'card_music',
-    title: 'Thẻ DJ Lớp Học',
-    icon: '🎵',
-    cost: 5,
-    description: 'Được chọn 1 bài hát yêu thích phát vào giờ giải lao 5 phút cuối giờ.',
-    color: '#ec4899'
-  },
-];
-
 export default function RewardShop({ 
   currentClass, 
   onUpdateStudents, 
@@ -58,14 +23,36 @@ export default function RewardShop({
 
   const [selectedStudentId, setSelectedStudentId] = useState(students[0]?.id || '');
   const [redeemLog, setRedeemLog] = useState([]);
+  const [rewards, setRewards] = useState([]);
+  const [loadingRewards, setLoadingRewards] = useState(true);
+
+  // Fetch rewards from API
+  useEffect(() => {
+    fetch('/api/gamification/rewards')
+      .then(res => res.json())
+      .then(data => {
+        setRewards(data);
+        setLoadingRewards(false);
+      })
+      .catch(err => {
+        console.error('Lỗi lấy danh sách phần thưởng:', err);
+        setLoadingRewards(false);
+      });
+  }, []);
+
+  // Sync selectedStudentId if class changes
+  useEffect(() => {
+    if (students.length > 0 && !students.find(s => s.id === selectedStudentId)) {
+      setSelectedStudentId(students[0].id);
+    }
+  }, [students, selectedStudentId]);
 
   // Sắp xếp top học sinh nhiều sao nhất
   const topStudents = [...students].sort((a, b) => (b.stars || 0) - (a.stars || 0)).slice(0, 5);
-
   const selectedStudent = students.find(s => s.id === selectedStudentId);
 
   // Đổi thẻ
-  const handleRedeem = (card) => {
+  const handleRedeem = async (card) => {
     if (!selectedStudent) {
       alert('Vui lòng chọn học sinh đổi thẻ!');
       return;
@@ -73,30 +60,56 @@ export default function RewardShop({
 
     const currentStars = selectedStudent.stars || 0;
     if (currentStars < card.cost) {
-      alert(`Học sinh ${selectedStudent.name} hiện chỉ có ${currentStars}⭐, không đủ ${card.cost}⭐ để đổi "${card.title}"!`);
+      alert(`Học sinh ${selectedStudent.name} hiện chỉ có ${currentStars}⭐, không đủ ${card.cost}⭐ để đổi "${card.name}"!`);
       return;
     }
 
-    if (DialogService.confirm(`Xác nhận đổi "${card.title}" cho ${selectedStudent.name} với giá ${card.cost}⭐?`)) {
-      const updated = students.map(s => {
-        if (s.id === selectedStudent.id) {
-          return { ...s, stars: currentStars - card.cost };
+    if (DialogService.confirm(`Xác nhận đổi "${card.name}" cho ${selectedStudent.name} với giá ${card.cost}⭐?`)) {
+      try {
+        const payload = {
+          id: `red_${Date.now()}_${Math.random().toString(36).substr(2,9)}`,
+          studentId: selectedStudent.id,
+          classId: currentClass.id,
+          rewardId: card.id,
+          sessionId: null // Tương lai có thể nhúng sessionId nếu muốn
+        };
+
+        const res = await fetch('/api/gamification/rewards/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Lỗi server');
         }
-        return s;
-      });
 
-      onUpdateStudents(updated);
-      setRedeemLog(prev => [
-        {
-          studentName: selectedStudent.name,
-          cardTitle: card.title,
-          cost: card.cost,
-          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-        },
-        ...prev
-      ]);
+        const data = await res.json();
 
-      if (soundEnabled) soundEffects.playVictory();
+        // Update local state to reflect instantly without reloading all classes
+        const updated = students.map(s => {
+          if (s.id === selectedStudent.id) {
+            return { ...s, stars: data.newBalance };
+          }
+          return s;
+        });
+
+        onUpdateStudents(updated);
+        setRedeemLog(prev => [
+          {
+            studentName: selectedStudent.name,
+            cardTitle: card.name,
+            cost: card.cost,
+            time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          },
+          ...prev
+        ]);
+
+        if (soundEnabled) soundEffects.playVictory();
+      } catch (e) {
+        alert('Lỗi khi đổi quà: ' + e.message);
+      }
     }
   };
 
@@ -156,7 +169,11 @@ export default function RewardShop({
           gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
           gap: '1rem'
         }}>
-          {REWARD_CARDS.map(card => {
+          {loadingRewards ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải phần thưởng...</div>
+          ) : rewards.length === 0 ? (
+             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Không có phần thưởng nào.</div>
+          ) : rewards.map(card => {
             const canAfford = (selectedStudent?.stars || 0) >= card.cost;
 
             return (
@@ -168,7 +185,7 @@ export default function RewardShop({
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  borderTop: `4px solid ${card.color}`,
+                  borderTop: `4px solid ${card.color || '#8b5cf6'}`,
                   transition: 'all 0.2s ease',
                   position: 'relative'
                 }}
@@ -189,7 +206,7 @@ export default function RewardShop({
                   </div>
 
                   <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.4rem' }}>
-                    {card.title}
+                    {card.name}
                   </h3>
 
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: '1.25rem' }}>
@@ -219,7 +236,9 @@ export default function RewardShop({
               👑 Bảng Vinh Danh Ngôi Sao Lớp
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {topStudents.map((s, idx) => (
+              {topStudents.length === 0 ? (
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Chưa có học sinh.</div>
+              ) : topStudents.map((s, idx) => (
                 <div
                   key={s.id}
                   style={{

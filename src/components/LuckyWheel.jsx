@@ -274,17 +274,44 @@ export default function LuckyWheel({
   };
 
   // Thưởng sao cho người vừa quay trúng
-  const handleRewardWinner = (starsToAdd) => {
+  const handleRewardWinner = async (starsToAdd) => {
     if (!selectedWinner) return;
-    const updated = students.map(s => {
-      if (s.id === selectedWinner.id) {
-        return { ...s, stars: (s.stars || 0) + starsToAdd };
+    try {
+      const payload = {
+        id: `luckywheel_${selectedWinner.id}_${Date.now()}`,
+        studentId: selectedWinner.id,
+        classId: currentClass?.id,
+        amount: starsToAdd,
+        reason: 'Thưởng quay trúng Vòng quay may mắn',
+        source: 'LUCKY_WHEEL',
+        sessionId: null
+      };
+
+      const res = await fetch('/api/gamification/stars/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error('Lỗi server khi cộng sao');
       }
-      return s;
-    });
-    onUpdateStudents(updated);
-    if (soundEnabled) soundEffects.playStarDing();
-    alert(`Đã cộng +${starsToAdd} ⭐ cho ${selectedWinner.name}!`);
+      
+      const data = await res.json();
+      
+      const updated = students.map(s => {
+        if (s.id === selectedWinner.id) {
+          return { ...s, stars: data.newBalance };
+        }
+        return s;
+      });
+      onUpdateStudents(updated);
+      
+      if (soundEnabled) soundEffects.playStarDing();
+      alert(`Đã cộng +${starsToAdd} ⭐ cho ${selectedWinner.name}!`);
+    } catch (e) {
+      alert('Không thể cộng sao: ' + e.message);
+    }
   };
 
   return (

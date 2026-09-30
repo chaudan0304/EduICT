@@ -611,16 +611,44 @@ export default function DuckRace({
   }, [selectedIds]);
 
   // Thưởng sao cho học sinh được gọi trả bài
-  const rewardWinner = (studentId, starsToAdd) => {
-    const updated = students.map(s => {
-      if (s.id === studentId) {
-        return { ...s, stars: (s.stars || 0) + starsToAdd };
+  const rewardWinner = async (studentId, starsToAdd) => {
+    try {
+      const payload = {
+        id: `duckrace_${studentId}_${Date.now()}`,
+        studentId: studentId,
+        classId: currentClass?.id,
+        amount: starsToAdd,
+        reason: 'Thưởng gọi trả bài bằng Vòng quay vịt',
+        source: 'DUCK_RACE',
+        sessionId: null
+      };
+
+      const res = await fetch('/api/gamification/stars/award', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error('Lỗi server khi cộng sao');
       }
-      return s;
-    });
-    onUpdateStudents(updated);
-    if (soundEnabled) soundEffects.playStarDing();
-    alert(`Đã cộng +${starsToAdd} ⭐ cho ${selectedWinner?.name || 'học sinh'}!`);
+      
+      const data = await res.json();
+      
+      // Update local state instantly
+      const updated = students.map(s => {
+        if (s.id === studentId) {
+          return { ...s, stars: data.newBalance };
+        }
+        return s;
+      });
+      onUpdateStudents(updated);
+      
+      if (soundEnabled) soundEffects.playStarDing();
+      alert(`Đã cộng +${starsToAdd} ⭐ cho ${selectedWinner?.name || 'học sinh'}!`);
+    } catch (e) {
+      alert('Không thể cộng sao: ' + e.message);
+    }
   };
 
   return (
