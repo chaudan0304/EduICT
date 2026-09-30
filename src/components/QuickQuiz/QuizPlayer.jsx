@@ -47,6 +47,7 @@ export default function QuizPlayer({
 
   const currentQ = questions[currentIndex] || null;
   const timerRef = useRef(null);
+  const endTimeRef = useRef(null);
 
   // Reset timer & load dữ liệu khi đổi câu hỏi
   useEffect(() => {
@@ -71,32 +72,37 @@ export default function QuizPlayer({
     }
   }, [currentIndex, currentQ, initialTime, resultsByQuestion]);
 
-  // Bộ đếm ngược thời gian
+  // Bộ đếm ngược thời gian (timestamp-based)
   useEffect(() => {
     if (!isTimerRunning || timeLeft <= 0) {
+      endTimeRef.current = null;
       return;
     }
 
+    endTimeRef.current = Date.now() + timeLeft * 1000;
+
     timerRef.current = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000));
+      
       setTimeLeft(prev => {
-        if (prev <= 1) {
+        if (remaining === prev) return prev;
+        
+        if (remaining <= 5 && remaining > 0 && isSoundEnabled && remaining < prev) {
+          soundEffects.playTick();
+        }
+        
+        if (remaining === 0 && prev > 0) {
           clearInterval(timerRef.current);
           setIsTimerRunning(false);
           if (isSoundEnabled) soundEffects.playBuzzer();
-          return 0;
         }
-
-        // 5 giây cuối phát tiếng tick
-        if (prev <= 6 && isSoundEnabled) {
-          soundEffects.playTick();
-        }
-
-        return prev - 1;
+        return remaining;
       });
-    }, 1000);
+    }, 200);
 
     return () => clearInterval(timerRef.current);
-  }, [isTimerRunning, timeLeft, isSoundEnabled]);
+  }, [isTimerRunning, currentIndex, isSoundEnabled]);
 
 
   // Mode 1: Thay đổi số lượng cho 1 phương án

@@ -114,6 +114,16 @@ export function getAllLessons(filters = {}) {
     conditions.push('l.topic = ?');
     params.push(filters.topic);
   }
+  if (filters.type && filters.type !== 'all') {
+    if (filters.type === 'native') {
+      conditions.push("(l.type = 'native' OR l.type IS NULL)");
+    } else if (filters.type === 'imported' || filters.type === 'powerpoint') {
+      conditions.push("l.type = 'imported'");
+    } else {
+      conditions.push('l.type = ?');
+      params.push(filters.type);
+    }
+  }
   if (filters.similarity_status && filters.similarity_status !== 'all') {
     conditions.push('l.similarity_status = ?');
     params.push(filters.similarity_status);
@@ -347,11 +357,25 @@ export function updateLesson(lessonId, lessonData) {
   return getLessonById(lessonId);
 }
 
-// 5. Xóa bài học
+// 5. Xóa bài học (kiểm tra tham chiếu Classroom Session trước khi xóa)
 export function deleteLesson(lessonId) {
   const db = getDatabase();
+
+  // Kiểm tra xem có Classroom Session nào đang tham chiếu bài học này không
+  let referencedSessionCount = 0;
+  try {
+    const row = db.prepare('SELECT COUNT(*) as count FROM classroom_sessions WHERE lesson_id = ?;').get(lessonId);
+    referencedSessionCount = row ? row.count : 0;
+  } catch (e) {
+    // Cột lesson_id có thể chưa tồn tại trong DB cũ — bỏ qua an toàn
+  }
+
+  // Xóa bài học (CASCADE sẽ xóa lesson_slides liên quan)
   db.prepare('DELETE FROM lessons WHERE id = ?;').run(lessonId);
-  return { success: true, id: lessonId };
+
+  // Không xóa session reference — session giữ lesson_id cũ nhưng bài đã xóa
+  // (session vẫn hoạt động với lesson_title đã lưu)
+  return { success: true, id: lessonId, referencedSessions: referencedSessionCount };
 }
 
 // 6. Nhân bản bài học (Duplicate)

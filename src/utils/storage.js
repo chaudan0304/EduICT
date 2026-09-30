@@ -535,6 +535,67 @@ export async function syncBrokenMachinesToSqlite(machines) {
   }
 }
 
+// --- GIAI ĐOẠN 3: Hồ sơ giáo viên (1 GV, sửa được) ---
+export async function fetchTeacherProfileFromSqlite() {
+  try {
+    const res = await fetch('/api/teacher-profile');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data === 'object' && !Array.isArray(data)) return data;
+    }
+  } catch (e) {
+    console.warn('Backend SQLite API not reachable for teacher profile:', e);
+  }
+  return null;
+}
+
+export async function saveTeacherProfileToSqlite(profile) {
+  try {
+    const res = await fetch('/api/teacher-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true, profile: data.profile || profile };
+    return { success: false, error: data.error || `Lỗi máy chủ (${res.status})` };
+  } catch (e) {
+    console.warn('Failed to save teacher profile to SQLite:', e);
+    return { success: false, error: e.message };
+  }
+}
+
+// --- GIAI ĐOẠN 3: Thời khóa biểu (sửa + lưu + phát hiện xung đột) ---
+export async function fetchTimetableFromSqlite() {
+  try {
+    const res = await fetch('/api/timetable');
+    if (res.ok) {
+      const data = await res.json();
+      // Server trả về { timetable: <grid|null> }
+      if (data && typeof data === 'object') return data.timetable || null;
+    }
+  } catch (e) {
+    console.warn('Backend SQLite API not reachable for timetable:', e);
+  }
+  return null;
+}
+
+export async function saveTimetableToSqlite(grid) {
+  try {
+    const res = await fetch('/api/timetable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timetable: grid })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return { success: true };
+    return { success: false, conflicts: data.conflicts || [], error: data.error || `Lỗi máy chủ (${res.status})` };
+  } catch (e) {
+    console.warn('Failed to save timetable to SQLite:', e);
+    return { success: false, error: e.message, conflicts: [] };
+  }
+}
+
 // Tải file database SQLite nhị phân (.sqlite)
 export function downloadSqliteDatabaseFile() {
   const a = document.createElement('a');

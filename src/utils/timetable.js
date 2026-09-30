@@ -8,9 +8,32 @@ export const TEACHER_INFO = {
   name: 'Nguyễn Văn Châu Đàn',
   shortName: 'Châu Đàn',
   subject: 'Tin học',
+  role: 'Giáo viên bộ môn',
   effectiveDate: '05/09/2026',
-  schoolYear: '2026 - 2027'
+  schoolYear: '2026 - 2027',
+  status: 'active'
 };
+
+// Bản sao sâu an toàn cho dữ liệu thuần (không phụ thuộc structuredClone)
+function deepClonePlain(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+// Hồ sơ giáo viên ĐANG ÁP DỤNG (có thể ghi đè bằng dữ liệu lưu trong app_settings).
+// Giữ TEACHER_INFO làm giá trị mặc định; getActive/setActive cho phép App nạp hồ sơ
+// đã lưu mà KHÔNG phá vỡ các nơi đang import trực tiếp TEACHER_INFO.
+let _activeTeacher = deepClonePlain(TEACHER_INFO);
+
+export function getActiveTeacherInfo() {
+  return _activeTeacher;
+}
+
+export function setActiveTeacherInfo(profile) {
+  if (profile && typeof profile === 'object') {
+    _activeTeacher = { ...deepClonePlain(TEACHER_INFO), ...profile };
+  }
+  return _activeTeacher;
+}
 
 // Khung giờ các tiết học trong ngày (Chuẩn 40 phút / tiết)
 export const PERIOD_SLOTS = [
@@ -120,6 +143,24 @@ export const TIMETABLE_DATA = {
   }
 };
 
+// Thời khóa biểu ĐANG ÁP DỤNG (mặc định = TIMETABLE_DATA; có thể ghi đè bằng dữ liệu đã lưu).
+// getCurrentPeriodStatus đọc từ đây nên chỉnh sửa/lưu TKB phản ánh NGAY vào theo dõi thời gian thực.
+let _activeTimetable = deepClonePlain(TIMETABLE_DATA);
+
+export function getActiveTimetable() {
+  return _activeTimetable;
+}
+
+export function getDefaultTimetable() {
+  return deepClonePlain(TIMETABLE_DATA);
+}
+
+export function setActiveTimetable(grid) {
+  const normalized = normalizeTimetableGrid(grid);
+  if (normalized) _activeTimetable = normalized;
+  return _activeTimetable;
+}
+
 /**
  * Kiểm tra trạng thái tiết học theo thời gian thực (Real-time clock)
  * @param {Date} [now] - Thời điểm kiểm tra (mặc định là thời gian hiện tại)
@@ -132,7 +173,7 @@ export function getCurrentPeriodStatus(now = new Date()) {
   const curTotalSec = curMinutes * 60 + curSeconds;
 
   const isWeekend = day === 0 || day === 6;
-  const daySchedule = TIMETABLE_DATA[day];
+  const daySchedule = getActiveTimetable()[day];
 
   const toSec = (h, m) => (h * 60 + m) * 60;
 
@@ -377,5 +418,207 @@ export function calculatePeriodRemainingSec(slot, now = new Date(), extraMinutes
     extraMinutes,
     formattedEndTime
   };
+}
+
+// ============================================================================
+// GIAI ĐOẠN 3 — Tiện ích cho TKB có thể chỉnh sửa: viết tắt môn, chuẩn hóa
+// lưới, phẳng hóa và PHÁT HIỆN XUNG ĐỘT (thuần túy — test được ngoài trình duyệt).
+// ============================================================================
+
+// Metadata cố định của 5 ngày trong tuần (dùng khi chuẩn hóa lưới từ dữ liệu đã lưu)
+const DAY_META = {
+  1: { dayOfWeek: 1, name: 'Thứ Hai', shortName: 'T2' },
+  2: { dayOfWeek: 2, name: 'Thứ Ba', shortName: 'T3' },
+  3: { dayOfWeek: 3, name: 'Thứ Tư', shortName: 'T4' },
+  4: { dayOfWeek: 4, name: 'Thứ Năm', shortName: 'T5' },
+  5: { dayOfWeek: 5, name: 'Thứ Sáu', shortName: 'T6' }
+};
+
+const DAY_NAMES = { 1: 'Thứ Hai', 2: 'Thứ Ba', 3: 'Thứ Tư', 4: 'Thứ Năm', 5: 'Thứ Sáu' };
+
+// Bảng viết tắt môn học (CHỈ để hiển thị — dữ liệu luôn giữ tên đầy đủ + tooltip)
+const SUBJECT_ABBREVIATIONS = {
+  'Tin học': 'Tin',
+  'Công nghệ': 'CN',
+  'Hoạt động trải nghiệm': 'HĐTN',
+  'Giáo dục thể chất': 'GDTC',
+  'Âm nhạc': 'Nhạc',
+  'Mĩ thuật': 'MT'
+};
+
+/**
+ * Viết tắt tên môn để hiển thị trong ô TKB nhỏ. KHÔNG thay đổi dữ liệu gốc.
+ * @param {string} fullName - Tên môn đầy đủ (giữ trong dữ liệu + tooltip)
+ * @returns {string} Nhãn viết tắt
+ */
+export function abbreviateSubject(fullName) {
+  if (!fullName || typeof fullName !== 'string') return '';
+  const name = fullName.trim();
+  if (!name) return '';
+  if (SUBJECT_ABBREVIATIONS[name]) return SUBJECT_ABBREVIATIONS[name];
+  if (name.length <= 6) return name;
+  const initials = name.split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('');
+  return initials.length >= 2 ? initials.slice(0, 6) : name.slice(0, 6);
+}
+
+// Chuẩn hóa 1 ô: null | {isOff,note} | {subject,className,grade}
+function normalizeCell(cell) {
+  if (!cell || typeof cell !== 'object') return null;
+  if (cell.isOff) {
+    return { isOff: true, note: typeof cell.note === 'string' && cell.note.trim() ? cell.note.trim() : 'Nghỉ' };
+  }
+  const className = typeof cell.className === 'string' ? cell.className.trim() : '';
+  if (!className) return null;
+  const out = {
+    subject: typeof cell.subject === 'string' && cell.subject.trim() ? cell.subject.trim() : 'Tin học',
+    className
+  };
+  if (cell.grade !== undefined && cell.grade !== null && cell.grade !== '') {
+    const g = Number(cell.grade);
+    if (!Number.isNaN(g)) out.grade = g;
+  }
+  return out;
+}
+
+/**
+ * Chuẩn hóa lưới TKB về đúng hình dạng (ngày 1–5, morning 1–4, afternoon 1–3).
+ * Phòng thủ khi nạp từ API / lưu từ client. Trả về null nếu đầu vào không phải object.
+ */
+export function normalizeTimetableGrid(grid) {
+  if (!grid || typeof grid !== 'object') return null;
+  const out = {};
+  for (let day = 1; day <= 5; day++) {
+    const src = grid[day] || grid[String(day)] || {};
+    const meta = DAY_META[day];
+    const morning = {};
+    for (let p = 1; p <= 4; p++) {
+      morning[p] = normalizeCell(src.morning ? src.morning[p] : null);
+    }
+    const afternoon = {};
+    for (let p = 1; p <= 3; p++) {
+      afternoon[p] = normalizeCell(src.afternoon ? src.afternoon[p] : null);
+    }
+    out[day] = { dayOfWeek: meta.dayOfWeek, name: meta.name, shortName: meta.shortName, morning, afternoon };
+  }
+  return out;
+}
+
+/**
+ * Phẳng hóa lưới TKB thành danh sách phân công (bỏ ô trống / ô nghỉ).
+ * @returns {Array<{day,session,period,slotId,className,subject,grade}>}
+ */
+export function flattenTimetable(grid) {
+  const list = [];
+  if (!grid || typeof grid !== 'object') return list;
+  for (let day = 1; day <= 5; day++) {
+    const d = grid[day] || grid[String(day)];
+    if (!d || typeof d !== 'object') continue;
+    for (const session of ['morning', 'afternoon']) {
+      const s = d[session];
+      if (!s || typeof s !== 'object') continue;
+      for (const periodKey of Object.keys(s)) {
+        const cell = s[periodKey];
+        if (!cell || cell.isOff) continue;
+        const className = typeof cell.className === 'string' ? cell.className.trim() : '';
+        if (!className) continue;
+        list.push({
+          day: Number(day),
+          session,
+          period: Number(periodKey),
+          slotId: `${session === 'morning' ? 'm' : 'a'}${periodKey}`,
+          className,
+          subject: cell.subject || 'Tin học',
+          grade: cell.grade ?? null
+        });
+      }
+    }
+  }
+  return list;
+}
+
+/**
+ * PHÁT HIỆN XUNG ĐỘT thời khóa biểu (mô hình 1 GV + 1 phòng máy).
+ * Nhận lưới HOẶC danh sách phân công phẳng (để test độc lập).
+ * Trả về mảng {type, severity:'error'|'warning', message, ...}. severity==='error' ⇒ CHẶN LƯU.
+ *  - SLOT_COLLISION (error): ≥2 lớp cùng một khung (ngày+buổi+tiết) → vi phạm đồng thời cả 3 quy tắc.
+ *  - CLASS_SAME_DAY (error): 1 lớp bị xếp ≥2 tiết trong cùng một ngày.
+ *  - CLASS_MULTI_DAY (warning): 1 lớp xuất hiện ở nhiều ngày trong tuần (nhắc kiểm tra, không chặn).
+ */
+export function detectTimetableConflicts(gridOrList) {
+  const assignments = Array.isArray(gridOrList) ? gridOrList : flattenTimetable(gridOrList);
+  const conflicts = [];
+
+  // 1) SLOT_COLLISION — trùng khung giờ vật lý
+  const slotMap = new Map();
+  for (const a of assignments) {
+    const key = `${a.day}|${a.session}|${a.period}`;
+    if (!slotMap.has(key)) slotMap.set(key, []);
+    slotMap.get(key).push(a);
+  }
+  for (const [key, list] of slotMap) {
+    if (list.length > 1) {
+      const day = Number(key.split('|')[0]);
+      const first = list[0];
+      conflicts.push({
+        type: 'SLOT_COLLISION',
+        severity: 'error',
+        day,
+        session: first.session,
+        period: first.period,
+        classes: list.map(x => x.className),
+        message: `Trùng tiết: ${list.map(x => x.className).join(', ')} bị xếp cùng một khung giờ (${DAY_NAMES[day] || 'Ngày ' + day}, tiết ${first.period} ${first.session === 'morning' ? 'sáng' : 'chiều'}).`
+      });
+    }
+  }
+
+  // 2) CLASS_SAME_DAY — 1 lớp ≥2 tiết cùng ngày
+  const classDayMap = new Map();
+  for (const a of assignments) {
+    const key = `${a.className}|${a.day}`;
+    if (!classDayMap.has(key)) classDayMap.set(key, []);
+    classDayMap.get(key).push(a);
+  }
+  for (const [key, list] of classDayMap) {
+    if (list.length > 1) {
+      const parts = key.split('|');
+      const className = parts[0];
+      const day = Number(parts[1]);
+      conflicts.push({
+        type: 'CLASS_SAME_DAY',
+        severity: 'error',
+        day,
+        className,
+        count: list.length,
+        message: `Lớp ${className} bị xếp ${list.length} tiết trong ${DAY_NAMES[day] || 'ngày ' + day} — một lớp không thể học 2 tiết Tin học cùng ngày.`
+      });
+    }
+  }
+
+  // 3) CLASS_MULTI_DAY — cảnh báo lớp xuất hiện ở nhiều ngày
+  const classWeekMap = new Map();
+  for (const a of assignments) {
+    if (!classWeekMap.has(a.className)) classWeekMap.set(a.className, new Set());
+    classWeekMap.get(a.className).add(a.day);
+  }
+  for (const [className, daySet] of classWeekMap) {
+    if (daySet.size > 1) {
+      conflicts.push({
+        type: 'CLASS_MULTI_DAY',
+        severity: 'warning',
+        className,
+        days: Array.from(daySet).sort((x, y) => x - y),
+        message: `Lớp ${className} được xếp ở ${daySet.size} ngày khác nhau trong tuần — hãy kiểm tra lại nếu không chủ đích.`
+      });
+    }
+  }
+
+  return conflicts;
+}
+
+/**
+ * Có xung đột NGHIÊM TRỌNG (severity==='error') hay không → dùng để chặn lưu.
+ */
+export function hasBlockingConflicts(conflicts) {
+  return Array.isArray(conflicts) && conflicts.some(c => c && c.severity === 'error');
 }
 

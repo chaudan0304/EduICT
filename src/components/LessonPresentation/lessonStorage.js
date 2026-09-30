@@ -400,6 +400,7 @@ export async function fetchLessonsApi(filters = {}) {
     const params = new URLSearchParams();
     if (filters.grade && filters.grade !== 'all') params.append('grade', filters.grade);
     if (filters.topic && filters.topic !== 'all') params.append('topic', filters.topic);
+    if (filters.type && filters.type !== 'all') params.append('type', filters.type);
     if (filters.similarity_status && filters.similarity_status !== 'all') params.append('similarity_status', filters.similarity_status);
     if (filters.search && filters.search.trim()) params.append('search', filters.search.trim());
 

@@ -12,6 +12,24 @@ import {
   saveQuizResults
 } from '../db.js';
 
+function validateQuestionPayload(body) {
+  if (!body.question || typeof body.question !== 'string' || body.question.trim() === '') {
+    throw new Error('Nội dung câu hỏi không được để trống');
+  }
+  if (!body.type) {
+    throw new Error('Loại câu hỏi không hợp lệ');
+  }
+  if (['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE'].includes(body.type)) {
+    if (!Array.isArray(body.options) || body.options.length < 2) {
+      throw new Error('Câu hỏi trắc nghiệm cần ít nhất 2 lựa chọn');
+    }
+    if (body.correct_answer === undefined || body.correct_answer === null || body.correct_answer === '') {
+      throw new Error('Chưa chọn đáp án đúng');
+    }
+  }
+}
+
+
 export async function tryHandleQuiz(req, res, ctx) {
   const { pathname, method, url } = ctx;
 
@@ -44,10 +62,12 @@ export async function tryHandleQuiz(req, res, ctx) {
   if (pathname === '/api/questions' && method === 'POST') {
     try {
       const body = await parseJsonBody(req);
+      validateQuestionPayload(body);
       const created = createQuestion(body);
       sendJson(res, 201, created);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      const status = err.message === 'Nội dung câu hỏi không được để trống' || err.message === 'Loại câu hỏi không hợp lệ' || err.message === 'Câu hỏi trắc nghiệm cần ít nhất 2 lựa chọn' || err.message === 'Chưa chọn đáp án đúng' ? 400 : 500;
+      sendJson(res, status, { error: err.message });
     }
     return true;
   }
@@ -73,10 +93,12 @@ export async function tryHandleQuiz(req, res, ctx) {
     const qId = pathname.replace('/api/questions/', '');
     try {
       const body = await parseJsonBody(req);
+      validateQuestionPayload(body);
       const updated = updateQuestion(qId, body);
       sendJson(res, 200, updated);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      const status = err.message === 'Nội dung câu hỏi không được để trống' || err.message === 'Loại câu hỏi không hợp lệ' || err.message === 'Câu hỏi trắc nghiệm cần ít nhất 2 lựa chọn' || err.message === 'Chưa chọn đáp án đúng' ? 400 : 500;
+      sendJson(res, status, { error: err.message });
     }
     return true;
   }

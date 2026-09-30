@@ -378,6 +378,7 @@ export function initSchema(db) {
 
   // Migration: Bổ sung cột source cho question_bank nếu chưa có
   try { db.exec(`ALTER TABLE question_bank ADD COLUMN source TEXT DEFAULT 'MANUAL';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE question_bank ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
 
   // Kiểm tra nếu chưa có dữ liệu thì nạp dữ liệu mẫu 5 khối lớp
   const countRow = db.prepare('SELECT COUNT(*) as count FROM classes;').get();

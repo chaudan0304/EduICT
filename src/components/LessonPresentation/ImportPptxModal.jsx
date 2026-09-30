@@ -1,3 +1,4 @@
+import DialogService from '../../services/DialogService';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   UploadCloud, 
@@ -236,7 +237,7 @@ export default function ImportPptxModal({
   const handleProceedImport = () => {
     const selectedItems = verifyList.filter(v => v.isSelected);
     if (selectedItems.length === 0) {
-      alert('Vui lòng chọn ít nhất 1 bài giảng để tiến hành import!');
+      DialogService.alert('Vui lòng chọn ít nhất 1 bài giảng để tiến hành import!');
       return;
     }
 
@@ -412,7 +413,7 @@ export default function ImportPptxModal({
   const handleSaveItemChanges = async (item) => {
     if (!item || !item.lesson?.id) return;
     if (!item.lessonTitle.trim()) {
-      alert('Vui lòng nhập tên bài học!');
+      DialogService.alert('Vui lòng nhập tên bài học!');
       return;
     }
 
@@ -432,7 +433,7 @@ export default function ImportPptxModal({
         setTimeout(() => setSaveToast(false), 2000);
       }
     } catch (err) {
-      alert(`❌ Lỗi cập nhật bài giảng: ${err.message}`);
+      DialogService.alert(`❌ Lỗi cập nhật bài giảng: ${err.message}`);
     } finally {
       setIsSaving(false);
     }

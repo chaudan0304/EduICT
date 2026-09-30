@@ -33,6 +33,8 @@ export default function SessionHeader({
         return { label: 'ĐANG TẠM DỪNG', bg: '#f59e0b', color: '#fff', pulse: false };
       case 'COMPLETED':
         return { label: 'ĐÃ KẾT THÚC', bg: '#64748b', color: '#fff', pulse: false };
+      case 'CANCELLED':
+        return { label: 'ĐÃ HỦY', bg: '#94a3b8', color: '#fff', pulse: false };
       default:
         return { label: 'SẴN SÀNG', bg: '#0284c7', color: '#fff', pulse: false };
     }

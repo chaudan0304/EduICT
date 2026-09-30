@@ -37,8 +37,11 @@ import {
   fetchAcademicYearSettings,
   checkNewSchoolYearFromSqlite,
   transitionSchoolYearInSqlite,
-  detectGradeFromName
+  detectGradeFromName,
+  fetchTeacherProfileFromSqlite,
+  fetchTimetableFromSqlite
 } from './utils/storage';
+import { setActiveTeacherInfo, setActiveTimetable } from './utils/timetable';
 
 export default function App() {
   const [classes, setClasses] = useState(() => getStoredClasses());
@@ -150,6 +153,18 @@ export default function App() {
           setDbStatus({ connected: true, dbFile: 'edumaster.sqlite' });
         }
         await refreshStudentStats(activeYear);
+
+        // GIAI ĐOẠN 3 — Nạp hồ sơ giáo viên & thời khóa biểu đã lưu (nếu có),
+        // ghi đè giá trị mặc định trong module timetable để theo dõi thời gian thực
+        // và modal TKB phản ánh đúng dữ liệu đã lưu.
+        try {
+          const savedTeacher = await fetchTeacherProfileFromSqlite();
+          if (savedTeacher) setActiveTeacherInfo(savedTeacher);
+          const savedTimetable = await fetchTimetableFromSqlite();
+          if (savedTimetable) setActiveTimetable(savedTimetable);
+        } catch (e) {
+          console.warn('Could not load teacher/timetable from SQLite:', e);
+        }
 
         // Nạp cài đặt ngày bắt đầu năm học (Mặc định 05/09)
         const settingsRes = await fetchAcademicYearSettings();

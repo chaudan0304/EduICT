@@ -58,6 +58,7 @@ export default function LessonLibrary({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('all');
   const [similarityFilter, setSimilarityFilter] = useState('all'); // 'all' | 'unique' | 'exact_duplicate' | 'high_duplicate' | 'near_similar'
+  const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'native' | 'imported'
   const [sortBy, setSortBy] = useState('lesson_order'); // 'lesson_order' | 'title_asc' | 'title_desc' | 'recent'
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingImportedLesson, setEditingImportedLesson] = useState(null);
@@ -96,7 +97,8 @@ export default function LessonLibrary({
       grade: currentGrade,
       topic: selectedTopic,
       search: searchTerm,
-      similarity_status: similarityFilter
+      similarity_status: similarityFilter,
+      type: typeFilter
     })
       .then((data) => {
         if (!ignore) {
@@ -114,7 +116,7 @@ export default function LessonLibrary({
     return () => {
       ignore = true;
     };
-  }, [currentGrade, selectedTopic, searchTerm, similarityFilter]);
+  }, [currentGrade, selectedTopic, searchTerm, similarityFilter, typeFilter]);
 
   const [retryingThumbnailIds, setRetryingThumbnailIds] = useState(new Set());
 
@@ -192,7 +194,7 @@ export default function LessonLibrary({
         }, 1500);
       }
     } catch (err) {
-      alert(`Không thể tạo ảnh xem trước: ${err.message}`);
+      DialogService.alert(`Không thể tạo ảnh xem trước: ${err.message}`);
     } finally {
       setRetryingThumbnailIds(prev => {
         const next = new Set(prev);
@@ -244,9 +246,9 @@ export default function LessonLibrary({
       if (duplicateDetailModal?.lesson?.id === lessonId) {
         setDuplicateDetailModal(null);
       }
-      alert('✓ Đã xác nhận giữ lại bài giảng trong thư viện.');
+      DialogService.alert('✓ Đã xác nhận giữ lại bài giảng trong thư viện.');
     } catch (err) {
-      alert(`❌ Lỗi: ${err.message}`);
+      DialogService.alert(`❌ Lỗi: ${err.message}`);
     }
   };
 
@@ -276,9 +278,9 @@ export default function LessonLibrary({
       if (duplicateDetailModal?.lesson?.id === targetLesson.id || duplicateDetailModal?.matchedLesson?.id === targetLesson.id) {
         setDuplicateDetailModal(null);
       }
-      alert('✓ Đã xóa bài giảng trùng lặp thành công.');
+      DialogService.alert('✓ Đã xóa bài giảng trùng lặp thành công.');
     } catch (err) {
-      alert(`❌ Lỗi xóa: ${err.message}`);
+      DialogService.alert(`❌ Lỗi xóa: ${err.message}`);
     }
   };
 
@@ -386,7 +388,7 @@ export default function LessonLibrary({
       await deleteLessonApi(lesson.id);
       setLessons(prev => prev.filter(l => l.id !== lesson.id));
     } catch (err) {
-      alert(`❌ Lỗi xóa: ${err.message}`);
+      DialogService.alert(`❌ Lỗi xóa: ${err.message}`);
     }
   };
 
@@ -399,7 +401,7 @@ export default function LessonLibrary({
         setLessons(prev => [cloned, ...prev]);
       }
     } catch (err) {
-      alert(`❌ Lỗi nhân bản: ${err.message}`);
+      DialogService.alert(`❌ Lỗi nhân bản: ${err.message}`);
     }
   };
 
@@ -677,6 +679,19 @@ export default function LessonLibrary({
                 {t.icon} {t.label}
               </option>
             ))}
+          </select>
+
+          {/* Lọc theo loại bài */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="input-field"
+            style={{ minWidth: 160, fontSize: '0.875rem', fontWeight: 600 }}
+            title="Lọc theo loại bài giảng"
+          >
+            <option value="all">📋 Tất cả loại bài</option>
+            <option value="native">📝 Bài soạn (Native)</option>
+            <option value="imported">📊 PowerPoint (PPTX)</option>
           </select>
 
           {/* Sắp xếp bài giảng */}

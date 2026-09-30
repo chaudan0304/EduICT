@@ -5,7 +5,8 @@ import {
   ChevronRight, 
   Clock, 
   Flag, 
-  Zap
+  Zap,
+  XCircle
 } from 'lucide-react';
 
 export default function SessionControlBar({
@@ -14,12 +15,13 @@ export default function SessionControlBar({
   onPauseSession,
   onResumeSession,
   onEndSession,
+  onCancelSession = null,
   onPrevActivity,
   onNextActivity,
   canPrev,
   canNext,
   currentActivityTitle,
-  onOpenQuickTool, // (toolName) => void: 'wheel' | 'quiz' | 'duckrace' | 'timer'
+  onOpenQuickTool, // (toolName) => void: 'wheel' | 'quiz' | 'duckrace' | 'timer' | 'seating'
   onQuickAddMinutes,
   onLaunchPresentation = null
 }) {
@@ -183,6 +185,23 @@ export default function SessionControlBar({
             </button>
           )}
 
+          {/* Sơ đồ phòng máy (Practice Room) */}
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => onOpenQuickTool('seating')}
+            style={{
+              borderColor: 'rgba(16, 185, 129, 0.4)',
+              background: 'rgba(16, 185, 129, 0.08)',
+              color: '#059669',
+              fontWeight: 700,
+              fontSize: '0.8125rem'
+            }}
+            title="Mở sơ đồ phòng máy — phân máy cho học sinh"
+          >
+            <span>🖥️ Phòng Máy</span>
+          </button>
+
           {/* Vòng quay may mắn gọi học sinh */}
           <button
             type="button"
@@ -200,7 +219,7 @@ export default function SessionControlBar({
             <span>🎡 Vòng Quay</span>
           </button>
 
-          {/* Quick Quiz (Kiến trúc sẵn sàng) */}
+          {/* Quick Quiz */}
           <button
             type="button"
             className="btn btn-outline btn-sm"
@@ -253,6 +272,26 @@ export default function SessionControlBar({
             <Flag size={15} />
             <span>Kết Thúc</span>
           </button>
+
+          {/* Nút Hủy tiết học (phân biệt CANCEL vs COMPLETE) */}
+          {onCancelSession && (isRunning || isPaused) && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={onCancelSession}
+              style={{
+                borderColor: 'rgba(100, 116, 139, 0.5)',
+                background: 'rgba(100, 116, 139, 0.08)',
+                color: '#64748b',
+                fontWeight: 700,
+                fontSize: '0.75rem'
+              }}
+              title="Hủy tiết học (không tính là tiết học hoàn thành)"
+            >
+              <XCircle size={14} />
+              <span>Hủy</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

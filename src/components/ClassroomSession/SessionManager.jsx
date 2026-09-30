@@ -73,7 +73,7 @@ export default function SessionManager({
 
       if (storedActiveId) {
         const activeDetail = await fetchSessionDetailFromApi(storedActiveId);
-        if (activeDetail && activeDetail.status !== 'COMPLETED') {
+        if (activeDetail && activeDetail.status !== 'COMPLETED' && activeDetail.status !== 'CANCELLED') {
           restoredSession = activeDetail;
         }
       }
@@ -83,7 +83,7 @@ export default function SessionManager({
         const ongoing = data.find(s => s.status === 'RUNNING' || s.status === 'PAUSED' || s.status === 'READY');
         if (ongoing) {
           const detail = await fetchSessionDetailFromApi(ongoing.id);
-          if (detail && detail.status !== 'COMPLETED') {
+          if (detail && detail.status !== 'COMPLETED' && detail.status !== 'CANCELLED') {
             restoredSession = detail;
           }
         }

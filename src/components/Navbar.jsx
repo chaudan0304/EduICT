@@ -1682,6 +1682,7 @@ export default function Navbar({
       <TimetableModal
         isOpen={showTimetableModal}
         onClose={() => setShowTimetableModal(false)}
+        classes={classes}
         onSelectClassForSession={(targetClassName, targetGrade) => {
           setShowTimetableModal(false);
           if (onSelectClassFromTimetable) {

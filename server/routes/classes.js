@@ -10,7 +10,11 @@ import {
   getDbBrokenMachines,
   saveDbBrokenMachines,
   getDbRules,
-  saveDbRules
+  saveDbRules,
+  getDbTeacherProfile,
+  saveDbTeacherProfile,
+  getDbTimetable,
+  saveDbTimetable
 } from '../db.js';
 
 export async function tryHandleClasses(req, res, ctx) {
@@ -147,6 +151,59 @@ export async function tryHandleClasses(req, res, ctx) {
         sendJson(res, 200, { success: true });
       } catch (err) {
         sendJson(res, 500, { error: err.message });
+      }
+      return true;
+    }
+  }
+
+  // 8. Hồ sơ giáo viên (1 GV, sửa được) — GET / POST
+  if (pathname === '/api/teacher-profile') {
+    if (method === 'GET') {
+      try {
+        const profile = getDbTeacherProfile();
+        sendJson(res, 200, profile);
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return true;
+    }
+    if (method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const profile = saveDbTeacherProfile(body);
+        sendJson(res, 200, { success: true, profile });
+      } catch (err) {
+        // Lỗi validate hồ sơ → 400 (dữ liệu người dùng), lỗi khác → 500
+        sendJson(res, 400, { error: err.message });
+      }
+      return true;
+    }
+  }
+
+  // 9. Thời khóa biểu (sửa + lưu + phát hiện xung đột) — GET / POST
+  if (pathname === '/api/timetable') {
+    if (method === 'GET') {
+      try {
+        const timetable = getDbTimetable();
+        sendJson(res, 200, { timetable });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return true;
+    }
+    if (method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const grid = body && body.timetable ? body.timetable : body;
+        saveDbTimetable(grid);
+        sendJson(res, 200, { success: true });
+      } catch (err) {
+        // Xung đột TKB → 409 kèm danh sách; lỗi khác → 500
+        if (err.code === 'TIMETABLE_CONFLICT') {
+          sendJson(res, 409, { success: false, error: err.message, conflicts: err.conflicts || [] });
+        } else {
+          sendJson(res, 500, { error: err.message });
+        }
       }
       return true;
     }

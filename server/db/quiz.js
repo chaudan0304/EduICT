@@ -7,7 +7,7 @@ import { getDatabase } from './connection.js';
 // 1. Lấy danh sách câu hỏi trong Ngân hàng câu hỏi (kèm bộ lọc)
 export function getAllQuestions(filters = {}) {
   const db = getDatabase();
-  let sql = 'SELECT * FROM question_bank WHERE 1=1';
+  let sql = 'SELECT * FROM question_bank WHERE (is_deleted = 0 OR is_deleted IS NULL)';
   const params = [];
 
   if (filters.grade && filters.grade !== 'all') {
@@ -80,6 +80,24 @@ export function getQuestionById(id) {
 // 3. Tạo mới câu hỏi
 export function createQuestion(qData) {
   const db = getDatabase();
+  
+  const duplicate = db.prepare(`
+    SELECT id FROM question_bank 
+    WHERE question = ? 
+      AND type = ? 
+      AND grade = ?
+      AND correct_answer = ?
+      AND (is_deleted = 0 OR is_deleted IS NULL)
+  `).get(
+    qData.question || 'Câu hỏi mới', 
+    qData.type || 'MULTIPLE_CHOICE', 
+    qData.grade ? Number(qData.grade) : 3, 
+    qData.correct_answer || ''
+  );
+
+  if (duplicate) {
+    throw new Error('Câu hỏi đã tồn tại trong ngân hàng (trùng lặp nội dung).');
+  }
   const id = qData.id || `qb_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const optionsJson = typeof qData.options === 'string' ? qData.options : JSON.stringify(qData.options || []);
 
@@ -165,7 +183,12 @@ export function updateQuestion(id, qData) {
 // 5. Xóa câu hỏi
 export function deleteQuestion(id) {
   const db = getDatabase();
-  db.prepare('DELETE FROM question_bank WHERE id = ?;').run(id);
+  const usage = db.prepare('SELECT COUNT(*) as count FROM quiz_questions WHERE question_bank_id = ?').get(id);
+  if (usage && usage.count > 0) {
+    db.prepare('UPDATE question_bank SET is_deleted = 1 WHERE id = ?;').run(id);
+  } else {
+    db.prepare('DELETE FROM question_bank WHERE id = ?;').run(id);
+  }
   return true;
 }
 

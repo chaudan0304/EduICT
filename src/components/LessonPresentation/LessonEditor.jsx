@@ -111,7 +111,7 @@ export default function LessonEditor({
   const handleDeleteSlide = (index, e) => {
     e.stopPropagation();
     if (slides.length <= 1) {
-      alert('⚠️ Bài học cần có tối thiểu 1 slide!');
+      DialogService.alert('⚠️ Bài học cần có tối thiểu 1 slide!');
       return;
     }
     if (!DialogService.confirm(`Xóa slide số ${index + 1}?`)) return;
@@ -143,7 +143,7 @@ export default function LessonEditor({
   // 5. Lưu bài học vào SQLite / LocalStorage
   const handleSaveLesson = async () => {
     if (!lessonData.title.trim()) {
-      alert('⚠️ Vui lòng nhập tiêu đề bài học!');
+      DialogService.alert('⚠️ Vui lòng nhập tiêu đề bài học!');
       return;
     }
 
@@ -168,7 +168,7 @@ export default function LessonEditor({
         onSaveSuccess(savedLesson);
       }
     } catch (err) {
-      alert(`❌ Lỗi lưu bài học: ${err.message}`);
+      DialogService.alert(`❌ Lỗi lưu bài học: ${err.message}`);
     } finally {
       setIsSaving(false);
     }

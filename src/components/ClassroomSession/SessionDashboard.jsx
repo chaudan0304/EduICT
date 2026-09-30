@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import DialogService from '../../services/DialogService';
 import { Bell, AlertTriangle, Flag, Clock } from 'lucide-react';
 import SessionHeader from './SessionHeader';
@@ -99,10 +99,20 @@ export default function SessionDashboard({
   const actDurationSec = (currentActivity?.duration_minutes || currentActivity?.durationMinutes || 5) * 60;
   const [activityRemainingSec, setActivityRemainingSec] = useState(actDurationSec);
 
+  // Timestamp refs cho timer chính xác (tránh drift khi dùng counter--)
+  // Session timer: dùng endTime anchor hoặc tính từ started_at + paused
+  const sessionTimerAnchorRef = useRef(null); // { startedAt, totalSec, pausedSec }
+  const activityTimerAnchorRef = useRef(null); // { startedAt, durationSec }
+
+  // Double-click protection
+  const isProcessingRef = useRef(false);
+  const isAwardingRef = useRef(false);
+
   // Modal & Notification states
-  const [quickToolType, setQuickToolType] = useState(null); // 'wheel' | 'duckrace' | 'quiz' | null
+  const [quickToolType, setQuickToolType] = useState(null); // 'wheel' | 'duckrace' | 'quiz' | 'seating' | null
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
+  const [isCancellingSession, setIsCancellingSession] = useState(false);
   const [isPresentationOpen, setIsPresentationOpen] = useState(false);
   const [presentationLesson, setPresentationLesson] = useState(null);
   const [isQuizCreatorOpen, setIsQuizCreatorOpen] = useState(false);
@@ -166,13 +176,13 @@ export default function SessionDashboard({
       }
 
       if (!lesson) {
-        alert('Chưa có bài học nào trong Thư Viện. Vui lòng chuyển sang tab "Bài Học & Slide" để tạo bài học trước!');
+        DialogService.alert('Chưa có bài học nào trong Thư Viện. Vui lòng chuyển sang tab "Bài Học & Slide" để tạo bài học trước!');
         return;
       }
       setPresentationLesson(lesson);
       setIsPresentationOpen(true);
     } catch (err) {
-      alert(`Lỗi mở trình chiếu: ${err.message}`);
+      DialogService.alert(`Lỗi mở trình chiếu: ${err.message}`);
     }
   };
 
@@ -180,7 +190,7 @@ export default function SessionDashboard({
   useEffect(() => {
     if (session.status === 'RUNNING' || session.status === 'PAUSED' || session.status === 'READY') {
       setStoredActiveSessionId(session.id);
-    } else if (session.status === 'COMPLETED') {
+    } else if (session.status === 'COMPLETED' || session.status === 'CANCELLED') {
       setStoredActiveSessionId(null);
     }
   }, [session.id, session.status]);
@@ -202,14 +212,31 @@ export default function SessionDashboard({
     };
   }, [session.status]);
 
-  // Master Timer Interval
+  // Master Timer Interval — Timestamp-based để chống drift
   const isRunning = session.status === 'RUNNING';
   const isPaused = session.status === 'PAUSED';
 
   useEffect(() => {
     let timerId = null;
     if (isRunning) {
+      // Khởi tạo anchor cho session timer (nếu không dùng TKB sync)
+      if (!isTimetableSynced && !sessionTimerAnchorRef.current) {
+        sessionTimerAnchorRef.current = {
+          anchorTime: Date.now(),
+          anchorRemaining: sessionRemainingSec
+        };
+      }
+      // Khởi tạo anchor cho activity timer
+      if (!activityTimerAnchorRef.current) {
+        activityTimerAnchorRef.current = {
+          anchorTime: Date.now(),
+          anchorRemaining: activityRemainingSec
+        };
+      }
+
       timerId = setInterval(() => {
+        const nowMs = Date.now();
+
         if (isTimetableSynced && activeSlot) {
           const now = new Date();
           const calc = calculatePeriodRemainingSec(activeSlot, now, extraMinutes);
@@ -225,12 +252,24 @@ export default function SessionDashboard({
               }
             }
           }
-        } else {
-          setSessionRemainingSec(prev => Math.max(0, prev - 1));
+        } else if (sessionTimerAnchorRef.current) {
+          // Timestamp-based: remaining = anchor - elapsed since anchor
+          const elapsedSec = Math.floor((nowMs - sessionTimerAnchorRef.current.anchorTime) / 1000);
+          const newRemaining = Math.max(0, sessionTimerAnchorRef.current.anchorRemaining - elapsedSec);
+          setSessionRemainingSec(newRemaining);
         }
 
-        setActivityRemainingSec(prev => Math.max(0, prev - 1));
+        // Activity timer: timestamp-based
+        if (activityTimerAnchorRef.current) {
+          const elapsedSec = Math.floor((nowMs - activityTimerAnchorRef.current.anchorTime) / 1000);
+          const newRemaining = Math.max(0, activityTimerAnchorRef.current.anchorRemaining - elapsedSec);
+          setActivityRemainingSec(newRemaining);
+        }
       }, 1000);
+    } else {
+      // Khi pause, xóa anchor để tạo mới khi resume
+      sessionTimerAnchorRef.current = null;
+      activityTimerAnchorRef.current = null;
     }
     return () => {
       if (timerId) clearInterval(timerId);
@@ -250,100 +289,142 @@ export default function SessionDashboard({
     }
   }, [sessionRemainingSec, isRunning, soundEnabled]);
 
-  // 1. Bắt đầu tiết học
+  // 1. Bắt đầu tiết học (double-click protected)
   const handleStartSession = async () => {
-    const nowIso = new Date().toISOString();
-    let currentSlot = activeSlot;
-    let shouldSync = isTimetableSynced;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    try {
+      const nowIso = new Date().toISOString();
+      let currentSlot = activeSlot;
+      let shouldSync = isTimetableSynced;
 
-    if (!currentSlot) {
-      currentSlot = getActiveTeachingSlot(new Date());
-      if (currentSlot) {
-        setActiveSlot(currentSlot);
-        setIsTimetableSynced(true);
-        shouldSync = true;
+      if (!currentSlot) {
+        currentSlot = getActiveTeachingSlot(new Date());
+        if (currentSlot) {
+          setActiveSlot(currentSlot);
+          setIsTimetableSynced(true);
+          shouldSync = true;
+        }
       }
+
+      const updated = {
+        ...session,
+        status: 'RUNNING',
+        started_at: session.started_at || nowIso,
+        period_slot_id: currentSlot ? currentSlot.id : session.period_slot_id,
+        period_label: currentSlot ? currentSlot.label : session.period_label,
+        period_end_time: currentSlot ? currentSlot.endTime : session.period_end_time,
+        sync_timetable_period: shouldSync
+      };
+      setSession(updated);
+
+      // Kích hoạt hoạt động đầu tiên nếu chưa chạy
+      let updatedActivities = [...activities];
+      if (updatedActivities.length > 0 && !updatedActivities.some(a => a.status === 'IN_PROGRESS')) {
+        updatedActivities[0] = { ...updatedActivities[0], status: 'IN_PROGRESS', started_at: nowIso };
+        setActivities(updatedActivities);
+        saveActivitiesApi(session.id, updatedActivities);
+      }
+
+      await updateSessionApi(session.id, { status: 'RUNNING', started_at: updated.started_at });
+      await addSessionEventApi(session.id, { eventType: 'SESSION_STARTED', details: 'Tiết học bắt đầu' });
+      if (soundEnabled) soundEffects.playBoost();
+    } finally {
+      isProcessingRef.current = false;
     }
-
-    const updated = {
-      ...session,
-      status: 'RUNNING',
-      started_at: session.started_at || nowIso,
-      period_slot_id: currentSlot ? currentSlot.id : session.period_slot_id,
-      period_label: currentSlot ? currentSlot.label : session.period_label,
-      period_end_time: currentSlot ? currentSlot.endTime : session.period_end_time,
-      sync_timetable_period: shouldSync
-    };
-    setSession(updated);
-
-    // Kích hoạt hoạt động đầu tiên nếu chưa chạy
-    let updatedActivities = [...activities];
-    if (updatedActivities.length > 0 && !updatedActivities.some(a => a.status === 'IN_PROGRESS')) {
-      updatedActivities[0] = { ...updatedActivities[0], status: 'IN_PROGRESS', started_at: nowIso };
-      setActivities(updatedActivities);
-      saveActivitiesApi(session.id, updatedActivities);
-    }
-
-    await updateSessionApi(session.id, { status: 'RUNNING', started_at: updated.started_at });
-    await addSessionEventApi(session.id, { eventType: 'SESSION_STARTED', details: 'Tiết học bắt đầu' });
-    if (soundEnabled) soundEffects.playBoost();
   };
 
-  // 2. Tạm dừng tiết học
+  // 2. Tạm dừng tiết học (double-click protected)
   const handlePauseSession = async () => {
-    const nowIso = new Date().toISOString();
-    setSession(prev => ({ ...prev, status: 'PAUSED', paused_at: nowIso }));
-    await updateSessionApi(session.id, { status: 'PAUSED', paused_at: nowIso });
-    await addSessionEventApi(session.id, { eventType: 'SESSION_PAUSED', details: 'Giáo viên tạm dừng tiết học' });
-    if (soundEnabled) soundEffects.playTick();
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    try {
+      const nowIso = new Date().toISOString();
+      setSession(prev => ({ ...prev, status: 'PAUSED', paused_at: nowIso }));
+      await updateSessionApi(session.id, { status: 'PAUSED', paused_at: nowIso });
+      await addSessionEventApi(session.id, { eventType: 'SESSION_PAUSED', details: 'Giáo viên tạm dừng tiết học' });
+      if (soundEnabled) soundEffects.playTick();
+    } finally {
+      isProcessingRef.current = false;
+    }
   };
 
-  // 3. Tiếp tục tiết học
+  // 3. Tiếp tục tiết học (double-click protected)
   const handleResumeSession = async () => {
-    const nowMs = Date.now();
-    let additionalPausedSec = 0;
-    if (session.paused_at) {
-      additionalPausedSec = Math.floor((nowMs - new Date(session.paused_at).getTime()) / 1000);
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    try {
+      const nowMs = Date.now();
+      let additionalPausedSec = 0;
+      if (session.paused_at) {
+        additionalPausedSec = Math.floor((nowMs - new Date(session.paused_at).getTime()) / 1000);
+      }
+      const newTotalPaused = (session.total_paused_seconds || 0) + Math.max(0, additionalPausedSec);
+
+      const updated = {
+        ...session,
+        status: 'RUNNING',
+        paused_at: null,
+        total_paused_seconds: newTotalPaused
+      };
+      setSession(updated);
+
+      // Reset timer anchors khi resume — sẽ tự tạo mới ở useEffect
+      sessionTimerAnchorRef.current = null;
+      activityTimerAnchorRef.current = null;
+
+      await updateSessionApi(session.id, {
+        status: 'RUNNING',
+        paused_at: null,
+        total_paused_seconds: newTotalPaused
+      });
+      await addSessionEventApi(session.id, { eventType: 'SESSION_RESUMED', details: 'Tiết học tiếp tục' });
+      if (soundEnabled) soundEffects.playBoost();
+    } finally {
+      isProcessingRef.current = false;
     }
-    const newTotalPaused = (session.total_paused_seconds || 0) + Math.max(0, additionalPausedSec);
-
-    const updated = {
-      ...session,
-      status: 'RUNNING',
-      paused_at: null,
-      total_paused_seconds: newTotalPaused
-    };
-    setSession(updated);
-
-    await updateSessionApi(session.id, {
-      status: 'RUNNING',
-      paused_at: null,
-      total_paused_seconds: newTotalPaused
-    });
-    await addSessionEventApi(session.id, { eventType: 'SESSION_RESUMED', details: 'Tiết học tiếp tục' });
-    if (soundEnabled) soundEffects.playBoost();
   };
 
   // 4. Kết thúc tiết học
   const handleRequestEndSession = () => {
     setShowTimeUpModal(false);
     setIsConfirmingEnd(true);
+    setIsCancellingSession(false);
+    setIsSummaryModalOpen(true);
+  };
+
+  // 4.0.1 Hủy tiết học (CANCELLED ≠ COMPLETED)
+  const handleRequestCancelSession = () => {
+    setShowTimeUpModal(false);
+    setIsConfirmingEnd(true);
+    setIsCancellingSession(true);
     setIsSummaryModalOpen(true);
   };
 
   const handleConfirmEndSession = async () => {
-    const nowIso = new Date().toISOString();
-    const updated = {
-      ...session,
-      status: 'COMPLETED',
-      ended_at: nowIso
-    };
-    setSession(updated);
-    setIsConfirmingEnd(false);
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    try {
+      const nowIso = new Date().toISOString();
+      const finalStatus = isCancellingSession ? 'CANCELLED' : 'COMPLETED';
+      const updated = {
+        ...session,
+        status: finalStatus,
+        ended_at: nowIso
+      };
+      setSession(updated);
+      setIsConfirmingEnd(false);
+      setIsCancellingSession(false);
 
-    await updateSessionApi(session.id, { status: 'COMPLETED', ended_at: nowIso });
-    await addSessionEventApi(session.id, { eventType: 'SESSION_COMPLETED', details: 'Kết thúc tiết học thành công' });
-    setStoredActiveSessionId(null);
+      await updateSessionApi(session.id, { status: finalStatus, ended_at: nowIso });
+      await addSessionEventApi(session.id, {
+        eventType: isCancellingSession ? 'SESSION_CANCELLED' : 'SESSION_COMPLETED',
+        details: isCancellingSession ? 'Tiết học đã bị hủy' : 'Kết thúc tiết học thành công'
+      });
+      setStoredActiveSessionId(null);
+    } finally {
+      isProcessingRef.current = false;
+    }
   };
 
   // 4.1 Gia hạn thêm giờ khi hết thời gian (+5 phút, +10 phút)
@@ -352,6 +433,9 @@ export default function SessionDashboard({
     setExtraMinutes(prev => prev + extraMins);
     setSessionRemainingSec(prev => prev + extraSec);
     setActivityRemainingSec(prev => prev + extraSec);
+    // Reset timer anchors to use new remaining values
+    sessionTimerAnchorRef.current = null;
+    activityTimerAnchorRef.current = null;
     setShowTimeUpModal(false);
     hasPlayedTimeUpBellRef.current = false;
     if (soundEnabled) soundEffects.playBoost();
@@ -398,6 +482,8 @@ export default function SessionDashboard({
     setCurrentActivityIndex(nextIdx);
     const nextActSec = (updated[nextIdx]?.duration_minutes || updated[nextIdx]?.durationMinutes || 5) * 60;
     setActivityRemainingSec(nextActSec);
+    // Reset activity timer anchor for timestamp-based tracking
+    activityTimerAnchorRef.current = null;
     await saveActivitiesApi(session.id, updated);
     await addSessionEventApi(session.id, {
       eventType: 'ACTIVITY_STARTED',
@@ -415,6 +501,8 @@ export default function SessionDashboard({
     setCurrentActivityIndex(prevIdx);
     const prevActSec = (activities[prevIdx]?.duration_minutes || activities[prevIdx]?.durationMinutes || 5) * 60;
     setActivityRemainingSec(prevActSec);
+    // Reset activity timer anchor
+    activityTimerAnchorRef.current = null;
   };
 
   // 7. Chọn hoạt động bất kỳ từ danh sách flow
@@ -446,78 +534,88 @@ export default function SessionDashboard({
   const handleAdjustActivityTime = (secDelta) => {
     setActivityRemainingSec(prev => prev + secDelta);
     setSessionRemainingSec(prev => prev + secDelta);
+    // Reset anchors to account for adjustment
+    sessionTimerAnchorRef.current = null;
+    activityTimerAnchorRef.current = null;
     if (soundEnabled) soundEffects.playTick();
   };
 
   const handleResetActivityTimer = () => {
     const actSec = (currentActivity?.duration_minutes || currentActivity?.durationMinutes || 5) * 60;
     setActivityRemainingSec(actSec);
+    activityTimerAnchorRef.current = null;
     if (soundEnabled) soundEffects.playTick();
   };
 
-  // 10. Ghi nhận học sinh tham gia & cộng Sao thi đua
+  // 10. Ghi nhận học sinh tham gia & cộng Sao thi đua (double-click protected)
   const handleAwardStudent = async (studentId, badgeType, starsDelta, note) => {
-    const students = currentClass?.students || [];
-    const targetStudent = students.find(s => String(s.id) === String(studentId));
-    if (!targetStudent) return;
+    if (isAwardingRef.current) return;
+    isAwardingRef.current = true;
+    try {
+      const students = currentClass?.students || [];
+      const targetStudent = students.find(s => String(s.id) === String(studentId));
+      if (!targetStudent) return;
 
-    // a. Cập nhật học sinh trong state toàn cục App.jsx
-    if (starsDelta !== 0) {
-      const newStars = Math.max(0, (targetStudent.stars || 0) + starsDelta);
-      const updatedStudents = students.map(s => String(s.id) === String(studentId) ? { ...s, stars: newStars } : s);
-      onUpdateStudents(updatedStudents);
+      // a. Cập nhật học sinh trong state toàn cục App.jsx
+      if (starsDelta !== 0) {
+        const newStars = Math.max(0, (targetStudent.stars || 0) + starsDelta);
+        const updatedStudents = students.map(s => String(s.id) === String(studentId) ? { ...s, stars: newStars } : s);
+        onUpdateStudents(updatedStudents);
 
-      // Phát âm thanh
-      if (soundEnabled) {
-        if (starsDelta > 0) soundEffects.playStarDing();
-        else soundEffects.playBuzzer();
+        // Phát âm thanh
+        if (soundEnabled) {
+          if (starsDelta > 0) soundEffects.playStarDing();
+          else soundEffects.playBuzzer();
+        }
+
+        // Ghi nhận vào sổ điểm tốt goodScores của lớp
+        if (onUpdateGoodScores) {
+          const gsRecord = {
+            id: `gs_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            studentId: targetStudent.id,
+            studentName: targetStudent.name,
+            date: session.session_date || new Date().toISOString().slice(0, 10),
+            type: starsDelta >= 0 ? 'positive' : 'negative',
+            category: 'Tiết học',
+            title: note || `Tham gia tiết học: ${session.lesson_title}`,
+            points: Math.abs(starsDelta),
+            scoreChange: starsDelta,
+            note: `Ghi nhận tại Tiết học: ${session.lesson_title}`
+          };
+          const prevGoodScores = currentClass?.goodScores || [];
+          onUpdateGoodScores([gsRecord, ...prevGoodScores]);
+        }
+      } else {
+        // Nếu không đổi sao (chỉ ghi nhận phát biểu)
+        if (soundEnabled) soundEffects.playTick();
       }
 
-      // Ghi nhận vào sổ điểm tốt goodScores của lớp
-      if (onUpdateGoodScores) {
-        const gsRecord = {
-          id: `gs_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-          studentId: targetStudent.id,
-          studentName: targetStudent.name,
-          date: session.session_date || new Date().toISOString().slice(0, 10),
-          type: starsDelta >= 0 ? 'positive' : 'negative',
-          category: 'Tiết học',
-          title: note || `Tham gia tiết học: ${session.lesson_title}`,
-          points: Math.abs(starsDelta),
-          scoreChange: starsDelta,
-          note: `Ghi nhận tại Tiết học: ${session.lesson_title}`
-        };
-        const prevGoodScores = currentClass?.goodScores || [];
-        onUpdateGoodScores([gsRecord, ...prevGoodScores]);
-      }
-    } else {
-      // Nếu không đổi sao (chỉ ghi nhận phát biểu)
-      if (soundEnabled) soundEffects.playTick();
+      // b. Ghi nhận bản ghi tham gia vào SQLite & State session
+      const partRecord = {
+        id: `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        session_id: session.id,
+        student_id: studentId,
+        student_name: targetStudent.name,
+        activity_id: currentActivity?.id || null,
+        badge_type: badgeType,
+        stars_awarded: starsDelta,
+        note: note || '',
+        created_at: new Date().toISOString()
+      };
+
+      setParticipationRecords(prev => [partRecord, ...prev]);
+      await addStudentParticipationApi(session.id, partRecord);
+
+      // c. Ghi log sự kiện
+      await addSessionEventApi(session.id, {
+        eventType: starsDelta > 0 ? 'STAR_AWARDED' : 'STUDENT_PARTICIPATED',
+        activityId: currentActivity?.id || null,
+        studentId: studentId,
+        details: note || `${targetStudent.name} nhận huy hiệu ${badgeType}`
+      });
+    } finally {
+      isAwardingRef.current = false;
     }
-
-    // b. Ghi nhận bản ghi tham gia vào SQLite & State session
-    const partRecord = {
-      id: `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      session_id: session.id,
-      student_id: studentId,
-      student_name: targetStudent.name,
-      activity_id: currentActivity?.id || null,
-      badge_type: badgeType,
-      stars_awarded: starsDelta,
-      note: note || '',
-      created_at: new Date().toISOString()
-    };
-
-    setParticipationRecords(prev => [partRecord, ...prev]);
-    await addStudentParticipationApi(session.id, partRecord);
-
-    // c. Ghi log sự kiện
-    await addSessionEventApi(session.id, {
-      eventType: starsDelta > 0 ? 'STAR_AWARDED' : 'STUDENT_PARTICIPATED',
-      activityId: currentActivity?.id || null,
-      studentId: studentId,
-      details: note || `${targetStudent.name} nhận huy hiệu ${badgeType}`
-    });
   };
 
   return (
@@ -585,6 +683,7 @@ export default function SessionDashboard({
         onPauseSession={handlePauseSession}
         onResumeSession={handleResumeSession}
         onEndSession={handleRequestEndSession}
+        onCancelSession={handleRequestCancelSession}
         onPrevActivity={handlePrevActivity}
         onNextActivity={handleNextActivity}
         canPrev={currentActivityIndex > 0}
@@ -636,8 +735,10 @@ export default function SessionDashboard({
       <SessionSummaryModal
         isOpen={isSummaryModalOpen}
         isConfirmingEnd={isConfirmingEnd}
+        isCancelling={isCancellingSession}
         onCancelEnd={() => {
           setIsConfirmingEnd(false);
+          setIsCancellingSession(false);
           setIsSummaryModalOpen(false);
         }}
         onConfirmEnd={handleConfirmEndSession}

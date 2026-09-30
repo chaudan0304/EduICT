@@ -541,3 +541,141 @@ export function saveDbRules(rules) {
   const stmt = db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)');
   stmt.run('classroom_rules', JSON.stringify(rules));
 }
+
+// ============================================================================
+// GIAI ĐOẠN 3 — Hồ sơ giáo viên (1 GV, sửa được) & Thời khóa biểu (sửa + lưu)
+// Lưu dưới dạng JSON trong bảng app_settings (KHÔNG tạo bảng mới).
+// ============================================================================
+
+// Hồ sơ giáo viên mặc định (đồng bộ với TEACHER_INFO ở src/utils/timetable.js)
+export const DEFAULT_TEACHER_PROFILE = {
+  name: 'Nguyễn Văn Châu Đàn',
+  shortName: 'Châu Đàn',
+  subject: 'Tin học',
+  role: 'Giáo viên bộ môn',
+  effectiveDate: '05/09/2026',
+  schoolYear: '2026 - 2027',
+  status: 'active'
+};
+
+// Lấy hồ sơ giáo viên (trả về mặc định nếu chưa lưu — KHÔNG tự ghi khi đọc)
+export function getDbTeacherProfile() {
+  const db = getDatabase();
+  const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get('teacher_profile');
+  if (row && row.value) {
+    try {
+      const parsed = JSON.parse(row.value);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return { ...DEFAULT_TEACHER_PROFILE, ...parsed };
+      }
+    } catch (e) {}
+  }
+  return { ...DEFAULT_TEACHER_PROFILE };
+}
+
+// Lưu hồ sơ giáo viên (validate + chuẩn hóa; trả về hồ sơ đã lưu)
+export function saveDbTeacherProfile(profile) {
+  if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('Hồ sơ giáo viên không hợp lệ.');
+  }
+  const name = String(profile.name || '').trim();
+  if (!name) {
+    throw new Error('Tên giáo viên không được để trống.');
+  }
+  const merged = {
+    ...DEFAULT_TEACHER_PROFILE,
+    ...profile,
+    name,
+    shortName: String(profile.shortName || '').trim() || name,
+    subject: String(profile.subject || DEFAULT_TEACHER_PROFILE.subject).trim() || DEFAULT_TEACHER_PROFILE.subject,
+    role: String(profile.role || DEFAULT_TEACHER_PROFILE.role).trim() || DEFAULT_TEACHER_PROFILE.role,
+    effectiveDate: String(profile.effectiveDate || DEFAULT_TEACHER_PROFILE.effectiveDate).trim(),
+    schoolYear: String(profile.schoolYear || DEFAULT_TEACHER_PROFILE.schoolYear).trim(),
+    status: profile.status === 'inactive' ? 'inactive' : 'active'
+  };
+  const db = getDatabase();
+  db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+    .run('teacher_profile', JSON.stringify(merged));
+  return merged;
+}
+
+// --- Thời khóa biểu (grid) ---------------------------------------------------
+// Chỉ lưu phần lưới có thể chỉnh sửa. Trả về grid đã lưu hoặc null (client fallback
+// về TIMETABLE_DATA cứng của nó khi null — tránh nhân đôi dữ liệu mặc định lớn ở backend).
+
+// Xác thực xung đột phía server (ĐỘC LẬP với client — defense-in-depth, test được).
+// Trả về mảng lỗi NGHIÊM TRỌNG (chỉ severity 'error': SLOT_COLLISION + CLASS_SAME_DAY).
+export function validateTimetableConflicts(grid) {
+  const errors = [];
+  if (!grid || typeof grid !== 'object') return errors;
+
+  const slotMap = new Map();   // ngày|buổi|tiết -> [lớp]
+  const classDayMap = new Map(); // lớp|ngày -> [phân công]
+
+  for (let day = 1; day <= 5; day++) {
+    const d = grid[day] || grid[String(day)];
+    if (!d || typeof d !== 'object') continue;
+    for (const session of ['morning', 'afternoon']) {
+      const s = d[session];
+      if (!s || typeof s !== 'object') continue;
+      for (const periodKey of Object.keys(s)) {
+        const cell = s[periodKey];
+        if (!cell || cell.isOff) continue;
+        const className = typeof cell.className === 'string' ? cell.className.trim() : '';
+        if (!className) continue;
+
+        const slotKey = `${day}|${session}|${periodKey}`;
+        if (!slotMap.has(slotKey)) slotMap.set(slotKey, []);
+        slotMap.get(slotKey).push(className);
+
+        const cdKey = `${className}|${day}`;
+        if (!classDayMap.has(cdKey)) classDayMap.set(cdKey, []);
+        classDayMap.get(cdKey).push({ session, period: periodKey });
+      }
+    }
+  }
+
+  for (const [slotKey, list] of slotMap) {
+    if (list.length > 1) {
+      errors.push({ type: 'SLOT_COLLISION', slotKey, classes: list, message: `Trùng tiết tại ${slotKey}: ${list.join(', ')}.` });
+    }
+  }
+  for (const [cdKey, list] of classDayMap) {
+    if (list.length > 1) {
+      const className = cdKey.split('|')[0];
+      errors.push({ type: 'CLASS_SAME_DAY', className, count: list.length, message: `Lớp ${className} bị xếp ${list.length} tiết cùng một ngày.` });
+    }
+  }
+  return errors;
+}
+
+// Lấy TKB đã lưu (hoặc null nếu chưa có)
+export function getDbTimetable() {
+  const db = getDatabase();
+  const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get('timetable_data');
+  if (row && row.value) {
+    try {
+      const parsed = JSON.parse(row.value);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return null;
+}
+
+// Lưu TKB — re-validate xung đột phía server; NÉM lỗi nếu có xung đột nghiêm trọng.
+export function saveDbTimetable(grid) {
+  if (!grid || typeof grid !== 'object' || Array.isArray(grid)) {
+    throw new Error('Dữ liệu thời khóa biểu không hợp lệ.');
+  }
+  const conflicts = validateTimetableConflicts(grid);
+  if (conflicts.length > 0) {
+    const err = new Error('Thời khóa biểu có xung đột, không thể lưu.');
+    err.conflicts = conflicts;
+    err.code = 'TIMETABLE_CONFLICT';
+    throw err;
+  }
+  const db = getDatabase();
+  db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+    .run('timetable_data', JSON.stringify(grid));
+  return grid;
+}

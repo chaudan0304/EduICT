@@ -14,6 +14,7 @@ import { soundEffects } from '../../utils/audio';
 export default function SessionSummaryModal({
   isOpen,
   isConfirmingEnd,
+  isCancelling = false,
   onCancelEnd,
   onConfirmEnd,
   onClose,
@@ -91,8 +92,8 @@ export default function SessionSummaryModal({
               width: 56,
               height: 56,
               borderRadius: '50%',
-              background: 'rgba(239, 68, 68, 0.12)',
-              color: '#ef4444',
+              background: isCancelling ? 'rgba(100, 116, 139, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              color: isCancelling ? '#64748b' : '#ef4444',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -102,25 +103,37 @@ export default function SessionSummaryModal({
             </div>
 
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
-              Xác Nhận Kết Thúc Tiết Học?
+              {isCancelling ? 'Xác Nhận Hủy Tiết Học?' : 'Xác Nhận Kết Thúc Tiết Học?'}
             </h3>
 
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-              Thầy/cô có chắc chắn muốn kết thúc tiết học <strong>"{session?.lesson_title || session?.lessonTitle}"</strong>?
-              Toàn bộ điểm sao và dữ liệu tương tác sẽ được tổng kết và lưu trữ vĩnh viễn.
+              {isCancelling ? (
+                <>
+                  Thầy/cô có chắc chắn muốn <strong>HỦY</strong> tiết học <strong>"{session?.lesson_title || session?.lessonTitle}"</strong>?
+                  Tiết học sẽ được ghi nhận là "Đã Hủy" và <strong>không tính</strong> vào thống kê giảng dạy.
+                </>
+              ) : (
+                <>
+                  Thầy/cô có chắc chắn muốn kết thúc tiết học <strong>"{session?.lesson_title || session?.lessonTitle}"</strong>?
+                  Toàn bộ điểm sao và dữ liệu tương tác sẽ được tổng kết và lưu trữ vĩnh viễn.
+                </>
+              )}
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
               <button type="button" className="btn btn-secondary" onClick={onCancelEnd}>
-                Hủy Bỏ
+                Quay Lại
               </button>
               <button 
                 type="button" 
                 className="btn btn-primary" 
                 onClick={onConfirmEnd}
-                style={{ background: '#ef4444', borderColor: '#dc2626' }}
+                style={{
+                  background: isCancelling ? '#64748b' : '#ef4444',
+                  borderColor: isCancelling ? '#475569' : '#dc2626'
+                }}
               >
-                🏁 Kết Thúc Tiết Học
+                {isCancelling ? '🚫 Hủy Tiết Học' : '🏁 Kết Thúc Tiết Học'}
               </button>
             </div>
           </div>

@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { X, Zap, CheckCircle2 } from 'lucide-react';
 import LuckyWheel from '../LuckyWheel';
 import DuckRace from '../DuckRace';
+import SeatingChart from '../SeatingChart';
 
 export default function QuickToolModal({
-  toolType, // 'wheel' | 'duckrace' | 'quiz' | null
+  toolType, // 'wheel' | 'duckrace' | 'quiz' | 'seating' | null
   onClose,
   currentClass,
   onUpdateStudents,
@@ -107,62 +108,47 @@ export default function QuickToolModal({
           </div>
         )}
 
-        {/* 3. Quick Quiz Placeholder */}
+        {/* 3. Practice Room (Sơ đồ phòng máy) */}
+        {toolType === 'seating' && (
+          <div>
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  🖥️ Sơ Đồ Phòng Máy Trong Tiết Học
+                </h3>
+                <span style={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 800,
+                  padding: '0.15rem 0.6rem',
+                  borderRadius: '999px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  color: '#059669'
+                }}>
+                  🏫 Lớp: {currentClass?.name || 'Chưa chọn'}
+                </span>
+              </div>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                Phân công máy cho học sinh, đánh dấu máy hỏng, sơ đồ 31 máy phòng Tin học
+              </p>
+            </div>
+            <SeatingChart
+              currentClass={currentClass}
+              onUpdateStudents={onUpdateStudents}
+              soundEnabled={soundEnabled}
+            />
+          </div>
+        )}
+
+        {/* 4. Quick Quiz — Phân Hệ Đố Vui Tin Học */}
         {toolType === 'quiz' && (
-          <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-            <div style={{
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(219, 39, 119, 0.1))',
-              border: '2px solid #ec4899',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.25rem',
-              color: '#ec4899'
-            }}>
-              <Zap size={32} />
-            </div>
-
-            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
-              ⚡ Phân Hệ Quick Quiz (Đố Vui Tin Học)
-            </h3>
-
-            <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 460, margin: '0 auto 1.5rem' }}>
-              Kiến trúc <strong>Classroom Session</strong> đã được thiết kế sẵn sàng các cổng kết nối dữ liệu (events, participation, score log) để tích hợp module ngân hàng câu hỏi trắc nghiệm Tin học Tiểu học.
-            </p>
-
-            <div style={{
-              background: 'var(--surface-secondary)',
-              border: '1px dashed var(--surface-border)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '1rem',
-              textAlign: 'left',
-              fontSize: '0.8125rem',
-              color: 'var(--text-muted)',
-              marginBottom: '1.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.5rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981', fontWeight: 700 }}>
-                <CheckCircle2 size={16} />
-                <span>Sẵn sàng kết nối ngân hàng câu hỏi GDPT 2018 (Khối 3, 4, 5)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981', fontWeight: 700 }}>
-                <CheckCircle2 size={16} />
-                <span>Hỗ trợ hiển thị câu hỏi toàn màn hình máy chiếu</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981', fontWeight: 700 }}>
-                <CheckCircle2 size={16} />
-                <span>Tự động cộng sao thi đua qua hệ thống Star Service hiện có</span>
-              </div>
-            </div>
-
-            <button type="button" className="btn btn-primary" onClick={onClose}>
-              Đã Hiểu, Quay Lại Tiết Học
-            </button>
+          <div>
+            <QuickQuizManager
+              currentClass={currentClass}
+              onUpdateStudents={onUpdateStudents}
+              soundEnabled={soundEnabled}
+              initialLaunchCreator={true}
+            />
           </div>
         )}
       </div>

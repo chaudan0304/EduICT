@@ -22,7 +22,8 @@ export async function tryHandleLessonsCollection(req, res, ctx) {
       const topic = url.searchParams.get('topic');
       const search = url.searchParams.get('search');
       const similarity_status = url.searchParams.get('similarity_status');
-      const lessons = getAllLessons({ grade, topic, search, similarity_status });
+      const type = url.searchParams.get('type');
+      const lessons = getAllLessons({ grade, topic, search, similarity_status, type });
       sendJson(res, 200, lessons);
     } catch (err) {
       sendJson(res, 500, { error: err.message });

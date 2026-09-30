@@ -10,6 +10,7 @@ import {
   Calendar, 
   User, 
   UserPlus,
+  UserMinus,
   Users,
   Trash2, 
   Star, 
@@ -264,6 +265,25 @@ export default function GoodScoresBoard({
     setEditingStudent(null);
   };
 
+  // Xóa học sinh khỏi danh sách lớp
+  const handleDeleteStudent = (student) => {
+    const confirmed = DialogService.confirm(
+      `⚠️ Xác nhận XÓA học sinh:\n\n` +
+      `🎓 ${student.name}${student.machineNumber ? ` (Máy ${student.machineNumber})` : ''}\n\n` +
+      `Toàn bộ dữ liệu điểm tốt / điểm trừ của học sinh này cũng sẽ bị xóa.\n` +
+      `Thao tác này KHÔNG THỂ hoàn tác!`
+    );
+    if (!confirmed) return;
+
+    // Xóa học sinh khỏi danh sách
+    const updatedStudents = students.filter(s => s.id !== student.id);
+    onUpdateStudents?.(updatedStudents, currentClass?.id);
+
+    // Xóa các bản ghi điểm tốt/trừ liên quan đến học sinh này
+    const updatedMerits = meritRecords.filter(r => r.studentId !== student.id);
+    saveMerits(updatedMerits);
+  };
+
 
   // Mở modal tạo nội quy mới
   const handleOpenCreateRule = (defaultType = 'positive') => {
@@ -356,13 +376,14 @@ export default function GoodScoresBoard({
   const negativeRules = useMemo(() => rules.filter(r => r.type === 'negative'), [rules]);
 
   // Tính tổng điểm tốt / điểm trừ / sao thi đua cho từng học sinh
+  // Công thức: Sao = Điểm Tốt − Điểm Trừ
   const studentSummary = useMemo(() => {
     const map = {};
     students.forEach(s => {
       const key = String(s.id || '').trim();
       map[key] = {
         student: s,
-        currentStars: s.stars || 0,
+        currentStars: 0,
         positiveStars: 0,
         negativeStars: 0,
         positiveCount: 0,
@@ -391,12 +412,17 @@ export default function GoodScoresBoard({
       }
     });
 
+    // Sao = Điểm Tốt − Điểm Trừ
+    Object.values(map).forEach(item => {
+      item.currentStars = Math.max(0, item.positiveStars - item.negativeStars);
+    });
+
     return Object.values(map).sort((a, b) => b.currentStars - a.currentStars);
   }, [students, meritRecords]);
 
-  // Thống kê tổng quan
+  // Thống kê tổng quan (Sao = Điểm Tốt − Điểm Trừ)
   const stats = useMemo(() => {
-    const totalStars = students.reduce((acc, s) => acc + (s.stars || 0), 0);
+    const totalStars = studentSummary.reduce((acc, item) => acc + item.currentStars, 0);
     const totalPositiveEntries = meritRecords.filter(r => r.type !== 'negative').length;
     const totalNegativeEntries = meritRecords.filter(r => r.type === 'negative').length;
     const topStudent = studentSummary[0]?.currentStars > 0 ? studentSummary[0].student : null;
@@ -408,7 +434,16 @@ export default function GoodScoresBoard({
       topStudent,
       topStars: studentSummary[0]?.currentStars || 0
     };
-  }, [students, meritRecords, studentSummary]);
+  }, [meritRecords, studentSummary]);
+
+  // Tra cứu nhanh Sao Thi Đua (đã đồng bộ Nhật ký) theo mã học sinh — dùng cho form ghi nhận
+  const derivedStarsById = useMemo(() => {
+    const m = {};
+    studentSummary.forEach(item => {
+      m[String(item.student?.id || '').trim()] = item.currentStars;
+    });
+    return m;
+  }, [studentSummary]);
 
   // Thêm điểm tốt / điểm trừ
   const handleRecordSubmit = (e) => {
@@ -953,7 +988,7 @@ export default function GoodScoresBoard({
                           </div>
                         </td>
 
-                        {/* Sao Thi Đua = số sao cuối cùng */}
+                        {/* Sao Thi Đua = Điểm Tốt − Điểm Trừ */}
                         <td style={{ textAlign: 'center' }}>
                           <span style={{
                             display: 'inline-flex',
@@ -961,12 +996,12 @@ export default function GoodScoresBoard({
                             gap: '0.35rem',
                             padding: '0.25rem 0.75rem',
                             borderRadius: 'var(--radius-full)',
-                            background: (s.stars || 0) > 0 ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface-secondary)',
-                            color: (s.stars || 0) > 0 ? '#d97706' : 'var(--text-dim)',
+                            background: item.currentStars > 0 ? 'rgba(245, 158, 11, 0.15)' : 'var(--surface-secondary)',
+                            color: item.currentStars > 0 ? '#d97706' : 'var(--text-dim)',
                             fontWeight: 800,
                             fontSize: '0.95rem'
                           }}>
-                            {s.stars || 0} ⭐
+                            {item.currentStars} ⭐
                           </span>
                         </td>
 
@@ -1030,6 +1065,21 @@ export default function GoodScoresBoard({
                               title="Mở bảng ghi nhận điểm theo nội quy"
                             >
                               ⚖️ Ghi điểm
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline"
+                              style={{ 
+                                padding: '0.2rem 0.4rem', 
+                                fontSize: '0.72rem', 
+                                fontWeight: 700,
+                                color: '#9ca3af',
+                                borderColor: 'rgba(156, 163, 175, 0.3)',
+                                background: 'transparent'
+                              }}
+                              onClick={() => handleDeleteStudent(s)}
+                              title={`Xóa học sinh ${s.name} khỏi lớp`}
+                            >
+                              <UserMinus size={13} />
                             </button>
                           </div>
                         </td>
@@ -1638,7 +1688,7 @@ export default function GoodScoresBoard({
                   >
                     {students.map(s => (
                       <option key={s.id} value={s.id}>
-                        {s.name}{s.machineNumber ? ` [Máy ${s.machineNumber}]` : ''} • Đang có {s.stars || 0} ⭐
+                        {s.name}{s.machineNumber ? ` [Máy ${s.machineNumber}]` : ''} • Sao thi đua {derivedStarsById[String(s.id || '').trim()] ?? 0} ⭐
                       </option>
                     ))}
                   </select>
