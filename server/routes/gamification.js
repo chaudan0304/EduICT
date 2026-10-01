@@ -4,10 +4,7 @@ import {
   getStarHistory,
   getAllRewards,
   redeemReward,
-  getRedemptionHistory,
-  getAllChallenges,
-  getStudentProgress,
-  updateChallengeProgress
+  getRedemptionHistory
 } from '../db.js';
 
 export async function tryHandleGamification(req, res, ctx) {
@@ -21,7 +18,12 @@ export async function tryHandleGamification(req, res, ctx) {
       if (!id || !studentId || !classId || !amount || !reason || !source) {
         return sendJson(res, 400, { error: 'Thiếu thông tin bắt buộc để tặng sao.' });
       }
-      const result = awardStar({ id, studentId, classId, amount, reason, source, sessionId });
+      // Chặn số sao bất thường do client gửi (chống tự thưởng sao tùy ý)
+      const amt = Number(amount);
+      if (!Number.isInteger(amt) || amt < 1 || amt > 100) {
+        return sendJson(res, 400, { error: 'Số sao không hợp lệ (chỉ nhận số nguyên 1–100).' });
+      }
+      const result = awardStar({ id, studentId, classId, amount: amt, reason, source, sessionId });
       if (!result.success) {
         return sendJson(res, 409, { error: result.message });
       }
@@ -86,46 +88,6 @@ export async function tryHandleGamification(req, res, ctx) {
     } catch (e) {
       console.error('Lỗi lấy lịch sử đổi quà:', e);
       return sendJson(res, 500, { error: 'Lỗi server.' });
-    }
-  }
-
-  // 3. CHALLENGE SYSTEM
-  if (pathname === '/api/gamification/challenges' && method === 'GET') {
-    try {
-      const challenges = getAllChallenges();
-      return sendJson(res, 200, challenges);
-    } catch (e) {
-      console.error('Lỗi lấy thử thách:', e);
-      return sendJson(res, 500, { error: 'Lỗi server.' });
-    }
-  }
-
-  if (pathname.startsWith('/api/gamification/challenges/progress/') && method === 'GET') {
-    try {
-      const parts = pathname.split('/');
-      const classId = parts[5];
-      const studentId = parts[6];
-      if (!classId || !studentId) return sendJson(res, 400, { error: 'Invalid URL' });
-      const progress = getStudentProgress(studentId, classId);
-      return sendJson(res, 200, progress);
-    } catch (e) {
-      console.error('Lỗi lấy tiến độ thử thách:', e);
-      return sendJson(res, 500, { error: 'Lỗi server.' });
-    }
-  }
-
-  if (pathname === '/api/gamification/challenges/progress/update' && method === 'POST') {
-    try {
-      const body = await parseJsonBody(req);
-      const { studentId, classId, challengeId, amount } = body;
-      if (!studentId || !classId || !challengeId) {
-        return sendJson(res, 400, { error: 'Thiếu thông tin.' });
-      }
-      const result = updateChallengeProgress(studentId, classId, challengeId, amount || 1);
-      return sendJson(res, 200, result);
-    } catch (e) {
-      console.error('Lỗi cập nhật tiến độ:', e);
-      return sendJson(res, 400, { error: e.message || 'Lỗi server.' });
     }
   }
 

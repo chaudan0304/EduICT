@@ -33,6 +33,8 @@ export function initSchema(db) {
       skill_keyboard TEXT DEFAULT 'H',
       skill_paint TEXT DEFAULT 'T',
       eval_regular TEXT DEFAULT 'T',
+      eval_hk1 TEXT DEFAULT 'T',
+      eval_hk2 TEXT DEFAULT 'T',
       score_hk1 REAL,
       score_ck REAL,
       note TEXT DEFAULT '',
@@ -213,6 +215,16 @@ export function initSchema(db) {
   try { db.exec(`ALTER TABLE lessons ADD COLUMN content_fingerprint TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE students ADD COLUMN dob TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE classes ADD COLUMN good_scores TEXT DEFAULT '[]';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE students ADD COLUMN eval_hk1 TEXT DEFAULT 'T';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE students ADD COLUMN eval_hk2 TEXT DEFAULT 'T';`); } catch (e) {}
+  // Backfill 1 lần: chép ĐGTX cũ (eval_regular) sang CẢ 2 học kỳ; chốt bằng app_settings để không ghi đè chỉnh sửa về sau
+  try {
+    const _bf = db.prepare("SELECT value FROM app_settings WHERE key = 'eval_split_backfilled';").get();
+    if (!_bf) {
+      db.exec("UPDATE students SET eval_hk1 = eval_regular, eval_hk2 = eval_regular WHERE eval_regular IS NOT NULL AND eval_regular <> '';");
+      db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('eval_split_backfilled', '1');").run();
+    }
+  } catch (e) {}
 
   // Bổ sung các cột theo dõi trạng thái kết xuất slide chi tiết (per-slide render status)
   try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch (e) {}
@@ -424,35 +436,7 @@ export function initSchema(db) {
     );
   `);
 
-  // Bảng 4 Phân Hệ Gamification: Challenges (Thử thách)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS challenges (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      type TEXT NOT NULL,
-      target INTEGER NOT NULL,
-      reward INTEGER NOT NULL,
-      is_active INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-
-  // Bảng 5 Phân Hệ Gamification: Student Progress (Tiến độ thử thách)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS student_progress (
-      id TEXT PRIMARY KEY,
-      student_id TEXT NOT NULL,
-      class_id TEXT NOT NULL,
-      challenge_id TEXT NOT NULL,
-      progress INTEGER DEFAULT 0,
-      completed INTEGER DEFAULT 0,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (student_id, class_id) REFERENCES students(id, class_id) ON DELETE CASCADE,
-      FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE,
-      UNIQUE(student_id, class_id, challenge_id)
-    );
-  `);
+  // Bảng 4 Phân Hệ Gamification: (challenges & student_progress đã gỡ — tính năng thử thách không dùng)
 
   // Kiểm tra nếu chưa có dữ liệu thì nạp dữ liệu mẫu 5 khối lớp
   const countRow = db.prepare('SELECT COUNT(*) as count FROM classes;').get();

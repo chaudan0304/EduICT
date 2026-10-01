@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "test": "node --test tests/smoke.test.js",
+    "test": "node --import ./tests/register-hooks.mjs --test tests/*.test.js",
     "seed": "node server/seedFakeData.js",
     "preview": "vite preview"
   },

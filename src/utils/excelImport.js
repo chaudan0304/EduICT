@@ -528,7 +528,10 @@ export function exportAllClassesToExcel(classes) {
         'Kỹ năng Chuột (T/H/C)': s.skill_mouse || 'T',
         'Bàn phím cơ bản (T/H/C)': s.skill_keyboard || 'H',
         'Vẽ Paint / Tranh (T/H/C)': s.skill_paint || 'T',
-        'Đánh Giá Thường Xuyên': s.eval_regular || 'T',
+        'ĐGTX Học Kỳ I (T/H/C)': s.eval_hk1 ?? s.eval_regular ?? 'T',
+        'ĐGTX Học Kỳ II (T/H/C)': s.eval_hk2 ?? s.eval_regular ?? 'T',
+        'Điểm Cuối HK1': s.score_hk1 ?? '',
+        'Điểm Cuối Năm': s.score_ck ?? '',
         'Số Sao (⭐)': s.stars || 0,
         'Nhận Xét / Lời Khen': s.note || ''
       }));
@@ -540,9 +543,10 @@ export function exportAllClassesToExcel(classes) {
         'Ngày sinh': s.dob || '',
         'Giới tính': s.gender || 'Nam',
         'Máy Số': s.machineNumber || '',
-        'Đánh Giá Thường Xuyên (T/H/C)': s.eval_regular || 'T',
-        'Điểm Thực Hành HK1': s.score_hk1 ?? '',
-        'Điểm Thực Hành Cuối Năm': s.score_ck ?? '',
+        'ĐGTX Học Kỳ I (T/H/C)': s.eval_hk1 ?? s.eval_regular ?? 'T',
+        'ĐGTX Học Kỳ II (T/H/C)': s.eval_hk2 ?? s.eval_regular ?? 'T',
+        'Điểm Cuối HK1': s.score_hk1 ?? '',
+        'Điểm Cuối Năm': s.score_ck ?? '',
         'Số Sao (⭐)': s.stars || 0,
         'Nhận Xét vnEdu': s.note || ''
       }));

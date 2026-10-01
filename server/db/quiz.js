@@ -96,7 +96,9 @@ export function createQuestion(qData) {
   );
 
   if (duplicate) {
-    throw new Error('Câu hỏi đã tồn tại trong ngân hàng (trùng lặp nội dung).');
+    const dupErr = new Error('Câu hỏi đã tồn tại trong ngân hàng (trùng lặp nội dung).');
+    dupErr.statusCode = 409;
+    throw dupErr;
   }
   const id = qData.id || `qb_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const optionsJson = typeof qData.options === 'string' ? qData.options : JSON.stringify(qData.options || []);
@@ -134,7 +136,9 @@ export function updateQuestion(id, qData) {
   const db = getDatabase();
   const existing = getQuestionById(id);
   if (!existing) {
-    throw new Error(`Không tìm thấy câu hỏi với ID ${id}`);
+    const nf = new Error(`Không tìm thấy câu hỏi với ID ${id}`);
+    nf.statusCode = 404;
+    throw nf;
   }
 
   const optionsJson = qData.options !== undefined 
@@ -196,7 +200,9 @@ export function deleteQuestion(id) {
 export function duplicateQuestion(id) {
   const original = getQuestionById(id);
   if (!original) {
-    throw new Error(`Không tìm thấy câu hỏi ${id} để nhân bản`);
+    const nf = new Error(`Không tìm thấy câu hỏi ${id} để nhân bản`);
+    nf.statusCode = 404;
+    throw nf;
   }
 
   const newId = `qb_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
@@ -341,6 +347,31 @@ export function updateQuizSession(id, updateData) {
 // 10. Ghi nhận kết quả của một câu hỏi hoặc toàn bộ phiên Quiz (Transaction)
 export function saveQuizResults(sessionId, resultsPayload) {
   const db = getDatabase();
+
+  // Nạp phiên để CHẤM ĐIỂM PHÍA SERVER (không tin số liệu đúng/sai & sao do client gửi)
+  const session = db.prepare('SELECT id, mode, class_id, star_reward_per_correct FROM quiz_sessions WHERE id = ?;').get(sessionId);
+  if (!session) {
+    const nf = new Error(`Không tìm thấy phiên đố vui ${sessionId}`);
+    nf.statusCode = 404;
+    throw nf;
+  }
+  const starReward = Number(session.star_reward_per_correct) || 0;
+
+  // Map câu hỏi THUỘC phiên này -> correct_index (chuẩn đúng/sai + chống nhiễm chéo phiên)
+  const correctIndexByQ = {};
+  db.prepare('SELECT id, correct_index FROM quiz_questions WHERE quiz_session_id = ?;').all(sessionId)
+    .forEach(q => { correctIndexByQ[q.id] = Number(q.correct_index) || 0; });
+  const hasQ = (qid) => Object.prototype.hasOwnProperty.call(correctIndexByQ, qid);
+
+  // Chỉ nhận học sinh thuộc lớp của phiên (nếu phiên gắn class_id)
+  let validStudentIds = null;
+  if (session.class_id) {
+    validStudentIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ?;').all(session.class_id).map(s => s.id));
+  }
+  const rawSR = Array.isArray(resultsPayload.student_results) ? resultsPayload.student_results : [];
+  const studentResults = rawSR.filter(sr => hasQ(sr.quiz_question_id) && (validStudentIds === null || validStudentIds.has(sr.student_id)));
+  let accuracySum = 0, scoredQuestions = 0, studentStarsTotal = 0;
+
   db.exec('BEGIN TRANSACTION;');
   try {
     const insertResultStmt = db.prepare(`
@@ -352,22 +383,32 @@ export function saveQuizResults(sessionId, resultsPayload) {
 
     const resultsList = Array.isArray(resultsPayload.results) ? resultsPayload.results : [];
     for (const r of resultsList) {
+      if (!hasQ(r.quiz_question_id)) continue; // chỉ ghi câu hỏi thuộc phiên này
+      const correctIdx = correctIndexByQ[r.quiz_question_id];
+      let distObj = {};
+      try { distObj = typeof r.distribution === 'string' ? JSON.parse(r.distribution) : (r.distribution || {}); } catch { distObj = {}; }
+      let correctCount = 0, wrongCount = 0, totalResponses = 0;
+      if (session.mode === 'STUDENT') {
+        for (const sr of studentResults) {
+          if (sr.quiz_question_id !== r.quiz_question_id) continue;
+          if (sr.status === 'CORRECT') correctCount++; else if (sr.status === 'WRONG') wrongCount++;
+        }
+        totalResponses = correctCount + wrongCount;
+      } else {
+        for (const k of Object.keys(distObj)) {
+          const n = Number(distObj[k]) || 0; totalResponses += n;
+          if (Number(k) === correctIdx) correctCount += n; else wrongCount += n;
+        }
+      }
+      const accuracyRate = totalResponses > 0 ? Math.round((correctCount / totalResponses) * 100) : 0;
+      accuracySum += accuracyRate; scoredQuestions += 1;
       const rId = r.id || `qr_${sessionId}_${r.quiz_question_id}`;
       const distJson = typeof r.distribution === 'string' ? r.distribution : JSON.stringify(r.distribution || {});
-      insertResultStmt.run(
-        rId,
-        sessionId,
-        r.quiz_question_id,
-        distJson,
-        r.total_responses || 0,
-        r.correct_count || 0,
-        r.wrong_count || 0,
-        r.accuracy_rate !== undefined ? Number(r.accuracy_rate) : 0.0
-      );
+      insertResultStmt.run(rId, sessionId, r.quiz_question_id, distJson, totalResponses, correctCount, wrongCount, accuracyRate);
     }
 
-    // Nếu có kết quả chi tiết từng học sinh (Student Mode)
-    if (resultsPayload.student_results && Array.isArray(resultsPayload.student_results)) {
+    // Kết quả từng học sinh — sao do SERVER tính từ status (không tin stars_earned client)
+    if (studentResults.length > 0) {
       const insertStudentStmt = db.prepare(`
         INSERT OR REPLACE INTO quiz_student_results (
           id, quiz_session_id, quiz_question_id, student_id, student_name,
@@ -375,7 +416,9 @@ export function saveQuizResults(sessionId, resultsPayload) {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
       `);
 
-      for (const sr of resultsPayload.student_results) {
+      for (const sr of studentResults) {
+        const starsEarned = sr.status === 'CORRECT' ? starReward : 0;
+        studentStarsTotal += starsEarned;
         const srId = sr.id || `qsr_${sessionId}_${sr.quiz_question_id}_${sr.student_id}`;
         insertStudentStmt.run(
           srId,
@@ -385,13 +428,17 @@ export function saveQuizResults(sessionId, resultsPayload) {
           sr.student_name || '',
           sr.status || 'NOT_ANSWERED',
           sr.selected_option || '',
-          sr.stars_earned || 0
+          starsEarned
         );
       }
     }
 
-    // Cập nhật tổng kết phiên
-    if (resultsPayload.average_accuracy !== undefined || resultsPayload.total_stars_awarded !== undefined || resultsPayload.status) {
+    // Tổng kết: accuracy do server tính; sao student-mode do server tính, class-mode giữ số client (thưởng tập thể)
+    const serverAvgAccuracy = scoredQuestions > 0 ? Math.round(accuracySum / scoredQuestions) : null;
+    const totalStars = session.mode === 'STUDENT'
+      ? studentStarsTotal
+      : (resultsPayload.total_stars_awarded !== undefined ? Number(resultsPayload.total_stars_awarded) : null);
+    if (serverAvgAccuracy !== null || totalStars !== null || resultsPayload.status) {
       const updateStmt = db.prepare(`
         UPDATE quiz_sessions SET
           status = COALESCE(?, status),
@@ -402,8 +449,8 @@ export function saveQuizResults(sessionId, resultsPayload) {
       `);
       updateStmt.run(
         resultsPayload.status || null,
-        resultsPayload.average_accuracy !== undefined ? Number(resultsPayload.average_accuracy) : null,
-        resultsPayload.total_stars_awarded !== undefined ? Number(resultsPayload.total_stars_awarded) : null,
+        serverAvgAccuracy,
+        totalStars,
         resultsPayload.completed_at || null,
         sessionId
       );

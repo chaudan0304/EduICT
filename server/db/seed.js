@@ -15,8 +15,8 @@ export function seedInitialData(db) {
   const insertStudent = db.prepare(`
     INSERT INTO students (
       id, class_id, name, dob, gender, machine_number, stars, attendance,
-      skill_mouse, skill_keyboard, skill_paint, eval_regular, score_hk1, score_ck, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      skill_mouse, skill_keyboard, skill_paint, eval_regular, eval_hk1, eval_hk2, score_hk1, score_ck, note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
   `);
 
   // Dữ liệu mẫu học sinh 5 khối (HOÀN TOÀN GIẢ ĐỊNH - KHÔNG CHỨA PII THỰC TẾ)
@@ -83,6 +83,8 @@ export function seedInitialData(db) {
         s.m_skill || 'T',
         s.k_skill || 'H',
         s.p_skill || 'T',
+        s.ev || 'T',
+        s.ev || 'T',
         s.ev || 'T',
         s.hk1 || null,
         s.ck || null,

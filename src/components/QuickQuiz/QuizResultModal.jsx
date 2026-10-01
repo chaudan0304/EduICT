@@ -30,6 +30,8 @@ export default function QuizResultModal({
     title = 'Quick Quiz Tin Học',
     total_questions = 0,
     average_accuracy = 0,
+    total_correct = 0,
+    total_wrong = 0,
     total_stars_awarded = 0,
     results = [],
     student_results = []
@@ -53,20 +55,23 @@ export default function QuizResultModal({
     });
   }
 
-  // Lấy danh sách học sinh xuất sắc (nếu có Mode 2)
+  // Lấy danh sách học sinh xuất sắc (nếu có Mode 2) — gộp theo studentId, không theo tên
   const topStudents = [];
   if (student_results && student_results.length > 0) {
-    const studentScores = {};
+    const byId = {};
     student_results.forEach(sr => {
       if (sr.status === 'CORRECT') {
-        studentScores[sr.student_name] = (studentScores[sr.student_name] || 0) + 1;
+        const key = sr.student_id || sr.student_name;
+        if (!key) return;
+        if (!byId[key]) byId[key] = { name: sr.student_name || key, count: 0 };
+        byId[key].count += 1;
       }
     });
 
-    Object.entries(studentScores)
-      .sort(([, a], [, b]) => b - a)
+    Object.values(byId)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 5)
-      .forEach(([name, count]) => {
+      .forEach(({ name, count }) => {
         topStudents.push({ name, count });
       });
   }
@@ -75,7 +80,8 @@ export default function QuizResultModal({
     setAiLoading(true);
     setAiError(null);
     try {
-      const res = await analyzeQuizApi(summaryData.id || 0);
+      if (!summaryData.id) throw new Error('Phiên quiz chưa được lưu nên chưa thể phân tích.');
+      const res = await analyzeQuizApi(summaryData.id);
       setAiAnalysis(res.data);
     } catch (err) {
       console.error('[AI Quiz Analysis] Lỗi:', err);
@@ -208,6 +214,12 @@ export default function QuizResultModal({
                 Tổng ⭐ khen thưởng
               </span>
             </div>
+          </div>
+
+          {/* Tổng lượt trả lời đúng / sai trên tất cả các câu */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1.75rem', fontSize: '0.95rem', fontWeight: 800, marginTop: '-0.5rem' }}>
+            <span style={{ color: '#10b981' }}>✅ {total_correct} lượt đúng</span>
+            <span style={{ color: '#ef4444' }}>❌ {total_wrong} lượt sai</span>
           </div>
 
           {/* Phân Tích Câu Đúng Nhất & Câu Khó Nhất */}

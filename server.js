@@ -63,7 +63,9 @@ const server = http.createServer(async (req, res) => {
   res.end('<h1>EduICT Server Đang Chạy! Hãy mở giao diện web.</h1>');
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 EduICT Backend SQLite server running at http://localhost:${PORT}`);
+// Mặc định chỉ mở cục bộ (an toàn cho app desktop). Đặt EDUICT_HOST=0.0.0.0 để mở ra LAN khi cần.
+const HOST = process.env.EDUICT_HOST || '127.0.0.1';
+server.listen(PORT, HOST, () => {
+  console.log(`🚀 EduICT Backend SQLite server running at http://${HOST}:${PORT}`);
   console.log(`📁 SQLite Database File: ${getDatabasePath()}`);
 });

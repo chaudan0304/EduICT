@@ -5,8 +5,7 @@ import {
   getLessonById, 
   getAiGenerationCache, 
   saveAiGenerationCache,
-  getQuizSessionById,
-  getSessionById
+  getQuizSessionById
 } from '../db.js';
 import { buildLessonAnalysisPrompt } from './prompts/lessonAnalysisPrompt.js';
 import { buildQuestionGenerationPrompt } from './prompts/questionGenerationPrompt.js';

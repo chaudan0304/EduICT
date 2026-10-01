@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { 
   calculateAverage, 
-  getGradeRank, 
+  getSemesterRank,
   exportToExcel, 
   importFromExcel,
   detectGradeFromName,
@@ -34,6 +34,7 @@ export default function Gradebook({
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('all');
   const [evalFilter, setEvalFilter] = useState('all');
+  const [activeSemester, setActiveSemester] = useState('hk1'); // 'hk1' | 'hk2' — xem/chấm từng học kỳ RIÊNG
   const [showAddModal, setShowAddModal] = useState(false);
   const [isAiClassModalOpen, setIsAiClassModalOpen] = useState(false);
   const fileInputRef = useRef(null);
@@ -55,6 +56,8 @@ export default function Gradebook({
     skill_keyboard: 'H',
     skill_paint: 'T',
     eval_regular: 'T',
+    eval_hk1: 'T',
+    eval_hk2: 'T',
     score_hk1: '',
     score_ck: '',
     note: ''
@@ -95,7 +98,7 @@ export default function Gradebook({
     students.forEach(s => {
       totalStars += (s.stars || 0);
 
-      const ev = isGrade1or2 ? (s.skill_mouse || 'H') : (s.eval_regular || 'T');
+      const ev = s.eval_hk2 ?? s.eval_regular ?? 'T';
       if (ev === 'T') countT += 1;
       else if (ev === 'H') countH += 1;
       else countC += 1;
@@ -136,7 +139,7 @@ export default function Gradebook({
                           (s.machineNumber && String(s.machineNumber).includes(q));
       const matchGender = genderFilter === 'all' || s.gender === genderFilter;
       
-      const ev = isGrade1or2 ? (s.skill_mouse || 'H') : (s.eval_regular || 'T');
+      const ev = s.eval_hk2 ?? s.eval_regular ?? 'T';
       const matchEval = evalFilter === 'all' || ev === evalFilter;
 
       return matchSearch && matchGender && matchEval;
@@ -202,6 +205,8 @@ export default function Gradebook({
       skill_keyboard: newStudent.skill_keyboard,
       skill_paint: newStudent.skill_paint,
       eval_regular: newStudent.eval_regular,
+      eval_hk1: newStudent.eval_hk1 || newStudent.eval_regular || 'T',
+      eval_hk2: newStudent.eval_hk2 || newStudent.eval_regular || 'T',
       score_hk1: newStudent.score_hk1 !== '' ? parseFloat(newStudent.score_hk1) : null,
       score_ck: newStudent.score_ck !== '' ? parseFloat(newStudent.score_ck) : null,
       stars: 5,
@@ -383,6 +388,7 @@ export default function Gradebook({
           </div>
         </div>
 
+        {isGrade1or2 && (
         <div className="glass-panel" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{
             width: 44, height: 44, borderRadius: 'var(--radius-md)',
@@ -395,9 +401,10 @@ export default function Gradebook({
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f59e0b' }}>
               {stats.totalStars} <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>⭐</span>
             </div>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Tổng Sao Thi Đua</div>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Tổng Sao Khen Thưởng</div>
           </div>
         </div>
+        )}
 
         <div className="glass-panel" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{
@@ -507,6 +514,28 @@ export default function Gradebook({
 
       {/* Bảng Điểm / Bảng Đánh Giá Môn Tin Học */}
       <div className="glass-panel" style={{ padding: '0.5rem', overflow: 'hidden' }}>
+        {/* Chọn Học Kỳ — tách riêng từng kỳ, chỉ hiển thị cột của kỳ đang chọn */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.5rem 0.75rem' }}>
+          <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-muted)' }}>Học kỳ:</span>
+          <div style={{ display: 'inline-flex', background: 'var(--surface-secondary)', borderRadius: 'var(--radius-md)', padding: '0.2rem' }}>
+            {[{ id: 'hk1', label: '📘 Học Kỳ I' }, { id: 'hk2', label: '📙 Học Kỳ II (Cả Năm)' }].map(sem => (
+              <button
+                key={sem.id}
+                type="button"
+                className="btn btn-sm"
+                onClick={() => setActiveSemester(sem.id)}
+                style={{
+                  background: activeSemester === sem.id ? 'var(--surface)' : 'transparent',
+                  color: activeSemester === sem.id ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: activeSemester === sem.id ? 'var(--shadow-sm)' : 'none',
+                  fontWeight: activeSemester === sem.id ? 800 : 600
+                }}
+              >
+                {sem.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="table-container" style={{ maxHeight: '68vh' }}>
           <table className="data-table">
             <thead>
@@ -526,6 +555,9 @@ export default function Gradebook({
                   <th style={{ width: 130, textAlign: 'center' }} title="Mở Paint, chọn hình, tô màu">
                     🎨 Vẽ Paint (T/H/C)
                   </th>
+                  <th style={{ width: 95, textAlign: 'center', background: activeSemester === 'hk1' ? 'rgba(2, 132, 199, 0.08)' : 'rgba(245, 158, 11, 0.08)', color: activeSemester === 'hk1' ? '#0284c7' : '#d97706' }} title="Đánh giá thường xuyên của học kỳ đang chọn">ĐGTX {activeSemester === 'hk1' ? 'HK1' : 'HK2'}</th>
+                  <th style={{ width: 100, textAlign: 'center', background: activeSemester === 'hk1' ? 'rgba(2, 132, 199, 0.08)' : 'rgba(245, 158, 11, 0.08)', color: activeSemester === 'hk1' ? '#0284c7' : '#d97706' }} title="Điểm kiểm tra cuối kỳ (thang điểm 10)">{activeSemester === 'hk1' ? 'Điểm Cuối HK1' : 'Điểm Cuối Năm'}</th>
+                  <th style={{ width: 130, textAlign: 'center', background: activeSemester === 'hk1' ? 'rgba(2, 132, 199, 0.05)' : 'rgba(245, 158, 11, 0.05)' }}>{activeSemester === 'hk1' ? 'Mức Đạt HK1' : 'Mức Đạt Cả Năm'}</th>
                   <th style={{ width: 110, textAlign: 'center' }}>Sao Khen Thưởng</th>
                   <th style={{ minWidth: 200 }}>Lời Khen & Ghi Chú</th>
                   <th style={{ width: 50, textAlign: 'center' }}>Xóa</th>
@@ -537,18 +569,9 @@ export default function Gradebook({
                   <th style={{ width: 75, textAlign: 'center' }}>Máy</th>
                   <th style={{ minWidth: 160 }}>Họ và Tên</th>
                   <th style={{ width: 60, textAlign: 'center' }}>Phái</th>
-                  <th style={{ width: 135, textAlign: 'center' }} title="Đánh giá thường xuyên theo Thông tư 27">
-                    📋 Đ.Giá TX (T/H/C)
-                  </th>
-                  <th style={{ width: 95, textAlign: 'center', background: 'rgba(2, 132, 199, 0.08)', color: '#0284c7' }} title="Kiểm tra thực hành Cuối Học Kỳ 1 (Thang điểm 10)">
-                    T.Hành HK1
-                  </th>
-                  <th style={{ width: 95, textAlign: 'center', background: 'rgba(245, 158, 11, 0.08)', color: '#d97706' }} title="Kiểm tra thực hành Cuối Năm (Thang điểm 10)">
-                    T.Hành CK
-                  </th>
-                  <th style={{ width: 85, textAlign: 'center', fontWeight: 800 }}>ĐTB</th>
-                  <th style={{ width: 120, textAlign: 'center' }}>Xếp Loại TT27</th>
-                  <th style={{ width: 105, textAlign: 'center' }}>Sao Thi Đua</th>
+                  <th style={{ width: 95, textAlign: 'center', background: activeSemester === 'hk1' ? 'rgba(2, 132, 199, 0.08)' : 'rgba(245, 158, 11, 0.08)', color: activeSemester === 'hk1' ? '#0284c7' : '#d97706' }} title="Đánh giá thường xuyên của học kỳ đang chọn">ĐGTX {activeSemester === 'hk1' ? 'HK1' : 'HK2'}</th>
+                  <th style={{ width: 100, textAlign: 'center', background: activeSemester === 'hk1' ? 'rgba(2, 132, 199, 0.08)' : 'rgba(245, 158, 11, 0.08)', color: activeSemester === 'hk1' ? '#0284c7' : '#d97706' }} title="Điểm kiểm tra cuối kỳ (thang điểm 10)">{activeSemester === 'hk1' ? 'Điểm Cuối HK1' : 'Điểm Cuối Năm'}</th>
+                  <th style={{ width: 130, textAlign: 'center', background: activeSemester === 'hk1' ? 'rgba(2, 132, 199, 0.05)' : 'rgba(245, 158, 11, 0.05)' }}>{activeSemester === 'hk1' ? 'Mức Đạt HK1' : 'Mức Đạt Cả Năm'}</th>
                   <th style={{ minWidth: 200 }}>Nhận Xét vnEdu</th>
                   <th style={{ width: 50, textAlign: 'center' }}>Xóa</th>
                 </tr>
@@ -557,15 +580,21 @@ export default function Gradebook({
             <tbody>
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={isGrade1or2 ? 10 : 12} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={isGrade1or2 ? 13 : 9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                     <AlertCircle size={36} style={{ display: 'block', margin: '0 auto 0.5rem', color: 'var(--text-dim)' }} />
                     Chưa có học sinh nào phù hợp với bộ lọc tìm kiếm.
                   </td>
                 </tr>
               ) : (
                 filteredStudents.map((student, idx) => {
-                  const avg = calculateAverage(student, grade);
-                  const rank = getGradeRank(avg, student.eval_regular, grade);
+                  const rankHk1 = getSemesterRank(student.score_hk1, student.eval_hk1 ?? student.eval_regular);
+                  const rankYear = getSemesterRank(student.score_ck, student.eval_hk2 ?? student.eval_regular);
+                  const isHk1 = activeSemester === 'hk1';
+                  const semEvalField = isHk1 ? 'eval_hk1' : 'eval_hk2';
+                  const semEval = (isHk1 ? student.eval_hk1 : student.eval_hk2) ?? student.eval_regular ?? 'T';
+                  const semScoreField = isHk1 ? 'score_hk1' : 'score_ck';
+                  const semScore = isHk1 ? student.score_hk1 : student.score_ck;
+                  const semRank = isHk1 ? rankHk1 : rankYear;
 
                   return (
                     <tr key={student.id}>
@@ -720,82 +749,35 @@ export default function Gradebook({
                         </>
                       )}
 
-                      {/* --- CỘT DÀNH CHO KHỐI 3, 4, 5 (THÔNG TƯ 27) --- */}
-                      {!isGrade1or2 && (
-                        <>
-                          {/* Đánh Giá Thường Xuyên T / H / C */}
-                          <td style={{ textAlign: 'center' }}>
-                            <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
-                              {['T', 'H', 'C'].map(level => {
-                                const isCur = (student.eval_regular || 'T') === level;
-                                return (
-                                  <button
-                                    key={level}
-                                    type="button"
-                                    onClick={() => handleUpdateStudentField(student.id, 'eval_regular', level)}
-                                    style={{
-                                      padding: '0.2rem 0.45rem',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 800,
-                                      borderRadius: 4,
-                                      border: isCur ? '1.5px solid transparent' : '1px solid var(--surface-border)',
-                                      background: isCur 
-                                        ? (level === 'T' ? '#10b981' : level === 'H' ? '#0284c7' : '#f59e0b') 
-                                        : 'transparent',
-                                      color: isCur ? '#fff' : 'var(--text-muted)',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    {level}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </td>
+                      {/* === KHỐI ĐIỂM CỦA HỌC KỲ ĐANG CHỌN (tách riêng từng kỳ) === */}
+                      {/* ĐGTX của kỳ đang chọn */}
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
+                          {['T', 'H', 'C'].map(level => {
+                            const isCur = semEval === level;
+                            return (
+                              <button key={level} type="button"
+                                onClick={() => handleUpdateStudentField(student.id, semEvalField, level)}
+                                style={{ padding: '0.2rem 0.45rem', fontSize: '0.75rem', fontWeight: 800, borderRadius: 4, border: isCur ? '1.5px solid transparent' : '1px solid var(--surface-border)', background: isCur ? (level === 'T' ? '#10b981' : level === 'H' ? '#0284c7' : '#f59e0b') : 'transparent', color: isCur ? '#fff' : 'var(--text-muted)', cursor: 'pointer' }}>
+                                {level}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </td>
 
-                          {/* Điểm Thực Hành HK1 */}
-                          <td style={{ textAlign: 'center' }}>
-                            <input 
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              max="10"
-                              className="score-input"
-                              value={student.score_hk1 ?? ''}
-                              placeholder="--"
-                              onChange={(e) => handleScoreChange(student.id, 'score_hk1', e.target.value)}
-                            />
-                          </td>
+                      {/* Điểm cuối kỳ đang chọn */}
+                      <td style={{ textAlign: 'center' }}>
+                        <input type="number" step="0.5" min="0" max="10" className="score-input" value={semScore ?? ''} placeholder="--" onChange={(e) => handleScoreChange(student.id, semScoreField, e.target.value)} />
+                      </td>
 
-                          {/* Điểm Thực Hành Cuối Năm */}
-                          <td style={{ textAlign: 'center' }}>
-                            <input 
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              max="10"
-                              className="score-input"
-                              value={student.score_ck ?? ''}
-                              placeholder="--"
-                              onChange={(e) => handleScoreChange(student.id, 'score_ck', e.target.value)}
-                            />
-                          </td>
+                      {/* Mức đạt kỳ đang chọn */}
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`badge ${semRank.class}`} style={{ fontSize: '0.72rem', padding: '0.2rem 0.45rem' }}>{semRank.label}</span>
+                      </td>
 
-                          {/* ĐTB */}
-                          <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--text-main)' }}>
-                            {avg !== null ? avg : '--'}
-                          </td>
-
-                          {/* Xếp Loại TT27 */}
-                          <td style={{ textAlign: 'center' }}>
-                            <span className={`badge ${rank.class}`} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>
-                              {rank.label}
-                            </span>
-                          </td>
-                        </>
-                      )}
-
-                      {/* Sao Khen Thưởng */}
+                      {/* Sao Khen Thưởng — chỉ Khối 1-2 (Sổ Kỹ Năng & Sao); Khối 3-5 không hiển thị sao thi đua */}
+                      {isGrade1or2 && (
                       <td style={{ textAlign: 'center' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                           <button
@@ -819,6 +801,7 @@ export default function Gradebook({
                           </button>
                         </div>
                       </td>
+                      )}
 
                       {/* Nhận Xét Nhanh / Ghi Chú */}
                       <td>

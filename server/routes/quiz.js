@@ -12,19 +12,46 @@ import {
   saveQuizResults
 } from '../db.js';
 
-function validateQuestionPayload(body) {
+// Loại câu hỏi hợp lệ (khớp QUESTION_TYPES trong src/components/QuickQuiz/quizStorage.js)
+const VALID_QUESTION_TYPES = ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'SHORT_ANSWER', 'ORAL', 'IMAGE_CHOICE'];
+const CHOICE_QUESTION_TYPES = ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE'];
+
+function badRequest(message) {
+  const err = new Error(message);
+  err.statusCode = 400;
+  return err;
+}
+
+export function validateQuestionPayload(body) {
   if (!body.question || typeof body.question !== 'string' || body.question.trim() === '') {
-    throw new Error('Nội dung câu hỏi không được để trống');
+    throw badRequest('Nội dung câu hỏi không được để trống');
   }
-  if (!body.type) {
-    throw new Error('Loại câu hỏi không hợp lệ');
+  if (!body.type || !VALID_QUESTION_TYPES.includes(body.type)) {
+    throw badRequest('Loại câu hỏi không hợp lệ');
   }
-  if (['MULTIPLE_CHOICE', 'TRUE_FALSE', 'IMAGE_CHOICE'].includes(body.type)) {
+  if (CHOICE_QUESTION_TYPES.includes(body.type)) {
     if (!Array.isArray(body.options) || body.options.length < 2) {
-      throw new Error('Câu hỏi trắc nghiệm cần ít nhất 2 lựa chọn');
+      throw badRequest('Câu hỏi trắc nghiệm cần ít nhất 2 lựa chọn');
+    }
+    const trimmed = body.options.map(o => (typeof o === 'string' ? o.trim() : o));
+    if (trimmed.some(o => o === undefined || o === null || o === '')) {
+      throw badRequest('Các lựa chọn không được để trống');
+    }
+    if (new Set(trimmed).size !== trimmed.length) {
+      throw badRequest('Các lựa chọn không được trùng nhau');
     }
     if (body.correct_answer === undefined || body.correct_answer === null || body.correct_answer === '') {
-      throw new Error('Chưa chọn đáp án đúng');
+      throw badRequest('Chưa chọn đáp án đúng');
+    }
+    const correct = typeof body.correct_answer === 'string' ? body.correct_answer.trim() : body.correct_answer;
+    if (!trimmed.includes(correct)) {
+      throw badRequest('Đáp án đúng phải nằm trong danh sách lựa chọn');
+    }
+    if (body.correct_index !== undefined && body.correct_index !== null) {
+      const ci = Number(body.correct_index);
+      if (!Number.isInteger(ci) || ci < 0 || ci >= trimmed.length) {
+        throw badRequest('Vị trí đáp án đúng không hợp lệ');
+      }
     }
   }
 }
@@ -53,7 +80,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       });
       sendJson(res, 200, questions);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -66,7 +93,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       const created = createQuestion(body);
       sendJson(res, 201, created);
     } catch (err) {
-      const status = err.message === 'Nội dung câu hỏi không được để trống' || err.message === 'Loại câu hỏi không hợp lệ' || err.message === 'Câu hỏi trắc nghiệm cần ít nhất 2 lựa chọn' || err.message === 'Chưa chọn đáp án đúng' ? 400 : 500;
+      const status = err.statusCode || 500;
       sendJson(res, status, { error: err.message });
     }
     return true;
@@ -83,7 +110,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       }
       sendJson(res, 200, q);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -97,7 +124,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       const updated = updateQuestion(qId, body);
       sendJson(res, 200, updated);
     } catch (err) {
-      const status = err.message === 'Nội dung câu hỏi không được để trống' || err.message === 'Loại câu hỏi không hợp lệ' || err.message === 'Câu hỏi trắc nghiệm cần ít nhất 2 lựa chọn' || err.message === 'Chưa chọn đáp án đúng' ? 400 : 500;
+      const status = err.statusCode || 500;
       sendJson(res, status, { error: err.message });
     }
     return true;
@@ -110,7 +137,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       deleteQuestion(qId);
       sendJson(res, 200, { success: true, id: qId });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -123,7 +150,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       const duplicated = duplicateQuestion(qId);
       sendJson(res, 201, duplicated);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -135,7 +162,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       const session = createQuizSession(body);
       sendJson(res, 201, session);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -151,7 +178,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       }
       sendJson(res, 200, session);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -164,7 +191,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       const updated = updateQuizSession(sId, body);
       sendJson(res, 200, updated);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -178,7 +205,7 @@ export async function tryHandleQuiz(req, res, ctx) {
       const updated = saveQuizResults(sId, body);
       sendJson(res, 200, updated);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }

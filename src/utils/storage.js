@@ -88,7 +88,11 @@ export function getStoredClasses() {
           ...c,
           grade: c.grade || detectGradeFromName(c.name),
           goodScores: Array.isArray(c.goodScores) ? c.goodScores : [],
-          students: sortStudentsVietnamese(c.students || [])
+          students: sortStudentsVietnamese((c.students || []).map(s => ({
+            ...s,
+            eval_hk1: s.eval_hk1 ?? s.eval_regular ?? 'T',
+            eval_hk2: s.eval_hk2 ?? s.eval_regular ?? 'T'
+          })))
         }));
       }
     }
@@ -231,6 +235,21 @@ export function getGradeRank(avg, evalRegular = 'T', grade = 3) {
   return { label: 'Chưa Hoàn Thành (C) ⚠️', class: 'badge-weak' };
 }
 
+// Xếp loại MỘT học kỳ (áp dụng MỌI khối). Có điểm -> theo thang điểm; không có điểm -> theo ĐGTX chữ T/H/C.
+export function getSemesterRank(score, evalLevel = 'T') {
+  if (score === null || score === undefined || score === '') {
+    if (evalLevel === 'H') return { label: 'Hoàn Thành (H) 👍', class: 'badge-average' };
+    if (evalLevel === 'C') return { label: 'Chưa Hoàn Thành (C) ⚠️', class: 'badge-weak' };
+    return { label: 'Hoàn Thành Tốt (T) 🌟', class: 'badge-good' };
+  }
+  const s = parseFloat(score);
+  if (isNaN(s)) return { label: '--', class: '' };
+  if (s >= 9.0) return { label: 'Xuất Sắc 🏆', class: 'badge-excellent' };
+  if (s >= 7.0) return { label: 'Hoàn Thành Tốt (T) 🌟', class: 'badge-good' };
+  if (s >= 5.0) return { label: 'Hoàn Thành (H) 👍', class: 'badge-average' };
+  return { label: 'Chưa Hoàn Thành (C) ⚠️', class: 'badge-weak' };
+}
+
 // Xuất Excel chuẩn Tiểu học (Theo Thông tư 27 & Mẫu vnEdu/SMAS)
 export function exportToExcel(students, className, grade = 3) {
   const isPrimaryLow = (grade === 1 || grade === 2);
@@ -252,8 +271,8 @@ export function exportToExcel(students, className, grade = 3) {
     }));
   } else {
     data = students.map((s, idx) => {
-      const avg = calculateAverage(s, grade);
-      const rank = getGradeRank(avg, s.eval_regular, grade);
+      const rankHk1 = getSemesterRank(s.score_hk1, s.eval_hk1 ?? s.eval_regular);
+      const rankYear = getSemesterRank(s.score_ck, s.eval_hk2 ?? s.eval_regular);
       return {
         'STT': idx + 1,
         'Mã HS': s.id,
@@ -261,11 +280,12 @@ export function exportToExcel(students, className, grade = 3) {
         'Ngày sinh': s.dob || '',
         'Giới tính': s.gender || 'Nam',
         'Máy Số': s.machineNumber || '',
-        'Đánh Giá Thường Xuyên (T/H/C)': s.eval_regular || 'T',
-        'Điểm Thực Hành HK1': s.score_hk1 ?? '',
-        'Điểm Thực Hành Cuối Năm': s.score_ck ?? '',
-        'Điểm Trung Bình': avg !== null ? avg : '',
-        'Xếp Loại TT27': rank.label,
+        'ĐGTX Học Kỳ I (T/H/C)': s.eval_hk1 ?? s.eval_regular ?? 'T',
+        'Điểm Cuối HK1': s.score_hk1 ?? '',
+        'Mức Đạt HK1': rankHk1.label,
+        'ĐGTX Học Kỳ II (T/H/C)': s.eval_hk2 ?? s.eval_regular ?? 'T',
+        'Điểm Cuối Năm': s.score_ck ?? '',
+        'Mức Đạt Cả Năm': rankYear.label,
         'Số Sao (⭐)': s.stars || 0,
         'Nhận Xét vnEdu': s.note || 'Nắm vững kiến thức thực hành',
       };
@@ -299,8 +319,10 @@ export function importFromExcel(file, callback) {
           gender: normalizeGender(row['Giới tính'] || row['GioiTinh']).value || 'Nam',
           machineNumber: parseInt(row['Máy Số'] || row['MaySo'] || (idx + 1 <= 31 ? idx + 1 : Math.floor((idx + 1) / 2)), 10) || null,
           eval_regular: row['Đánh Giá Thường Xuyên (T/H/C)'] || row['DanhGia'] || 'T',
-          score_hk1: row['Điểm Thực Hành HK1'] || row['HK1'] || null,
-          score_ck: row['Điểm Thực Hành Cuối Năm'] || row['CK'] || null,
+          eval_hk1: row['ĐGTX Học Kỳ I (T/H/C)'] || row['DGTX_HK1'] || row['Đánh Giá Thường Xuyên (T/H/C)'] || row['DanhGia'] || 'T',
+          eval_hk2: row['ĐGTX Học Kỳ II (T/H/C)'] || row['DGTX_HK2'] || row['Đánh Giá Thường Xuyên (T/H/C)'] || row['DanhGia'] || 'T',
+          score_hk1: row['Điểm Cuối HK1'] || row['Điểm Thực Hành HK1'] || row['HK1'] || null,
+          score_ck: row['Điểm Cuối Năm'] || row['Điểm Thực Hành Cuối Năm'] || row['CK'] || null,
           skill_mouse: row['Kỹ năng Chuột (T/H/C)'] || 'T',
           skill_keyboard: row['Bàn phím cơ bản (T/H/C)'] || 'H',
           skill_paint: row['Vẽ Paint / Tranh (T/H/C)'] || 'T',

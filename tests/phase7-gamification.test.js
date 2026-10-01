@@ -29,9 +29,6 @@ describe('Phase 7 - Gamification Engine', () => {
       -- Seed rewards
       INSERT INTO rewards (id, name, cost) VALUES ('r1', 'Thẻ Miễn Tử', 15);
       INSERT INTO rewards (id, name, cost) VALUES ('r2', 'Thẻ Âm Nhạc', 5);
-
-      -- Seed challenges
-      INSERT INTO challenges (id, name, type, target, reward) VALUES ('ch1', 'Vua Phát Biểu', 'STARS', 5, 2);
     `);
   });
 

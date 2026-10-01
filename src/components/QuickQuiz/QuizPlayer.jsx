@@ -48,6 +48,7 @@ export default function QuizPlayer({
   const currentQ = questions[currentIndex] || null;
   const timerRef = useRef(null);
   const endTimeRef = useRef(null);
+  const revealRef = useRef(null); // giữ handleRevealAnswer mới nhất để timer gọi khi hết giờ
 
   // Reset timer & load dữ liệu khi đổi câu hỏi
   useEffect(() => {
@@ -96,6 +97,7 @@ export default function QuizPlayer({
           clearInterval(timerRef.current);
           setIsTimerRunning(false);
           if (isSoundEnabled) soundEffects.playBuzzer();
+          if (revealRef.current) revealRef.current(); // hết giờ -> tự hiện đáp án (auto-submit)
         }
         return remaining;
       });
@@ -194,6 +196,9 @@ export default function QuizPlayer({
     }));
   }, [currentQ, isSoundEnabled, quizSession?.mode, studentMarksByQuestion, students, classCounts]);
 
+  // Luôn giữ tham chiếu mới nhất của handleRevealAnswer cho bộ đếm giờ gọi khi hết giờ
+  useEffect(() => { revealRef.current = handleRevealAnswer; }, [handleRevealAnswer]);
+
   // Sang câu hỏi tiếp theo
   const handleNextQuestion = () => {
     if (currentIndex < totalQuestions - 1) {
@@ -217,10 +222,12 @@ export default function QuizPlayer({
     const completedCount = allResults.length;
     let totalAccuracy = 0;
     let totalCorrect = 0;
+    let totalWrong = 0;
 
     allResults.forEach(r => {
       totalAccuracy += (r.accuracy_rate || 0);
       totalCorrect += (r.correct_count || 0);
+      totalWrong += (r.wrong_count || 0);
     });
 
     const averageAccuracy = completedCount > 0 ? Math.round(totalAccuracy / completedCount) : 0;
@@ -271,6 +278,8 @@ export default function QuizPlayer({
       title: quizSession.title,
       total_questions: totalQuestions,
       average_accuracy: averageAccuracy,
+      total_correct: totalCorrect,
+      total_wrong: totalWrong,
       total_stars_awarded: totalStarsAwarded,
       results: allResults,
       student_results: studentResultsList

@@ -56,8 +56,8 @@ export function sortAllStudentsInDatabase(customDb = null, inTransaction = false
   const insertStmt = db.prepare(`
     INSERT INTO students (
       id, class_id, name, dob, gender, machine_number, stars, attendance,
-      skill_mouse, skill_keyboard, skill_paint, eval_regular, score_hk1, score_ck, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      skill_mouse, skill_keyboard, skill_paint, eval_regular, eval_hk1, eval_hk2, score_hk1, score_ck, note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
   `);
 
   if (!inTransaction) {
@@ -97,6 +97,8 @@ export function sortAllStudentsInDatabase(customDb = null, inTransaction = false
             s.skill_keyboard || 'H',
             s.skill_paint || 'T',
             s.eval_regular || 'T',
+            s.eval_hk1 || 'T',
+            s.eval_hk2 || 'T',
             s.score_hk1,
             s.score_ck,
             s.note || ''
@@ -165,6 +167,8 @@ export function getAllClassesWithStudents(schoolYear = null) {
       skill_keyboard: s.skill_keyboard,
       skill_paint: s.skill_paint,
       eval_regular: s.eval_regular,
+      eval_hk1: s.eval_hk1,
+      eval_hk2: s.eval_hk2,
       score_hk1: s.score_hk1,
       score_ck: s.score_ck,
       note: s.note
@@ -246,8 +250,8 @@ export function saveStudentsForClass(classId, studentsList) {
     const insertStmt = db.prepare(`
       INSERT INTO students (
         id, class_id, name, dob, gender, machine_number, stars, attendance,
-        skill_mouse, skill_keyboard, skill_paint, eval_regular, score_hk1, score_ck, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        skill_mouse, skill_keyboard, skill_paint, eval_regular, eval_hk1, eval_hk2, score_hk1, score_ck, note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `);
 
     for (const s of sortedList) {
@@ -264,6 +268,8 @@ export function saveStudentsForClass(classId, studentsList) {
         s.skill_keyboard || 'H',
         s.skill_paint || 'T',
         s.eval_regular || 'T',
+        s.eval_hk1 || 'T',
+        s.eval_hk2 || 'T',
         s.score_hk1 !== undefined ? s.score_hk1 : null,
         s.score_ck !== undefined ? s.score_ck : null,
         s.note || ''
@@ -326,8 +332,8 @@ export function batchImportClassesAndStudents(payload) {
     const insertStudentStmt = db.prepare(`
       INSERT INTO students (
         id, class_id, name, dob, gender, machine_number, stars, attendance,
-        skill_mouse, skill_keyboard, skill_paint, eval_regular, score_hk1, score_ck, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        skill_mouse, skill_keyboard, skill_paint, eval_regular, eval_hk1, eval_hk2, score_hk1, score_ck, note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `);
 
     for (const sheet of sheets) {
@@ -510,6 +516,8 @@ export function batchImportClassesAndStudents(payload) {
           row.skill_keyboard || 'H',
           row.skill_paint || 'T',
           row.eval_regular || 'T',
+          row.eval_hk1 || 'T',
+          row.eval_hk2 || 'T',
           row.score_hk1 !== undefined && row.score_hk1 !== null ? Number(row.score_hk1) : null,
           row.score_ck !== undefined && row.score_ck !== null ? Number(row.score_ck) : null,
           row.note || ''

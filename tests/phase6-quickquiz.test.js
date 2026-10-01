@@ -22,8 +22,12 @@ const {
   createQuestion,
   getAllQuestions,
   deleteQuestion,
-  getQuestionById
+  getQuestionById,
+  createQuizSession,
+  getQuizSessionById,
+  saveQuizResults
 } = await import('../server/db/quiz.js');
+const { validateQuestionPayload } = await import('../server/routes/quiz.js');
 
 const db = getDatabase();
 initSchema(db);
@@ -98,5 +102,53 @@ describe('Phase 6: Quick Quiz & Question Bank', () => {
     const all = getAllQuestions();
     const found = all.find(q => q.id === qId);
     assert.equal(found, undefined);
+  });
+
+  it('4. Server-side scoring: correct_count tính từ distribution + correct_index (bỏ qua số client)', () => {
+    const sess = createQuizSession({ id: 'qs_p6_score', mode: 'CLASS',
+      questions: [{ question: 'Q?', options: ['A', 'B', 'C', 'D'], correct_index: 1, correct_answer: 'B' }] });
+    const qqId = sess.questions[0].id;
+    saveQuizResults('qs_p6_score', { status: 'COMPLETED',
+      results: [{ quiz_question_id: qqId, distribution: { '0': 1, '1': 8, '2': 1, '3': 0 }, total_responses: 10, correct_count: 999, accuracy_rate: 100 }] });
+    const saved = getQuizSessionById('qs_p6_score');
+    const r = saved.results.find(x => x.quiz_question_id === qqId);
+    assert.equal(r.correct_count, 8);
+    assert.equal(r.wrong_count, 2);
+    assert.equal(r.accuracy_rate, 80);
+    assert.equal(saved.average_accuracy, 80);
+  });
+
+  it('5. Loại kết quả học sinh KHÔNG thuộc lớp của phiên', () => {
+    db.exec("INSERT OR REPLACE INTO classes (id, name, grade) VALUES ('C_P6', 'Lớp Test P6', 3);");
+    db.exec("INSERT OR REPLACE INTO students (id, class_id, name) VALUES ('S_P6_1', 'C_P6', 'HS 1');");
+    const sess = createQuizSession({ id: 'qs_p6_member', mode: 'STUDENT', class_id: 'C_P6',
+      questions: [{ question: 'Q?', options: ['A', 'B'], correct_index: 0, correct_answer: 'A' }] });
+    const qqId = sess.questions[0].id;
+    saveQuizResults('qs_p6_member', { status: 'COMPLETED', student_results: [
+      { quiz_question_id: qqId, student_id: 'S_P6_1', student_name: 'HS 1', status: 'CORRECT' },
+      { quiz_question_id: qqId, student_id: 'KHONG_THUOC_LOP', student_name: 'Giả', status: 'CORRECT' }
+    ] });
+    const saved = getQuizSessionById('qs_p6_member');
+    assert.equal(saved.student_results.length, 1);
+    assert.equal(saved.student_results[0].student_id, 'S_P6_1');
+  });
+
+  it('6. Idempotent: lưu kết quả 2 lần không nhân đôi bản ghi', () => {
+    const sess = createQuizSession({ id: 'qs_p6_idem', mode: 'CLASS',
+      questions: [{ question: 'Q?', options: ['A', 'B'], correct_index: 0, correct_answer: 'A' }] });
+    const qqId = sess.questions[0].id;
+    const payload = { status: 'COMPLETED', results: [{ quiz_question_id: qqId, distribution: { '0': 5, '1': 5 }, total_responses: 10 }] };
+    saveQuizResults('qs_p6_idem', payload);
+    saveQuizResults('qs_p6_idem', payload);
+    const row = db.prepare('SELECT COUNT(*) AS c FROM quiz_results WHERE quiz_session_id = ?;').get('qs_p6_idem');
+    assert.equal(row.c, 1);
+    assert.equal(getQuizSessionById('qs_p6_idem').results[0].correct_count, 5);
+  });
+
+  it('7. validateQuestionPayload chặn đáp án/loại/lựa chọn không hợp lệ', () => {
+    assert.throws(() => validateQuestionPayload({ question: 'q', type: 'MULTIPLE_CHOICE', options: ['A', 'B'], correct_answer: 'Z' }), /nằm trong danh sách/);
+    assert.throws(() => validateQuestionPayload({ question: 'q', type: 'KHONG_CO_LOAI' }), /không hợp lệ/);
+    assert.throws(() => validateQuestionPayload({ question: 'q', type: 'MULTIPLE_CHOICE', options: ['A', 'A'], correct_answer: 'A' }), /trùng nhau/);
+    assert.doesNotThrow(() => validateQuestionPayload({ question: 'q', type: 'MULTIPLE_CHOICE', options: ['A', 'B'], correct_answer: 'B' }));
   });
 });

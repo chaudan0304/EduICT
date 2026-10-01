@@ -46,7 +46,6 @@ export default function Sidebar({
     { id: 'goodscores', label: 'Điểm Tốt & Nội Quy', icon: <Star size={19} />, emoji: '⭐' },
     { id: 'duckrace', label: 'Đua Vịt', icon: <span style={{ fontSize: '1.05rem', lineHeight: 1 }}>🦆</span>, emoji: '🦆' },
     { id: 'luckywheel', label: 'Vòng Quay', icon: <span style={{ fontSize: '1.05rem', lineHeight: 1 }}>🎡</span>, emoji: '🎡' },
-    { id: 'rewards', label: 'Đổi Thưởng', icon: <Gift size={19} />, emoji: '🎁' },
     { id: 'timer', label: 'Đếm Giờ', icon: <Clock size={19} />, emoji: '⏱️' },
   ];
 

@@ -145,19 +145,6 @@ export default function HomeDashboard({
       accentColor: '#8b5cf6'
     },
     {
-      id: 'rewards',
-      title: 'Cửa Hàng Đổi Thưởng',
-      badge: 'Bảo bối & Quà',
-      badgeColor: '#10b981',
-      icon: '🎁',
-      description: 'Kho thẻ bảo bối quyền lợi và phần thưởng thi đua lớp học hấp dẫn cho học sinh tích lũy sao.',
-      highlight: 'Thẻ miễn tử, cứu trợ, chọn chỗ...',
-      actionText: 'Mở Cửa Hàng Đổi Quà',
-      color: 'rgba(16, 185, 129, 0.08)',
-      borderColor: 'rgba(16, 185, 129, 0.25)',
-      accentColor: '#10b981'
-    },
-    {
       id: 'timer',
       title: 'Đồng Hồ Đếm Giờ',
       badge: 'Màn hình máy chiếu',

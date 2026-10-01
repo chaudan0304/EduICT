@@ -279,11 +279,11 @@ export default function AiClassAnalysisModal({
                         gap: '0.25rem'
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                          <strong style={{ color: '#f87171' }}>{item.studentRef}</strong>
+                          <strong style={{ color: '#f87171' }}>Máy {item.machineNumber}</strong>
                           <span style={{ fontSize: '0.775rem', color: 'var(--text-muted, #94a3b8)' }}>{item.issue}</span>
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#93c5fd' }}>
-                          💡 <em>Gợi ý can thiệp:</em> {item.suggestedAction}
+                          💡 <em>Gợi ý can thiệp:</em> {item.suggestion}
                         </div>
                       </div>
                     ))}
