@@ -49,6 +49,15 @@ import { compareVietnameseNames } from '../utils/vietnameseSort';
 
 const QUICK_EMOJIS = ['🎯', '💻', '🤝', '💡', '🛡️', '🏆', '🎮', '🧃', '🪑', '📢', '🔌', '🧹', '⭐', '⚠️', '❌', '👍'];
 
+// Suy ra học kỳ của 1 bản ghi điểm: ưu tiên rec.semester; chưa có thì suy từ tháng (T8–T1 = HK1, T2–T7 = HK2)
+function semesterOfRecord(rec) {
+  if (rec && (rec.semester === 'hk1' || rec.semester === 'hk2')) return rec.semester;
+  const d = String((rec && (rec.date || rec.timestamp)) || '');
+  const m = parseInt(d.slice(5, 7), 10);
+  if (!m || Number.isNaN(m)) return 'hk1';
+  return (m >= 8 || m <= 1) ? 'hk1' : 'hk2';
+}
+
 export default function GoodScoresBoard({ 
   currentClass, 
   onUpdateStudents, 
@@ -70,6 +79,7 @@ export default function GoodScoresBoard({
   const [historyTypeFilter, setHistoryTypeFilter] = useState('all'); // 'all' | 'positive' | 'negative'
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' | 'history' | 'rules'
   const [sortMode, setSortMode] = useState('stars_desc'); // 'stars_desc' | 'stars_asc' | 'name_asc' | 'name_desc'
+  const [activeSemester, setActiveSemester] = useState('hk1'); // 'hk1' | 'hk2' — tách Điểm Tốt/Nội Quy theo học kỳ
 
   // Đồng bộ nội quy từ SQLite khi khởi động
   useEffect(() => {
@@ -393,6 +403,7 @@ export default function GoodScoresBoard({
     });
 
     (meritRecords || []).forEach(rec => {
+      if (semesterOfRecord(rec) !== activeSemester) return; // chỉ tính học kỳ đang chọn
       const key = String(rec?.studentId || '').trim();
       if (map[key]) {
         const pts = Math.max(1, parseInt(rec.points, 10) || 1);
@@ -418,13 +429,13 @@ export default function GoodScoresBoard({
     });
 
     return Object.values(map).sort((a, b) => b.currentStars - a.currentStars);
-  }, [students, meritRecords]);
+  }, [students, meritRecords, activeSemester]);
 
   // Thống kê tổng quan (Sao = Điểm Tốt − Điểm Trừ)
   const stats = useMemo(() => {
     const totalStars = studentSummary.reduce((acc, item) => acc + item.currentStars, 0);
-    const totalPositiveEntries = meritRecords.filter(r => r.type !== 'negative').length;
-    const totalNegativeEntries = meritRecords.filter(r => r.type === 'negative').length;
+    const totalPositiveEntries = meritRecords.filter(r => r.type !== 'negative' && semesterOfRecord(r) === activeSemester).length;
+    const totalNegativeEntries = meritRecords.filter(r => r.type === 'negative' && semesterOfRecord(r) === activeSemester).length;
     const topStudent = studentSummary[0]?.currentStars > 0 ? studentSummary[0].student : null;
 
     return {
@@ -434,7 +445,7 @@ export default function GoodScoresBoard({
       topStudent,
       topStars: studentSummary[0]?.currentStars || 0
     };
-  }, [meritRecords, studentSummary]);
+  }, [meritRecords, studentSummary, activeSemester]);
 
   // Tra cứu nhanh Sao Thi Đua (đã đồng bộ Nhật ký) theo mã học sinh — dùng cho form ghi nhận
   const derivedStarsById = useMemo(() => {
@@ -474,6 +485,7 @@ export default function GoodScoresBoard({
       title: titleToSave,
       points: pointsNum,
       scoreChange: isPositive ? +pointsNum : -pointsNum,
+      semester: activeSemester,
       note: newRecord.note.trim()
     };
 
@@ -517,6 +529,7 @@ export default function GoodScoresBoard({
       title: isAdd ? '🎯 Khen thưởng phát biểu tích cực' : '⚠️ Nhắc nhở giữ trật tự phòng máy',
       points: 1,
       scoreChange: isAdd ? 1 : -1,
+      semester: activeSemester,
       note: isAdd ? 'Cộng điểm nhanh trong tiết học' : 'Trừ điểm nhắc nhở nhanh trong tiết học'
     };
 
@@ -608,9 +621,10 @@ export default function GoodScoresBoard({
 
       const matchSearch = !q || studentName.includes(q) || studentId.includes(q) || title.includes(q) || note.includes(q);
       const matchType = historyTypeFilter === 'all' || r.type === historyTypeFilter;
-      return matchSearch && matchType;
+      const matchSemester = semesterOfRecord(r) === activeSemester;
+      return matchSearch && matchType && matchSemester;
     });
-  }, [meritRecords, searchTerm, historyTypeFilter, students]);
+  }, [meritRecords, searchTerm, historyTypeFilter, students, activeSemester]);
 
   // Lọc bảng tổng kết thi đua học sinh theo từ khóa tìm kiếm + sắp xếp theo chế độ
   const filteredStudentSummary = useMemo(() => {
@@ -725,6 +739,30 @@ export default function GoodScoresBoard({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Chọn Học Kỳ — tách Điểm Tốt / Nội Quy theo từng kỳ */}
+      <div className="glass-panel" style={{ padding: '0.65rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-muted)' }}>Học kỳ:</span>
+        <div style={{ display: 'inline-flex', background: 'var(--surface-secondary)', borderRadius: 'var(--radius-md)', padding: '0.2rem' }}>
+          {[{ id: 'hk1', label: '📘 Học Kỳ I' }, { id: 'hk2', label: '📙 Học Kỳ II (Cả Năm)' }].map(sem => (
+            <button
+              key={sem.id}
+              type="button"
+              className="btn btn-sm"
+              onClick={() => setActiveSemester(sem.id)}
+              style={{
+                background: activeSemester === sem.id ? 'var(--surface)' : 'transparent',
+                color: activeSemester === sem.id ? 'var(--primary)' : 'var(--text-muted)',
+                boxShadow: activeSemester === sem.id ? 'var(--shadow-sm)' : 'none',
+                fontWeight: activeSemester === sem.id ? 800 : 600
+              }}
+            >
+              {sem.label}
+            </button>
+          ))}
+        </div>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Điểm tốt / điểm trừ / sao hiển thị theo kỳ đang chọn</span>
       </div>
 
       {/* Thanh Điều Hướng Tab & Hành Động Chính */}
