@@ -105,4 +105,46 @@ describe('Phase 7 - Gamification Engine', () => {
     const count = db.prepare('SELECT COUNT(*) as c FROM reward_redemptions WHERE id = ?').get('red_2').c;
     assert.strictEqual(count, 1);
   });
+
+  test('Gộp sổ cái 1b: adjustStars ghi sao có dấu, kẹp sàn 0, idempotent', async () => {
+    const { adjustStars } = await import('../server/db/gamification.js');
+
+    db.exec("INSERT INTO students (id, name, class_id, stars) VALUES ('s3', 'Lê Văn C', 'c1', 8);");
+
+    // Trừ 3 -> 5, ghi 1 dòng ledger amount = -3
+    const dec = adjustStars({ id: 'adj_1', studentId: 's3', classId: 'c1', amount: -3, reason: 'Chỉnh tay', source: 'GRADEBOOK', sessionId: null });
+    assert.strictEqual(dec.success, true);
+    assert.strictEqual(dec.newBalance, 5);
+    const tx = db.prepare('SELECT amount FROM star_transactions WHERE id = ?').get('adj_1');
+    assert.strictEqual(tx.amount, -3);
+
+    // Trừ quá tay -> kẹp sàn 0, không âm
+    const floor = adjustStars({ id: 'adj_2', studentId: 's3', classId: 'c1', amount: -100, reason: 'Chỉnh tay', source: 'GRADEBOOK', sessionId: null });
+    assert.strictEqual(floor.newBalance, 0);
+
+    // Idempotency: trùng id -> không ghi lại
+    const dup = adjustStars({ id: 'adj_1', studentId: 's3', classId: 'c1', amount: -3, reason: 'trùng', source: 'GRADEBOOK', sessionId: null });
+    assert.strictEqual(dup.success, false);
+    assert.match(dup.message, /already exists/i);
+    assert.throws(() => adjustStars({ id: 'adj_3', studentId: 's3', classId: 'c1', amount: 0, reason: 'x', source: 'X' }), /non-zero/i);
+  });
+
+  test('Gộp sổ cái 1b: addStudentParticipation KHÔNG còn tự đổi students.stars', async () => {
+    const { addStudentParticipation } = await import('../server/db/sessions.js');
+
+    db.exec("INSERT INTO students (id, name, class_id, stars) VALUES ('s4', 'Phạm Thị D', 'c1', 7);");
+    db.exec("INSERT INTO classroom_sessions (id, class_id, lesson_title, session_date) VALUES ('sess1', 'c1', 'Bài 1', '2026-10-02');");
+
+    const before = db.prepare("SELECT stars FROM students WHERE id = 's4' AND class_id = 'c1'").get().stars;
+    const res = addStudentParticipation('sess1', { student_id: 's4', badge_type: 'STAR', stars_awarded: 5, note: 'test' });
+    assert.strictEqual(res.success, true);
+
+    // Số sao PHẢI giữ nguyên (participation giờ chỉ là log)
+    const after = db.prepare("SELECT stars FROM students WHERE id = 's4' AND class_id = 'c1'").get().stars;
+    assert.strictEqual(after, before);
+
+    // Nhưng bản ghi participation vẫn được lưu
+    const part = db.prepare("SELECT stars_awarded FROM student_participation WHERE session_id = 'sess1' AND student_id = 's4'").get();
+    assert.strictEqual(part.stars_awarded, 5);
+  });
 });

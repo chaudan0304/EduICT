@@ -18,6 +18,7 @@ import {
   setStoredActiveSessionId 
 } from './sessionStorage';
 import { soundEffects } from '../../utils/audio';
+import { awardStars, changeStars, applyNewBalance } from '../../utils/starLedger';
 import { 
   getSlotById, 
   getActiveTeachingSlot, 
@@ -556,11 +557,21 @@ export default function SessionDashboard({
       const targetStudent = students.find(s => String(s.id) === String(studentId));
       if (!targetStudent) return;
 
-      // a. Cập nhật học sinh trong state toàn cục App.jsx
+      // a. Cập nhật SAO qua sổ cái server (cộng = award, trừ = adjust)
       if (starsDelta !== 0) {
-        const newStars = Math.max(0, (targetStudent.stars || 0) + starsDelta);
-        const updatedStudents = students.map(s => String(s.id) === String(studentId) ? { ...s, stars: newStars } : s);
-        onUpdateStudents(updatedStudents);
+        try {
+          const newBalance = await changeStars({
+            studentId,
+            classId: currentClass?.id,
+            amount: starsDelta,
+            reason: note || `Tham gia tiết: ${session.lesson_title}`,
+            source: 'SESSION_PARTICIPATION',
+            sessionId: session.id,
+          });
+          onUpdateStudents(applyNewBalance(currentClass?.students || [], studentId, newBalance));
+        } catch (e) {
+          console.error('Lỗi cập nhật sao tham gia:', e);
+        }
 
         // Phát âm thanh
         if (soundEnabled) {
@@ -820,29 +831,49 @@ export default function SessionDashboard({
               console.error('Lỗi ghi nhận sự kiện quiz vào session:', err);
             }
           }}
-          onAwardStars={(starsMap) => {
-            if (onUpdateStudents && currentClass?.students) {
-              const updated = currentClass.students.map(s => {
-                const add = starsMap[s.id] || starsMap[String(s.id)] || 0;
-                if (add > 0) {
-                  const partRecord = {
-                    id: `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-                    session_id: session.id,
-                    student_id: s.id,
-                    student_name: s.name,
-                    activity_id: currentActivity?.id || null,
-                    badge_type: 'STAR',
-                    stars_awarded: add,
-                    note: `Thưởng ${add} ⭐ từ Quick Quiz`,
-                    created_at: new Date().toISOString()
-                  };
-                  setParticipationRecords(prev => [partRecord, ...prev]);
-                  addStudentParticipationApi(session.id, partRecord);
-                }
-                return add > 0 ? { ...s, stars: (s.stars || 0) + add } : s;
-              });
-              onUpdateStudents(updated);
-            }
+          onAwardStars={async (starsMap) => {
+            if (!onUpdateStudents || !currentClass?.students) return;
+            const classId = currentClass.id;
+            const entries = Object.entries(starsMap || {}).filter(([, n]) => Number(n) > 0);
+            if (entries.length === 0) return;
+
+            const balances = {};
+            await Promise.all(entries.map(async ([sid, n]) => {
+              const add = Number(n);
+              const student = currentClass.students.find(s => String(s.id) === String(sid));
+              try {
+                const nb = await awardStars({
+                  studentId: sid,
+                  classId,
+                  amount: add,
+                  reason: 'Thưởng Quick Quiz',
+                  source: 'QUICK_QUIZ',
+                  sessionId: session.id,
+                });
+                if (typeof nb === 'number') balances[String(sid)] = nb;
+              } catch (e) {
+                console.error('Lỗi cộng sao Quick Quiz:', e);
+              }
+              // Ghi participation log cho tổng kết tiết (không đụng tới số dư sao)
+              const partRecord = {
+                id: `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                session_id: session.id,
+                student_id: sid,
+                student_name: student?.name || '',
+                activity_id: currentActivity?.id || null,
+                badge_type: 'STAR',
+                stars_awarded: add,
+                note: `Thưởng ${add} ⭐ từ Quick Quiz`,
+                created_at: new Date().toISOString()
+              };
+              setParticipationRecords(prev => [partRecord, ...prev]);
+              addStudentParticipationApi(session.id, partRecord);
+            }));
+
+            const updated = currentClass.students.map(s =>
+              balances[String(s.id)] !== undefined ? { ...s, stars: balances[String(s.id)] } : s
+            );
+            onUpdateStudents(updated);
           }}
         />
       )}

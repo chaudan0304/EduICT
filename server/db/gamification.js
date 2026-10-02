@@ -45,6 +45,51 @@ export function awardStar(transactionData) {
   }
 }
 
+// Điều chỉnh sao có DẤU (dương = cộng, âm = trừ) — dùng cho chỉnh tay của giáo
+// viên và badge nội quy âm. Khác awardStar (chỉ nhận dương): hàm này nhận số
+// nguyên khác 0, vẫn ghi 1 dòng star_transactions (amount có dấu) để sổ cái
+// phản ánh đủ mọi thay đổi. Số dư luôn kẹp sàn 0.
+export function adjustStars(transactionData) {
+  const db = getDatabase();
+  const { id, studentId, classId, amount, reason, source, sessionId } = transactionData;
+
+  const amt = Number(amount);
+  if (!Number.isInteger(amt) || amt === 0) {
+    throw new Error('Adjust amount must be a non-zero integer.');
+  }
+
+  // Idempotency check
+  const existing = db.prepare('SELECT id FROM star_transactions WHERE id = ?').get(id);
+  if (existing) {
+    return { success: false, message: 'Transaction already exists' };
+  }
+
+  const stmt = db.prepare(`
+    INSERT INTO star_transactions (id, student_id, class_id, amount, reason, source, session_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const updateStmt = db.prepare(`
+    UPDATE students
+    SET stars = MAX(0, COALESCE(stars, 0) + ?)
+    WHERE id = ? AND class_id = ?
+  `);
+
+  try {
+    db.exec('BEGIN TRANSACTION');
+    stmt.run(id, studentId, classId, amt, reason, source, sessionId || null);
+    updateStmt.run(amt, studentId, classId);
+
+    const balance = db.prepare('SELECT stars FROM students WHERE id = ? AND class_id = ?').get(studentId, classId);
+
+    db.exec('COMMIT');
+    return { success: true, newBalance: balance.stars };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
 export function getStarHistory(studentId, classId) {
   const db = getDatabase();
   const stmt = db.prepare(`

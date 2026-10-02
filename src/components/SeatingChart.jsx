@@ -24,6 +24,7 @@ import {
   X
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
+import { awardStars, changeStars, applyNewBalance } from '../utils/starLedger';
 import { 
   getGlobalBrokenMachines, 
   saveGlobalBrokenMachines, 
@@ -85,15 +86,25 @@ export default function SeatingChart({
   }, [reassignAlerts]);
 
   // Hàm cộng / trừ sao và ghi nhận nội quy phòng máy cho học sinh
-  const handleAwardStudent = (studentId, pointsDelta, ruleObj = null) => {
+  // Sao ⭐ đi qua sổ cái server (cộng = award, trừ = adjust); nhật ký điểm tốt
+  // (goodScores / thi đua) VẪN ghi riêng — 1 thao tác nội quy tính cả hai hệ.
+  const handleAwardStudent = async (studentId, pointsDelta, ruleObj = null) => {
     const targetStudent = students.find(s => s.id === studentId);
     if (!targetStudent) return;
 
-    const currentStars = targetStudent.stars || 0;
-    const newStars = Math.max(0, currentStars + pointsDelta);
-
-    const updated = students.map(s => s.id === studentId ? { ...s, stars: newStars } : s);
-    onUpdateStudents(updated);
+    try {
+      const newBalance = await changeStars({
+        studentId,
+        classId: currentClass?.id,
+        amount: pointsDelta,
+        reason: ruleObj ? `Nội quy: ${ruleObj.title}` : 'Điều chỉnh sao tại Sơ đồ chỗ ngồi',
+        source: 'SEATING_CHART',
+      });
+      onUpdateStudents(applyNewBalance(students, studentId, newBalance));
+    } catch (e) {
+      DialogService.alert('Không thể cập nhật sao: ' + (e?.message || 'Lỗi không xác định'));
+      return;
+    }
 
     // Âm thanh
     if (soundEnabled) {
@@ -454,16 +465,24 @@ export default function SeatingChart({
     if (soundEnabled) soundEffects.playVictory();
   };
 
-  // Thưởng sao thi đua 1-chạm
-  const addStar = (studentId) => {
-    const updated = students.map(s => {
-      if (s.id === studentId) {
-        return { ...s, stars: (s.stars || 0) + 1 };
-      }
-      return s;
-    });
-    onUpdateStudents(updated);
-    if (soundEnabled) soundEffects.playStarDing();
+  // Thưởng sao thi đua 1-chạm — đi qua sổ cái server (star_transactions) rồi
+  // đồng bộ số dư từ newBalance (tránh ghi đè số dư bằng giá trị cũ cục bộ).
+  const addStar = async (studentId) => {
+    const target = students.find(s => s.id === studentId);
+    if (!target) return;
+    try {
+      const newBalance = await awardStars({
+        studentId,
+        classId: currentClass?.id,
+        amount: 1,
+        reason: 'Thưởng sao tại Sơ đồ chỗ ngồi',
+        source: 'SEATING_CHART',
+      });
+      onUpdateStudents(applyNewBalance(students, studentId, newBalance));
+      if (soundEnabled) soundEffects.playStarDing();
+    } catch (e) {
+      DialogService.alert('Không thể cộng sao: ' + (e?.message || 'Lỗi không xác định'));
+    }
   };
 
   // Bật/tắt máy hỏng dùng chung toàn trường & tự động chuyển chỗ ngồi cho học sinh

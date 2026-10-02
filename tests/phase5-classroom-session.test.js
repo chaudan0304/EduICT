@@ -356,11 +356,13 @@ describe('Phase 5 — Participation & Stars', () => {
     assert.equal(uniqueStudents.size, 3, 'Phải có 3 HS khác nhau tham gia');
   });
 
-  it('Sao thi đua đồng bộ vào bảng students', () => {
-    // Kiểm tra trực tiếp DB: HS đầu tiên phải có ≥ 5 sao (2 + 3)
+  it('Participation KHÔNG tự đổi students.stars (sao đi qua sổ cái gamification)', () => {
+    // Gộp sổ cái 1b: addStudentParticipation giờ chỉ là LOG tổng kết tiết. Mọi
+    // thay đổi sao đi qua awardStar/adjustStars, nên dù đã ghi participation với
+    // stars_awarded 2 + 3 cho HS[0], cột students.stars PHẢI giữ nguyên seed (0).
     const student = db.prepare('SELECT stars FROM students WHERE id = ?').get(String(studentIds[0]));
     assert.ok(student, 'Phải tìm thấy học sinh');
-    assert.ok(student.stars >= 5, `Sao của HS[0] phải >= 5, thực tế: ${student.stars}`);
+    assert.equal(student.stars, 0, `Participation không được tự cộng sao; stars phải giữ nguyên 0, thực tế: ${student.stars}`);
   });
 
   it('Ghi nhận tham gia với 0 sao (chỉ phát biểu)', () => {

@@ -1,6 +1,7 @@
 import { sendJson, parseJsonBody } from './helpers.js';
 import {
   awardStar,
+  adjustStars,
   getStarHistory,
   getAllRewards,
   redeemReward,
@@ -30,6 +31,29 @@ export async function tryHandleGamification(req, res, ctx) {
       return sendJson(res, 200, result);
     } catch (e) {
       console.error('Lỗi khi tặng sao:', e);
+      return sendJson(res, 400, { error: e.message || 'Lỗi server.' });
+    }
+  }
+
+  // 1b. ĐIỀU CHỈNH SAO CÓ DẤU (giáo viên chỉnh tay +/- , badge nội quy âm)
+  if (pathname === '/api/gamification/stars/adjust' && method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const { id, studentId, classId, amount, reason, source, sessionId } = body;
+      if (!id || !studentId || !classId || amount === undefined || amount === null || !reason || !source) {
+        return sendJson(res, 400, { error: 'Thiếu thông tin bắt buộc để điều chỉnh sao.' });
+      }
+      const amt = Number(amount);
+      if (!Number.isInteger(amt) || amt === 0 || amt < -100 || amt > 100) {
+        return sendJson(res, 400, { error: 'Số sao điều chỉnh không hợp lệ (số nguyên khác 0, trong khoảng -100..100).' });
+      }
+      const result = adjustStars({ id, studentId, classId, amount: amt, reason, source, sessionId });
+      if (!result.success) {
+        return sendJson(res, 409, { error: result.message });
+      }
+      return sendJson(res, 200, result);
+    } catch (e) {
+      console.error('Lỗi khi điều chỉnh sao:', e);
       return sendJson(res, 400, { error: e.message || 'Lỗi server.' });
     }
   }

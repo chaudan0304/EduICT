@@ -25,6 +25,8 @@ import TeacherNotesDrawer from './TeacherNotesDrawer';
 import LuckyWheel from '../LuckyWheel';
 import DuckRace from '../DuckRace';
 import { soundEffects } from '../../utils/audio';
+import { awardStars, applyNewBalance } from '../../utils/starLedger';
+import DialogService from '../../services/DialogService';
 import CreateQuizModal from '../QuickQuiz/CreateQuizModal';
 import QuizPlayer from '../QuickQuiz/QuizPlayer';
 import QuizResultModal from '../QuickQuiz/QuizResultModal';
@@ -251,26 +253,29 @@ export default function PresentationView({
     setShowDuckRaceModal(false);
   };
 
-  // Cộng sao trực tiếp từ thẻ gọi thu nhỏ
-  const handleRewardDockedCaller = (starsToAdd) => {
+  // Cộng sao trực tiếp từ thẻ gọi thu nhỏ — qua sổ cái server
+  const handleRewardDockedCaller = async (starsToAdd) => {
     if (!dockedCaller?.student?.id) return;
     const studentId = dockedCaller.student.id;
-    const updated = (currentClass?.students || []).map(s => {
-      if (s.id === studentId) {
-        return { ...s, stars: (s.stars || 0) + starsToAdd };
+    try {
+      const newBalance = await awardStars({
+        studentId,
+        classId: currentClass?.id,
+        amount: starsToAdd,
+        reason: 'Thưởng gọi trả bài (trình chiếu)',
+        source: 'PRESENTATION',
+      });
+      if (onUpdateStudents) onUpdateStudents(applyNewBalance(currentClass?.students || [], studentId, newBalance));
+      if (soundEnabled) soundEffects.playStarDing();
+      if (typeof newBalance === 'number') {
+        setDockedCaller(prev => ({
+          ...prev,
+          student: { ...prev.student, stars: newBalance }
+        }));
       }
-      return s;
-    });
-    if (onUpdateStudents) onUpdateStudents(updated);
-    if (soundEnabled) soundEffects.playStarDing();
-
-    setDockedCaller(prev => ({
-      ...prev,
-      student: {
-        ...prev.student,
-        stars: (prev.student.stars || 0) + starsToAdd
-      }
-    }));
+    } catch (e) {
+      DialogService.alert('Không thể cộng sao: ' + (e?.message || 'Lỗi không xác định'));
+    }
   };
 
   // Mở lại bảng gọi học sinh đầy đủ
@@ -381,22 +386,27 @@ export default function PresentationView({
     };
   }, []);
 
-  // Xử lý cộng sao nhanh cho học sinh
-  const handleAwardStarToStudent = (studentId, starCount = 1) => {
+  // Xử lý cộng sao nhanh cho học sinh — ⭐ qua sổ cái server, merit giữ riêng
+  const handleAwardStarToStudent = async (studentId, starCount = 1) => {
     if (!currentClass || !onUpdateStudents) return;
     const students = currentClass.students || [];
     const target = students.find(s => s.id === studentId);
     if (!target) return;
 
-    const updated = students.map(s => {
-      if (s.id === studentId) {
-        return { ...s, stars: (s.stars || 0) + starCount };
-      }
-      return s;
-    });
-
-    onUpdateStudents(updated);
-    if (soundEnabled) soundEffects.playStarDing();
+    try {
+      const newBalance = await awardStars({
+        studentId,
+        classId: currentClass?.id,
+        amount: starCount,
+        reason: `Phát biểu trong bài: ${activeLesson?.title || 'Slide'}`,
+        source: 'PRESENTATION',
+      });
+      onUpdateStudents(applyNewBalance(students, studentId, newBalance));
+      if (soundEnabled) soundEffects.playStarDing();
+    } catch (e) {
+      DialogService.alert('Không thể cộng sao: ' + (e?.message || 'Lỗi không xác định'));
+      return;
+    }
 
     // Thêm vào goodScores nếu có hàm
     if (onUpdateGoodScores) {
@@ -1485,14 +1495,22 @@ export default function PresentationView({
             setQuizSummary(summary);
             setIsQuizResultOpen(true);
           }}
-          onAwardStars={(starsMap) => {
-            if (onUpdateStudents && currentClass?.students) {
-              const updated = currentClass.students.map(s => {
-                const add = starsMap[s.id] || 0;
-                return add > 0 ? { ...s, stars: (s.stars || 0) + add } : s;
-              });
-              onUpdateStudents(updated);
-            }
+          onAwardStars={async (starsMap) => {
+            if (!onUpdateStudents || !currentClass?.students) return;
+            const classId = currentClass.id;
+            const entries = Object.entries(starsMap || {}).filter(([, n]) => Number(n) > 0);
+            if (entries.length === 0) return;
+            const balances = {};
+            await Promise.all(entries.map(async ([sid, n]) => {
+              try {
+                const nb = await awardStars({ studentId: sid, classId, amount: Number(n), reason: 'Thưởng Quick Quiz', source: 'QUICK_QUIZ' });
+                if (typeof nb === 'number') balances[String(sid)] = nb;
+              } catch (e) { console.error('Lỗi cộng sao Quick Quiz:', e); }
+            }));
+            const updated = currentClass.students.map(s =>
+              balances[String(s.id)] !== undefined ? { ...s, stars: balances[String(s.id)] } : s
+            );
+            onUpdateStudents(updated);
           }}
         />
       )}

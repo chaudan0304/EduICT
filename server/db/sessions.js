@@ -216,45 +216,30 @@ export function addSessionEvent(sessionId, eventData) {
   return { id: eventId, success: true };
 }
 
-// 8. Ghi nhận học sinh tham gia / cộng sao (Đồng bộ trực tiếp số sao vào bảng students của lớp)
+// 8. Ghi nhận học sinh tham gia (bản ghi LOG cho tổng kết tiết học)
+// LƯU Ý (gộp sổ cái sao — 1b): hàm này KHÔNG còn tự cộng/trừ students.stars.
+// Mọi thay đổi sao đi qua sổ cái gamification (awardStar/adjustStars) để tránh
+// double-write + race với saveStudentsForClass. Ở đây chỉ lưu lại participation
+// (badge, stars_awarded) phục vụ hiển thị & thống kê tổng kết.
 export function addStudentParticipation(sessionId, pData) {
   const db = getDatabase();
   const partId = pData.id || `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const studentId = pData.student_id || pData.studentId;
   const starsAwarded = Number(pData.stars_awarded || pData.starsAwarded) || 0;
 
-  db.exec('BEGIN TRANSACTION;');
-  try {
-    const stmt = db.prepare(`
-      INSERT INTO student_participation (id, session_id, student_id, activity_id, badge_type, stars_awarded, note, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-    `);
-    stmt.run(
-      partId,
-      sessionId,
-      studentId,
-      pData.activity_id || pData.activityId || null,
-      pData.badge_type || pData.badgeType || 'PARTICIPATION',
-      starsAwarded,
-      pData.note || ''
-    );
+  const stmt = db.prepare(`
+    INSERT INTO student_participation (id, session_id, student_id, activity_id, badge_type, stars_awarded, note, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+  `);
+  stmt.run(
+    partId,
+    sessionId,
+    studentId,
+    pData.activity_id || pData.activityId || null,
+    pData.badge_type || pData.badgeType || 'PARTICIPATION',
+    starsAwarded,
+    pData.note || ''
+  );
 
-    // Đồng bộ số sao trực tiếp vào bảng students trong SQLite
-    if (starsAwarded !== 0 && studentId) {
-      const session = db.prepare('SELECT class_id FROM classroom_sessions WHERE id = ?;').get(sessionId);
-      if (session && session.class_id) {
-        db.prepare(`
-          UPDATE students 
-          SET stars = MAX(0, COALESCE(stars, 0) + ?) 
-          WHERE id = ? AND class_id = ?;
-        `).run(starsAwarded, String(studentId), session.class_id);
-      }
-    }
-
-    db.exec('COMMIT;');
-    return { id: partId, success: true };
-  } catch (err) {
-    db.exec('ROLLBACK;');
-    throw err;
-  }
+  return { id: partId, success: true };
 }

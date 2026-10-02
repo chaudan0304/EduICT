@@ -24,6 +24,7 @@ import {
   sortStudentsVietnamese 
 } from '../utils/storage';
 import { soundEffects } from '../utils/audio';
+import { changeStars, applyNewBalance } from '../utils/starLedger';
 import AiClassAnalysisModal from './AI/AiClassAnalysisModal';
 
 export default function Gradebook({ 
@@ -166,18 +167,23 @@ export default function Gradebook({
     handleUpdateStudentField(studentId, field, numVal);
   };
 
-  // Tăng / Giảm sao
-  const handleModifyStars = (studentId, delta) => {
-    const updated = students.map(s => {
-      if (s.id === studentId) {
-        const nextStars = Math.max(0, (s.stars || 0) + delta);
-        return { ...s, stars: nextStars };
+  // Tăng / Giảm sao thưởng — đi qua sổ cái server (cộng = award, trừ = adjust)
+  const handleModifyStars = async (studentId, delta) => {
+    if (!delta) return;
+    try {
+      const newBalance = await changeStars({
+        studentId,
+        classId: currentClass?.id,
+        amount: delta,
+        reason: delta > 0 ? 'Thưởng sao tại Sổ điểm' : 'Điều chỉnh giảm sao tại Sổ điểm',
+        source: 'GRADEBOOK',
+      });
+      onUpdateStudents(applyNewBalance(students, studentId, newBalance));
+      if (soundEnabled && delta > 0) {
+        soundEffects.playStarDing();
       }
-      return s;
-    });
-    onUpdateStudents(updated);
-    if (soundEnabled && delta > 0) {
-      soundEffects.playStarDing();
+    } catch (e) {
+      DialogService.alert('Không thể cập nhật sao: ' + (e?.message || 'Lỗi không xác định'));
     }
   };
 

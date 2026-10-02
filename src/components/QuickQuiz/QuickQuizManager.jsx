@@ -4,6 +4,7 @@ import CreateQuizModal from './CreateQuizModal';
 import QuizPlayer from './QuizPlayer';
 import QuizResultModal from './QuizResultModal';
 import { saveQuizResultsApi } from './quizStorage';
+import { awardStars } from '../../utils/starLedger';
 
 export default function QuickQuizManager({
   currentClass,
@@ -61,21 +62,33 @@ export default function QuickQuizManager({
     }
   };
 
-  // Xử lý cộng sao cho học sinh (Mode 2)
-  const handleAwardStars = (starsMap) => {
+  // Xử lý cộng sao cho học sinh (Mode 2) — qua sổ cái server, đồng bộ newBalance
+  const handleAwardStars = async (starsMap) => {
     if (!onUpdateStudents || !currentClass?.students) return;
+    const classId = currentClass.id;
+    const entries = Object.entries(starsMap || {}).filter(([, n]) => Number(n) > 0);
+    if (entries.length === 0) return;
 
-    const updatedStudents = currentClass.students.map(s => {
-      const added = starsMap[s.id] || 0;
-      if (added > 0) {
-        return {
-          ...s,
-          stars: (s.stars || 0) + added
-        };
+    const balances = {};
+    await Promise.all(entries.map(async ([sid, n]) => {
+      try {
+        const nb = await awardStars({
+          studentId: sid,
+          classId,
+          amount: Number(n),
+          reason: 'Thưởng Quick Quiz',
+          source: 'QUICK_QUIZ',
+          sessionId,
+        });
+        if (typeof nb === 'number') balances[String(sid)] = nb;
+      } catch (e) {
+        console.error('Lỗi cộng sao Quick Quiz:', e);
       }
-      return s;
-    });
+    }));
 
+    const updatedStudents = currentClass.students.map(s =>
+      balances[String(s.id)] !== undefined ? { ...s, stars: balances[String(s.id)] } : s
+    );
     onUpdateStudents(updatedStudents);
   };
 
