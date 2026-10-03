@@ -1,0 +1,20 @@
+{
+  "name": "edumaster-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "description": "EduMaster Desktop Shell (Phase 11/12) — bao quanh ứng dụng web + Node backend hiện tại. Electron/electron-builder chỉ nằm ở gói này, KHÔNG phải dependency của ứng dụng web gốc.",
+  "main": "main/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "icon": "node scripts/make-placeholder-icon.cjs",
+    "stage": "node scripts/stage.cjs",
+    "dist": "electron-builder --config electron-builder.json --win dir",
+    "installer": "electron-builder --config electron-builder.json --win nsis",
+    "scan": "node scripts/secretScan.cjs ../release/win-unpacked/resources/app.asar ../release/win-unpacked"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  }
+}

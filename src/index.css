@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+/* Phase 12: font Outfit + Plus Jakarta Sans được đóng gói cục bộ (@fontsource, import trong main.jsx) — không dùng CDN. */
 
 :root {
   --font-primary: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;

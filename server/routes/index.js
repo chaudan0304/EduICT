@@ -12,6 +12,8 @@ import { tryHandleLessonsCollection, tryHandleLessonsCrud } from './lessons.js';
 import { tryHandlePptx } from './pptx.js';
 import { tryHandleQuiz } from './quiz.js';
 import { tryHandleGamification } from './gamification.js';
+import { getDatabase } from '../db/connection.js';
+import { getRuntimeConfig } from '../services/runtimeConfig.js';
 
 export async function handleApiRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -27,6 +29,25 @@ export async function handleApiRequest(req, res) {
     return true;
   }
 
+  // 0. Health check (Phase 10) — KHÔNG lộ secret / đường dẫn tuyệt đối.
+  if (pathname === '/api/health' && method === 'GET') {
+    let database = 'ok';
+    try {
+      getDatabase().prepare('SELECT 1').get();
+    } catch {
+      database = 'error';
+    }
+    const cfg = getRuntimeConfig();
+    sendJson(res, database === 'ok' ? 200 : 503, {
+      ok: database === 'ok',
+      app: 'EduMaster',
+      runtime: cfg.runtime,
+      environment: cfg.environment,
+      database,
+    });
+    return true;
+  }
+
   // 1. Kiểm tra trạng thái Backend & File SQLite
   if (pathname === '/api/status' && method === 'GET') {
     const dbPath = getDatabasePath();
@@ -37,7 +58,6 @@ export async function handleApiRequest(req, res) {
       status: 'ok',
       engine: 'SQLite (Node.js 22 Native)',
       dbFile: path.basename(dbPath),
-      dbPath: dbPath,
       fileSizeBytes: size,
       fileSizeKb: Math.round(size / 1024),
       totalClasses: classes.length,

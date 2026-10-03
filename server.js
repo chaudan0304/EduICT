@@ -4,6 +4,7 @@ import path from 'node:path';
 import { handleApiRequest } from './server/api-handler.js';
 import { handleUploadsRequest } from './server/static-file-handler.js';
 import { getDatabase, getDatabasePath } from './server/db.js';
+import { closeConnection } from './server/db/connection.js';
 import * as pathService from './server/services/pathService.js';
 
 const PORT = process.env.PORT || 5173;
@@ -69,3 +70,26 @@ server.listen(PORT, HOST, () => {
   console.log(`🚀 EduICT Backend SQLite server running at http://${HOST}:${PORT}`);
   console.log(`📁 SQLite Database File: ${getDatabasePath()}`);
 });
+
+// Tắt êm: đóng HTTP server + SQLite khi nhận tín hiệu (Desktop shell/supervisor có thể gửi SIGTERM).
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[Server] Nhận ${signal}, đang tắt...`);
+  server.close(() => {
+    try { closeConnection(); } catch { /* đã đóng */ }
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+// Khi chạy dưới Desktop shell (child process có kênh IPC): trên Windows SIGTERM = kill cưỡng bức,
+// nên shell gửi {type:'shutdown'} để tắt êm; mất kênh IPC (shell chết) → tự thoát, không để lại process mồ côi.
+if (typeof process.send === 'function') {
+  process.on('message', (msg) => {
+    if (msg && msg.type === 'shutdown') shutdown('IPC');
+  });
+  process.on('disconnect', () => shutdown('IPC-disconnect'));
+}

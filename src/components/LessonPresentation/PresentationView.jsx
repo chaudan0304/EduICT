@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import SlideRenderer from './SlideRenderer';
 import TeacherNotesDrawer from './TeacherNotesDrawer';
+import OpenPowerPointButton from './OpenPowerPointButton';
 import LuckyWheel from '../LuckyWheel';
 import DuckRace from '../DuckRace';
 import { soundEffects } from '../../utils/audio';
@@ -770,6 +771,7 @@ export default function PresentationView({
               <span>Lịch giảng dạy</span>
             </button>
           )}
+          <OpenPowerPointButton sourceFilePath={activeLesson?.source_file_path} />
         </div>
 
         {/* Nút thoát góc trên */}

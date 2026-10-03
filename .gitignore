@@ -10,6 +10,13 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+release/
+desktop/.stage/
+locks/
+*.exe
+*.msi
+*.nsis.*
+*.blockmap
 *.local
 .env
 .env.*
@@ -30,6 +37,15 @@ dist-ssr
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+*.wal
+*.shm
+
+# Backups & user data (never commit real data)
+backups/
+settings/
 
 # Scratch directory
 scratch/

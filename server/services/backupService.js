@@ -6,9 +6,7 @@ import * as pathService from './pathService.js';
 import { getDatabase, closeConnection } from '../db/connection.js';
 
 function getBackupDir() {
-  const dir = path.join(pathService.getAppDataDir(), 'backups');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  return pathService.ensureDir(pathService.getBackupDir());
 }
 
 function calculateFileChecksum(filePath) {

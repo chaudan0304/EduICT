@@ -41,26 +41,61 @@ function getDatabasePath() {
     ensureDir(path.dirname(resolved));
     return resolved;
   }
-  return path.join(getAppDataDir(), 'edumaster.sqlite');
+  return path.join(ensureDir(getAppDataDir()), 'edumaster.sqlite');
 }
 
 // --- Thư mục / file cố định theo cấu trúc dự án hiện tại ---
 function getServerDir() { return path.join(getAppRoot(), 'server'); }
 function getDistDir() { return path.join(getAppRoot(), 'dist'); }
-function getEnvPath() { return path.join(getAppRoot(), '.env'); }
 
-function getUploadsDir() { return path.join(getAppRoot(), 'uploads'); }
+// Phase 12: tiến trình ngoài (powershell.exe, python) KHÔNG đọc được bên trong app.asar.
+// File script được đóng gói "asarUnpack" → nằm ở app.asar.unpacked cùng cấu trúc thư mục.
+// Ngoài môi trường đóng gói (web / dev) đường dẫn không chứa app.asar nên không đổi.
+function toUnpackedPath(p) {
+  return String(p).replace(/([\\/])app\.asar(?=[\\/])/i, '$1app.asar.unpacked');
+}
+
+// .env:
+//  - WEB mode: <app root>/.env (giữ nguyên hành vi cũ).
+//  - DESKTOP runtime: <data>/settings/.env (cấu hình người dùng, KHÔNG nằm trong thư mục cài đặt/asar,
+//    không bao giờ được đóng gói vào installer).
+function getEnvPath() {
+  if (String(process.env.EDUICT_RUNTIME || '').trim().toLowerCase() === 'desktop') {
+    return path.join(getAppDataDir(), 'settings', '.env');
+  }
+  return path.join(getAppRoot(), '.env');
+}
+
+// Uploads là DỮ LIỆU NGƯỜI DÙNG → nằm dưới data dir (mặc định = app root nên WEB mode không đổi).
+function getUploadsDir() { return path.join(getAppDataDir(), 'uploads'); }
 function getPresentationsDir() { return path.join(getUploadsDir(), 'presentations'); }
 function getTempDir() { return path.join(getUploadsDir(), 'temp'); }
 function getCacheDir() { return path.join(getUploadsDir(), 'cache'); }
 
 function getPptMappingPath() { return path.join(getServerDir(), 'data', 'ppct-mapping.json'); }
-function getRendererScript() { return path.join(getServerDir(), 'pptx-renderer.ps1'); }
-function getFallbackRendererScript() { return path.join(getServerDir(), 'pptx-renderer-fallback.py'); }
+function getRendererScript() { return toUnpackedPath(path.join(getServerDir(), 'pptx-renderer.ps1')); }
+function getFallbackRendererScript() { return toUnpackedPath(path.join(getServerDir(), 'pptx-renderer-fallback.py')); }
 
 // --- Thư mục chuẩn bị cho Desktop (chưa wire vào code hiện tại) ---
 function getBackupDir() { return path.join(getAppDataDir(), 'backups'); }
 function getLogsDir() { return path.join(getAppDataDir(), 'logs'); }
+function getSettingsDir() { return path.join(getAppDataDir(), 'settings'); }
+// Khóa liên-tiến-trình (PowerPoint COM lock) — nằm trong data dir, không nằm trong thư mục cài đặt.
+function getLocksDir() { return path.join(getAppDataDir(), 'locks'); }
+
+// Tóm tắt đường dẫn dạng RELATIVE so với data dir — an toàn để trả ra API/log
+// (không lộ đường dẫn tuyệt đối của máy người dùng).
+function getPathsSummary() {
+  const rel = (p) => path.relative(getAppDataDir(), p).split(path.sep).join('/') || '.';
+  return {
+    database: path.basename(getDatabasePath()),
+    uploads: rel(getUploadsDir()),
+    presentations: rel(getPresentationsDir()),
+    backups: rel(getBackupDir()),
+    logs: rel(getLogsDir()),
+    settings: rel(getSettingsDir()),
+  };
+}
 
 // Giải một đường dẫn tương đối so với app root
 // (giữ nguyên hành vi path.resolve(process.cwd(), rel) cũ).
@@ -86,6 +121,10 @@ export {
   getFallbackRendererScript,
   getBackupDir,
   getLogsDir,
+  getSettingsDir,
+  getLocksDir,
+  toUnpackedPath,
+  getPathsSummary,
   resolveFromRoot,
 };
 
@@ -106,5 +145,9 @@ export default {
   getFallbackRendererScript,
   getBackupDir,
   getLogsDir,
+  getSettingsDir,
+  getLocksDir,
+  toUnpackedPath,
+  getPathsSummary,
   resolveFromRoot,
 };

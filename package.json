@@ -1,7 +1,7 @@
 {
   "name": "edu-ict-primary",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,19 @@
     "lint": "oxlint",
     "test": "node --import ./tests/register-hooks.mjs --test tests/*.test.js",
     "seed": "node server/seedFakeData.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop:install": "npm --prefix desktop install",
+    "desktop": "npm run build && npm --prefix desktop start",
+    "desktop:smoke": "npm run build && npm --prefix desktop run smoke",
+    "desktop:smoke:powerpoint": "node desktop/smoke/powerpoint-smoke.cjs",
+    "desktop:build": "npm run build && npm --prefix desktop run icon && npm --prefix desktop run stage",
+    "desktop:dist": "npm run desktop:build && npm --prefix desktop run dist",
+    "desktop:installer": "npm run desktop:build && npm --prefix desktop run installer",
+    "desktop:scan": "npm --prefix desktop run scan"
   },
   "dependencies": {
+    "@fontsource/outfit": "^5.3.0",
+    "@fontsource/plus-jakarta-sans": "^5.3.0",
     "@google/genai": "^2.22.0",
     "canvas-confetti": "^1.9.4",
     "lucide-react": "^1.43.0",

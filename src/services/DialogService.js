@@ -9,6 +9,8 @@
 //     call site dạng `if (DialogService.confirm(...))`.
 // DESKTOP mode (tương lai): triển khai lại bằng native dialog.
 
+import { getNativeAdapter } from './DesktopCapabilityService.js';
+
 function isBrowser() {
   return typeof window !== 'undefined';
 }
@@ -39,7 +41,47 @@ function notify(message, type = 'info') {
   alert(message);
 }
 
-const DialogService = { confirm, alert, notify };
+// error: hiển thị lỗi cho người dùng (Phase 10). Web = alert + log console.
+function error(message, _options = {}) {
+  console.error(`[dialog:error] ${message}`);
+  alert(message);
+}
+
+// prompt: nhập chuỗi đồng bộ (Phase 10). Trả null nếu hủy / không có window.
+function prompt(message, defaultValue = '', _options = {}) {
+  if (isBrowser() && typeof window.prompt === 'function') {
+    return window.prompt(message, defaultValue);
+  }
+  return null;
+}
+
+const DialogService = { confirm, alert, notify, error, prompt };
+
+// Phase 11 — biến thể BẤT ĐỒNG BỘ: dùng hộp thoại native khi có native adapter,
+// ngược lại dùng bản web đồng bộ ở trên. prompt không có native → luôn fallback web.
+async function confirmAsync(message, options = {}) {
+  const native = getNativeAdapter();
+  if (native?.dialog?.confirm) return native.dialog.confirm(message);
+  return confirm(message, options);
+}
+async function alertAsync(message, options = {}) {
+  const native = getNativeAdapter();
+  if (native?.dialog?.alert) return native.dialog.alert(message);
+  return alert(message, options);
+}
+async function errorAsync(message, options = {}) {
+  const native = getNativeAdapter();
+  if (native?.dialog?.error) {
+    console.error(`[dialog:error] ${message}`);
+    return native.dialog.error(message);
+  }
+  return error(message, options);
+}
+async function promptAsync(message, defaultValue = '', options = {}) {
+  return prompt(message, defaultValue, options);
+}
+
+Object.assign(DialogService, { confirmAsync, alertAsync, errorAsync, promptAsync });
 
 export default DialogService;
-export { confirm, alert, notify };
+export { confirm, alert, notify, error, prompt, confirmAsync, alertAsync, errorAsync, promptAsync };

@@ -22,6 +22,9 @@ import {
   extractTitleFromFileName
 } from './duplicateDetector.js';
 import * as pathService from './services/pathService.js';
+import { createRequire } from 'node:module';
+
+const requireCjs = createRequire(import.meta.url);
 
 const UPLOADS_DIR = pathService.getUploadsDir();
 const PRESENTATIONS_DIR = path.join(UPLOADS_DIR, 'presentations');
@@ -53,12 +56,20 @@ export function getComLockStats() {
   return { active: comLockActive, waiting: comLockWaiting };
 }
 
+// Phase 12: khóa LIÊN-TIẾN-TRÌNH (desktop runtime). Renderer (backend) và Desktop Bridge (Electron main) cùng
+// điều khiển PowerPoint.Application → dùng chung khóa tệp trong <data>/locks. Web runtime: không dùng (giữ nguyên).
+function runWithCrossProcessLock(fn) {
+  if (String(process.env.EDUICT_RUNTIME || '').trim().toLowerCase() !== 'desktop') return fn();
+  const { withPowerPointLock } = requireCjs('./services/powerpointLock.cjs');
+  return withPowerPointLock(pathService.getLocksDir(), fn, { owner: 'renderer' });
+}
+
 export function withComLock(fn) {
   comLockWaiting++;
   const run = comLockChain.then(() => {
     comLockWaiting--;
     comLockActive++;
-    return Promise.resolve().then(fn).finally(() => { comLockActive--; });
+    return Promise.resolve().then(() => runWithCrossProcessLock(fn)).finally(() => { comLockActive--; });
   });
   // Nối chain bất kể run thành/bại, KHÔNG đổi kết quả trả về cho caller.
   comLockChain = run.then(() => undefined, () => undefined);
