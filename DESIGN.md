@@ -1,492 +1,688 @@
-# HỆ THỐNG THIẾT KẾ GIAO DIỆN NGƯỜI DÙNG (UI/UX DESIGN SYSTEM)
-## DỰ ÁN: EDUMASTER — NỀN TẢNG QUẢN LÝ & DẠY HỌC TIN HỌC TIỂU HỌC
+# TÀI LIỆU THIẾT KẾ GIAO DIỆN & ĐẶC TẢ GIAO DIỆN NGƯỜI DÙNG (UI/UX DESIGN BLUEPRINT)
+## DỰ ÁN: EDUMASTER (EduICT) — NỀN TẢNG DẠY HỌC & QUẢN LÝ TIN HỌC TIỂU HỌC
+
+> **MỤC TIÊU CỦA TÀI LIỆU NÀY**:
+> Tài liệu này là **Bản Thiết Kế Chi Tiết Tuyệt Đối (1:1 UI/UX Blueprint)** của toàn bộ dự án EduMaster.
+> Bất kỳ Trí tuệ Nhân tạo (AI) hoặc Lập trình viên nào khi đọc tài liệu này đều có thể tái tạo lại **chính xác 100%** toàn bộ giao diện, bố cục DOM, bảng màu, phông chữ, thành phần giao diện, hiệu ứng chuyển động và tương tác người dùng mà không cần mở mã nguồn gốc.
 
 ---
 
-## 1. TỔNG QUAN & TRIẾT LÝ THIẾT KẾ
-
-### 1.1. Bối cảnh & Đối tượng người dùng
-**EduMaster** (tiền thân là EduICT) là phần mềm máy tính (Desktop Application trên nền tảng Windows) phục vụ trực tiếp công tác giảng dạy, tổ chức tiết học và quản lý học tập môn **Tin học Tiểu học (Lớp 1 đến Lớp 5)** tại các trường tiểu học Việt Nam.
-
-Đối tượng người dùng chính bao gồm:
-1. **Giáo viên Tin học Tiểu học (Primary ICT Teachers)**:
-   - Cần thao tác cực nhanh trong tiết dạy 35 phút (không được để "thời gian chết" trên lớp).
-   - Thao tác một tay khi đang đứng giảng bài trên bục giảng hoặc đi quanh phòng máy.
-   - Cần giao diện trực quan, rõ ràng, dễ nhìn trên cả màn hình laptop cá nhân lẫn màn hình máy chiếu phòng máy.
-2. **Học sinh Tiểu học (Primary Students - 6 đến 11 tuổi)**:
-   - Học sinh Khối 1 - 2: Chưa thạo chữ, thị giác nhạy bén với màu sắc rực rỡ, biểu tượng sinh động, hình ảnh minh họa lớn.
-   - Học sinh Khối 3 - 5: Bắt đầu tiếp cận kỹ năng máy tính, thích sự thi đua, tính điểm thưởng, bảng vinh danh và các hoạt động tương tác sôi động.
-
-### 1.2. Ba trụ cột thiết kế cốt lõi (Core Pillars)
-
-```
-        ┌─────────────────────────────────────────────────────────────┐
-        │                 TRIẾT LÝ THIẾT KẾ EDUMASTER                 │
-        └──────────────────────────────┬──────────────────────────────┘
-                                       │
-         ┌─────────────────────────────┼─────────────────────────────┐
-         ▼                             ▼                             ▼
-┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
-│   VUI TƯƠI &     │         │   PROJECTOR-FIRST│         │   CHUẨN MỰC &    │
-│  GAMIFICATION    │         │  (SIÊU RÕ NÉT)   │         │    SƯ PHẠM       │
-├──────────────────┤         ├──────────────────┤         ├──────────────────┤
-│• Sao thưởng ⭐   │         │• Tương phản cao  │         │• Thông tư 27     │
-│• Vòng quay 🎡    │         │• Phông chữ lớn   │         │• Khối 1-2 vs 3-5 │
-│• Đua vịt 🦆      │         │• Thao tác 1-chạm │         │• GDPT 2018       │
-│• Pháo hoa 🎉     │         │• Projector Mode  │         │• Offline an toàn │
-└──────────────────┘         └──────────────────┘         └──────────────────┘
-```
-
-1. **Vui tươi, sinh động & Gamification (Trải nghiệm học mà chơi)**:
-   - Tích hợp động lực học tập tức thì: Hệ thống cộng sao tích lũy (`Star Ledger`), Bảng vinh danh điểm tốt, Vòng quay may mắn gọi tên, Đường đua vịt thi đua giữa các tổ/nhóm.
-   - Âm thanh phản hồi trực quan (tiếng chuông trường, tiếng nổ pháo hoa, tiếng ting-ting cộng sao) kích thích tối đa sự tập trung của trẻ em tiểu học.
-2. **Projector-First & High Legibility (Tối ưu tuyệt đối cho máy chiếu)**:
-   - Phòng máy tính tiểu học thường có ánh sáng mạnh và máy chiếu độ phân giải vừa phải. Giao diện được thiết kế với độ tương phản cao, thẻ bo góc lớn, chế độ chuyên biệt **Projector Mode** chuyển toàn bộ nền xám/tối sang nền trắng viền đậm sắc nét, cỡ chữ tăng từ 15px lên 18px+ để học sinh ở bàn cuối phòng máy (cách 8-10m) vẫn đọc rõ.
-3. **Chuẩn mực sư phạm & Đơn giản hóa nghiệp vụ**:
-   - Phân hóa rành mạch giữa **Khối 1 - 2** (Đánh giá định tính qua kỹ năng sử dụng chuột/bàn phím/vẽ Paint và sao thi đua, không cho điểm số) và **Khối 3 - 5** (Đánh giá định lượng kết hợp định tính chuẩn Thông tư 27/2020/TT-BGDĐT với thang điểm 1-10 và các mức Hoàn thành tốt T / Hoàn thành H / Chưa hoàn thành C).
-   - Thiết kế "Zero Configuration": Không bắt giáo viên cấu hình máy chủ, mạng Internet hay database. Cài đặt 1 cú nhấp chuột và chạy ngoại tuyến 100%.
+# MỤC LỤC
+1. [Kiến Trúc Công Nghệ & Nền Tảng Giao Diện](#1-kiến-trúc-công-nghệ--nền-tảng-giao-diện)
+2. [Hệ Thống Design Tokens & CSS Variables Chuẩn](#2-hệ-thống-design-tokens--css-variables-chuẩn)
+3. [Khung Bố Cục Toàn Cục (App Shell Architecture)](#3-khung-bố-cục-toàn-cục-app-shell-architecture)
+4. [Đặc Tả Chi Tiết Thanh Điều Hướng (Navbar)](#4-đặc-tả-chi-tiết-thanh-điều-hướng-navbar)
+5. [Đặc Tả Chi Tiết Thanh Bên (Sidebar)](#5-đặc-tả-chi-tiết-thanh-bên-sidebar)
+6. [Đặc Tả 10 Phân Hệ Màn Hình Chính (Main Views)](#6-đặc-tả-10-phân-hệ-màn-hình-chính-main-views)
+   - 6.1. [Trang Chủ (HomeDashboard)](#61-trang-chủ-homedashboard)
+   - 6.2. [Trung Tâm Tiết Học (SessionDashboard)](#62-trung-tâm-tiết-học-sessiondashboard)
+   - 6.3. [Bài Học & Trình Chiếu (LessonLibrary & PresentationView)](#63-bài-học--trình-chiếu-lessonlibrary--presentationview)
+   - 6.4. [Đố Vui Nhanh (QuickQuizManager & QuizPlayer)](#64-đố-vui-nhanh-quickquizmanager--quizplayer)
+   - 6.5. [Sơ Đồ Phòng Máy Thực Hành (SeatingChart & SeatingDisplayMode)](#65-sơ-đồ-phòng-máy-thực-hành-seatingchart--seatingdisplaymode)
+   - 6.6. [Sổ Điểm & Đánh Giá Kỹ Năng (Gradebook)](#66-sổ-điểm--đánh-giá-kỹ-năng-gradebook)
+   - 6.7. [Bảng Điểm Tốt, Nội Quy & Cửa Hàng (GoodScoresBoard & RewardShop)](#67-bảng-điểm-tốt-nội-quy--cửa-hàng-goodscoresboard--rewardshop)
+   - 6.8. [Trò Chơi Đua Vịt (DuckRace)](#68-trò-chơi-đua-vịt-duckrace)
+   - 6.9. [Vòng Quay May Mắn (LuckyWheel)](#69-vòng-quay-may-mắn-luckywheel)
+   - 6.10. [Đồng Hồ Đếm Giờ Lớp Học (ClassroomTimer)](#610-đồng-hồ-đếm-giờ-lớp-học-classroomtimer)
+7. [Đặc Tả Toàn Bộ Các Cửa Sổ Hộp Thoại (Modals & Drawers)](#7-đặc-tả-toàn-bộ-các-cửa-sổ-hộp-thoại-modals--drawers)
+8. [Hệ Thống Phản Hồi Âm Thanh & Hiệu Ứng Trực Quan](#8-hệ-thống-phản-hồi-âm-thanh--hiệu-ứng-trực-quan)
+9. [Chế Độ Máy Chiếu Đặc Biệt (Projector Mode)](#9-chế-độ-máy-chiếu-đặc-biệt-projector-mode)
+10. [Quy Chuẩn Viết Code Giao Diện (Component Catalog & CSS Checklist)](#10-quy-chuẩn-viết-code-giao-diện-component-catalog--css-checklist)
 
 ---
 
-## 2. HỆ THỐNG THIẾT KẾ (DESIGN SYSTEM & VISUAL TOKENS)
+# 1. KIẾN TRÚC CÔNG NGHỆ & NỀN TẢNG GIAO DIỆN
 
-### 2.1. Phông chữ & Thứ bậc Typographic
-Dự án sử dụng cặp phông chữ hiện đại, hỗ trợ 100% tiếng Việt có dấu đầy đủ, được **đóng gói cục bộ** qua `@fontsource` (không tải từ Google Fonts CDN để đảm bảo hoạt động khi mất mạng):
+- **Framework cốt lõi**: `React 19.x` (sử dụng Functional Components, React Hooks: `useState`, `useEffect`, `useMemo`, `useRef`, `useCallback`, `React.lazy`, `Suspense`, `createPortal`).
+- **Thư viện biểu tượng**: `lucide-react` (tất cả icon có `strokeWidth: 2`, kích thước chuẩn từ `14px` đến `24px`).
+- **Phông chữ đóng gói ngoại tuyến**: 
+  - `@fontsource/outfit`: Dành cho các tiêu đề (Heading), chữ số lớn, bảng xếp hạng.
+  - `@fontsource/plus-jakarta-sans`: Dành cho nội dung văn bản (Body), danh sách học sinh, bảng điểm, thông số kỹ thuật.
+  - Cả 2 phông chữ được import trực tiếp trong `main.jsx` từ file tĩnh local, không kết nối internet Google Fonts.
+- **Phong cách tạo kiểu (Styling Pattern)**:
+  - Hệ thống biến toàn cục CSS (`CSS Custom Properties`) trong `src/index.css`.
+  - Kết hợp linh hoạt giữa các class tiện ích chuẩn (`glass-panel`, `btn`, `badge`, `data-table`) và Inline Styles để điều khiển trạng thái động chính xác đến từng pixel (`style={{ ... }}`).
+- **Hiệu ứng đồ họa phụ trợ**:
+  - `canvas-confetti`: Bắn pháo hoa ăn mừng khi trao thưởng / vịt về đích.
+  - HTML5 Canvas 2D API: Vẽ đường đua vịt dòng sông và vẽ vòng quay may mắn bánh xe nhiều nan.
 
-- **Heading Font**: `Outfit` — Phông chữ hình học không chân với các đường cong tròn trịa, hiện đại, thân thiện, tạo cảm giác vui vẻ, dễ tiếp cận với học sinh.
-- **Body & Data Font**: `Plus Jakarta Sans` — Phông chữ công nghệ cao cấp, độ cân bằng quang học tuyệt vời, các nét chữ rành mạch giúp các con số, danh sách học sinh và nội quy dễ đọc nhất.
+---
+
+# 2. HỆ THỐNG DESIGN TOKENS & CSS VARIABLES CHUẨN
+
+Toàn bộ giao diện được điều phối qua tập CSS Variables được định nghĩa tại `:root`, `[data-theme='dark']` và `[data-projector='true']` trong `src/index.css`.
+
+### 2.1. Tokens Màu Sắc & Ngữ Nghĩa (Color Tokens)
 
 ```css
-/* Token Typography */
---font-primary: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+:root {
+  /* Phông chữ */
+  --font-primary: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  
+  /* Màu chủ đạo (Brand Primary) */
+  --primary: #4f46e5;                 /* Indigo 600 - Nút chính, viền active, tab đang chọn */
+  --primary-hover: #4338ca;           /* Indigo 700 - Hover nút chính */
+  --primary-light: #eef2ff;           /* Indigo 50 - Nền thẻ đang chọn, viền sáng */
+  --primary-glow: rgba(79, 70, 229, 0.25); /* Bóng phát sáng nút bấm */
+
+  /* Màu thứ cấp (Secondary) */
+  --secondary: #0ea5e9;               /* Sky 500 - Phòng máy tính, thiết bị */
+
+  /* Màu điểm nhấn & Sao thi đua (Accent / Gamification) */
+  --accent: #f59e0b;                  /* Amber 500 - Sao thưởng ⭐, Cúp vinh danh 🏆 */
+  --accent-glow: rgba(245, 158, 11, 0.3);  /* Bóng phát sáng sao */
+
+  /* Màu trạng thái chức năng (Status Colors) */
+  --success: #10b981;                 /* Emerald 500 - Đang dạy, hoàn thành, có mặt */
+  --success-bg: #ecfdf5;              /* Nền nhãn Tốt / Đạt */
+  --warning: #f59e0b;                 /* Amber 500 - Cảnh báo, còn 5 phút, Cần cố gắng */
+  --warning-bg: #fffbeb;
+  --danger: #ef4444;                  /* Rose 500 - Báo máy hỏng ⚠️, trừ điểm, Chưa hoàn thành */
+  --danger-bg: #fef2f2;
+  --purple: #8b5cf6;                  /* Purple 500 - Bài giảng & Slide GDPT 2018 */
+  --pink: #ec4899;                    /* Pink 500 - Đố vui Quick Quiz, Đua vịt */
+
+  /* Bảng màu trung tính Chế độ Sáng (Light Mode Default) */
+  --bg-main: #f8fafc;                 /* Nền màn hình chính */
+  --bg-mesh: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+             radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.08) 0px, transparent 50%),
+             radial-gradient(at 50% 100%, rgba(245, 158, 11, 0.06) 0px, transparent 50%);
+  --surface: #ffffff;                 /* Bề mặt trắng tinh của các modal, input */
+  --surface-secondary: #f1f5f9;       /* Nền tiêu đề bảng, thanh xám nhạt */
+  --surface-border: #e2e8f0;          /* Đường viền thẻ mặc định */
+  --surface-card: rgba(255, 255, 255, 0.95); /* Thẻ kính mờ Glassmorphism */
+  
+  --text-main: #0f172a;               /* Chữ đen tuyền sắc nét (Slate 900) */
+  --text-muted: #64748b;              /* Chữ chú thích, nhãn phụ (Slate 500) */
+  --text-dim: #94a3b8;                /* Chữ mờ, thanh cuộn */
+
+  /* Đổ bóng (Shadows) */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* Bán kính bo góc (Border Radius) */
+  --radius-sm: 8px;                   /* Ô nhập điểm, ô số máy */
+  --radius-md: 12px;                  /* Nút bấm, thẻ học sinh */
+  --radius-lg: 16px;                  /* Panel màn hình, cửa sổ Modal */
+  --radius-full: 9999px;              /* Huy hiệu tròn, nút icon tròn */
+
+  /* Tốc độ chuyển động (Transitions) */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
 ```
 
-#### Bảng thang kích thước Typography
-| Cấp độ | Cỡ chữ thông thường | Cỡ chữ Projector Mode | Trọng số (Weight) | Ứng dụng |
-| :--- | :---: | :---: | :---: | :--- |
-| **Display / Clock** | `36px - 48px` | `48px - 64px` | ExtraBold (800) | Đồng hồ đếm ngược tiết học, số máy phòng thực hành |
-| **Heading 1 (H1)** | `28px - 32px` | `36px - 40px` | Bold (700) | Tên phân hệ lớn, tiêu đề bài giảng |
-| **Heading 2 (H2)** | `20px - 24px` | `26px - 28px` | SemiBold (600) | Tiêu đề khối thẻ chức năng, tên bài học |
-| **Heading 3 (H3)** | `16px - 18px` | `20px - 22px` | SemiBold (600) | Tiêu đề cột, tên học sinh trên sơ đồ máy |
-| **Body Text** | `14px - 15px` | `18px` | Regular (400) / Medium (500) | Văn bản hướng dẫn, nội quy, ghi chú bài giảng |
-| **Caption / Badge**| `11px - 12px` | `14px` | Bold (700) | Nhãn trạng thái, số thứ tự, chỉ số phụ |
-
----
-
-### 2.2. Bảng màu & Ý nghĩa ngữ nghĩa (Color Palette)
-
-Hệ thống màu sắc được pha trộn hài hòa giữa sắc màu công nghệ thông tin (Indigo / Cyan) và năng lượng giáo dục rực rỡ (Amber / Emerald / Purple / Rose):
-
-```
-       #4f46e5           #0ea5e9           #f59e0b           #10b981           #ec4899
-   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-   │   PRIMARY   │   │  SECONDARY  │   │   ACCENT    │   │   SUCCESS   │   │ GAMIFY PINK │
-   │  Chủ đạo    │   │  Công nghệ  │   │  Sao & Thưởng│  │  Hoàn thành │  │  Đua vịt    │
-   └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘
+### 2.2. Chế độ Tối (Dark Mode: `[data-theme='dark']`)
+```css
+[data-theme='dark'] {
+  --bg-main: #0b0f19;
+  --bg-mesh: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+             radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.12) 0px, transparent 50%),
+             radial-gradient(at 50% 100%, rgba(245, 158, 11, 0.1) 0px, transparent 50%);
+  --surface: #131b2e;
+  --surface-secondary: #1e293b;
+  --surface-border: #2e3c54;
+  --surface-card: rgba(19, 27, 46, 0.95);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --primary-light: #1e2540;
+  --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 30px rgba(0, 0, 0, 0.6);
+}
 ```
 
-#### Bảng mã màu chi tiết
-| Token | Giá trị HEX / HSL | Ý nghĩa & Vị trí ứng dụng |
-| :--- | :---: | :--- |
-| `--primary` | `#4f46e5` (Indigo 600) | Màu thương hiệu chính, nút CTA chính, chỉ báo tab đang chọn |
-| `--primary-hover` | `#4338ca` (Indigo 700) | Trạng thái hover của nút bấm chính |
-| `--primary-light` | `#eef2ff` (Indigo 50) | Nền thẻ active, viền sáng xung quanh vùng đang chọn |
-| `--secondary` | `#0ea5e9` (Sky 500) | Phân hệ Phòng máy tính 31 máy, các chức năng thiết bị |
-| `--accent` | `#f59e0b` (Amber 500) | Sao thi đua ⭐, Cúp vinh danh, điểm thưởng, cảnh báo nhẹ |
-| `--success` | `#10b981` (Emerald 500) | Trạng thái "Đang dạy", học sinh có mặt, xếp loại Tốt, lưu thành công |
-| `--danger` | `#ef4444` (Rose 500) | Báo máy tính hỏng ⚠️, trừ điểm vi phạm, xóa dữ liệu |
-| `--purple` | `#8b5cf6` (Purple 500) | Phân hệ Bài giảng & Slide, các thẻ chức năng trí tuệ |
-| `--pink` | `#ec4899` (Pink 500) | Phân hệ Tiết học, trò chơi Đua vịt, Quick Quiz sôi nổi |
-
-#### Bảng màu theo chế độ hiển thị (Theme Modes)
-| Thành phần giao diện | Chế độ Chuẩn (Light Default) | Chế độ Tối (Dark Mode) | Chế độ Máy Chiếu (Projector Mode) |
-| :--- | :--- | :--- | :--- |
-| **Nền ứng dụng (`--bg-main`)** | `#f8fafc` + Radial Mesh gradient nhẹ | `#0b0f19` + Mesh tối dịu mắt | `#f1f5f9` (Xám rất nhạt, chống chói) |
-| **Mặt thẻ/Panel (`--surface-card`)** | `rgba(255, 255, 255, 0.95)` | `rgba(19, 27, 46, 0.95)` | `#ffffff` (Trắng tuyệt đối, nét 100%) |
-| **Đường viền (`--surface-border`)** | `#e2e8f0` (1px mảnh mờ) | `#2e3c54` | `#94a3b8` (2px rõ nét, tương phản cao) |
-| **Chữ chính (`--text-main`)** | `#0f172a` (Slate 900) | `#f8fafc` (Trắng ngà) | `#000000` (Đen tuyền 100%, nét đanh) |
-| **Chữ phụ (`--text-muted`)** | `#64748b` (Slate 500) | `#94a3b8` | `#334155` (Đậm hơn để máy chiếu không mờ) |
+### 2.3. Chế độ Máy Chiếu Tương Phản Cực Hạn (Projector Mode: `[data-projector='true']`)
+Khi người dùng bấm nút `Projector Mode` trên Navbar, thẻ `<body>` hoặc `<html>` nhận thuộc tính `data-projector="true"`. Toàn bộ giao diện chuyển sang tương phản cực hạn:
+```css
+[data-projector='true'] {
+  font-size: 18px !important;
+  --bg-main: #f1f5f9 !important;
+  --surface-card: #ffffff !important;
+  --surface-border: #94a3b8 !important; /* Viền xám đậm 2px rõ nét */
+  --text-main: #000000 !important;       /* Đen 100% không bóng mờ */
+  --text-muted: #334155 !important;      /* Chữ phụ cũng phải sẫm màu */
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+```
 
 ---
 
-### 2.3. Hệ thống Không gian & Bố cục (Spatial Grid)
-- **Container tối đa**: `max-width: 1440px`, căn giữa màn hình với đệm `padding: 1.25rem 1.5rem 3rem`.
-- **Hệ thống bước nhảy Spacing**: Bội số của `4px`:
-  - `4px` (`0.25rem`): Khoảng cách icon và chữ trong badge.
-  - `8px` (`0.5rem`): Khoảng cách các thành phần trong nút bấm, khoảng cách thẻ con.
-  - `12px` (`0.75rem`): Khoảng cách đệm ô bảng dữ liệu, ô nhập liệu.
-  - `16px` (`1rem`): Đệm thẻ con, khoảng cách giữa các khối chức năng nhỏ.
-  - `24px` (`1.5rem`): Đệm panel lớn, khoảng cách các hàng trong dashboard.
-  - `32px` (`2rem`): Khoảng cách giữa các phân đoạn nội dung chính.
+# 3. KHUNG BỐ CỤC TOÀN CỤC (APP SHELL ARCHITECTURE)
 
----
-
-### 2.4. Hiệu ứng Chiều sâu & Bo góc (Elevation & Radius)
-- **Bo góc (Border Radius)**:
-  - `--radius-sm` (`8px`): Ô nhập điểm, ô trạng thái máy tính, nút phụ nhỏ.
-  - `--radius-md` (`12px`): Nút bấm tiêu chuẩn, thẻ học sinh, ô chọn dropdown.
-  - `--radius-lg` (`16px`): Khối panel nội dung, thẻ chức năng chính trên Dashboard, cửa sổ Modal.
-  - `--radius-full` (`9999px`): Huy hiệu (Badges), avatar học sinh, viên đếm giờ hình tròn.
-- **Đổ bóng & Kính mờ (Glassmorphism)**:
-  - Khối giao diện `glass-panel` ứng dụng `backdrop-filter: blur(12px)` kết hợp viền mờ `1px solid var(--surface-border)` tạo cảm giác lớp giao diện nổi nhẹ nhàng trên nền lưới mesh mềm mại.
-
----
-
-### 2.5. Tương tác vi mô & Chuyển động (Micro-interactions)
-- **Hiệu ứng nút bấm**:
-  - `Hover`: Nâng nhẹ bề mặt `transform: translateY(-1px)` và tăng độ phát sáng của bóng (`--primary-glow`, `--accent-glow`).
-  - `Active (Click)`: Co nhẹ `transform: scale(0.97)` tạo cảm giác nhấn phím vật lý rõ ràng.
-- **Đèn báo trạng thái (Pulsing Indicator)**:
-  - Khi có tiết học đang diễn ra: Huy hiệu `ĐANG DẠY` trên thanh điều hướng phát nhịp đập ánh sáng xanh lá (`pulseGlow`) chu kỳ 2s.
-- **Hiệu ứng ăn mừng (Celebration Confetti)**:
-  - Khi hoàn thành trò chơi Đua vịt hoặc trao quà lớn: Thư viện `canvas-confetti` kích hoạt bắn pháo hoa 2 bên màn hình tạo không khí phấn khích trong lớp học.
-
----
-
-## 3. KIẾN TRÚC THÔNG TIN & KHUNG BỐ CỤC TOÀN CỤC
-
-### 3.1. Sơ đồ khung giao diện chính (App Shell Architecture)
+Khung giao diện của EduMaster được chia thành 3 phần cố định:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ NAVBAR CỐ ĐỊNH (Cao 58px)                                                                                  │
-│ [🎓 EduMaster] [Năm học: 2026-2027 ▼] [Lớp 3A1 (32 HS) ▼] ─── [🖥️ Projector] [🔊 Âm thanh] [⚙️] [💾 Backup] [🟢 DB]│
+│ 1. NAVBAR (Header Cố Định - Cao 58px - Z-Index 100)                                                         │
 ├───────────────────┬─────────────────────────────────────────────────────────────────────────────────────────┤
-│ SIDEBAR ĐIỀU HƯỚNG│ KHÔNG GIAN LÀM VIỆC CHÍNH (MAIN WORKSPACE CONTAINER - Max 1440px)                       │
-│ (70px ◄► 240px)   │                                                                                         │
-│                   │ ┌─────────────────────────────────────────────────────────────────────────────────────┐ │
-│ 🏠 Trang Chủ      │ │ BANNER TIẾT HỌC ĐANG DIỄN RA / THÔNG TIN LỚP HỌC                                    │ │
-│ 🎯 Tiết Học [LIVE]│ └─────────────────────────────────────────────────────────────────────────────────────┘ │
-│ 📚 Bài Học & Slide│                                                                                         │
-│ ⚡ Quick Quiz     │ ┌─────────────────────────────────────────────────────────────────────────────────────┐ │
-│ 🖥️ Phòng Máy (31) │ │ NỘI DUNG PHÂN HỆ ĐANG CHỌN (Dynamic View Component)                                 │ │
-│ 📋 Sổ Điểm TT27   │ │ (HomeDashboard / SessionManager / LessonLibrary / SeatingChart / Gradebook...)       │ │
-│ ⭐ Điểm Tốt       │ │                                                                                     │ │
-│ 🦆 Đua Vịt        │ │                                                                                     │ │
-│ 🎡 Vòng Quay      │ │                                                                                     │ │
-│ ⏱️ Đếm Giờ        │ └─────────────────────────────────────────────────────────────────────────────────────┘ │
+│ 2. SIDEBAR        │ 3. MAIN WORKSPACE (Không Gian Làm Việc Chính)                                           │
+│ (Thanh Bên)       │ Container: max-width 1440px, margin: 0 auto, padding: 1.25rem 1.5rem 3rem               │
+│                   │                                                                                         │
+│ Thu gọn: 70px     │ ┌─────────────────────────────────────────────────────────────────────────────────────┐ │
+│ Mở rộng: 240px    │ │ BANNER TRẠNG THÁI TIẾT HỌC HOẶC THÔNG TIN LỚP HỌC                                   │ │
+│                   │ └─────────────────────────────────────────────────────────────────────────────────────┘ │
+│ Sticky 100vh      │ ┌─────────────────────────────────────────────────────────────────────────────────────┐ │
+│ Z-Index 90        │ │ NỘI DUNG VIEW HIỆN TẠI (Tải lười React.lazy + Suspense Fallback Loader)              │ │
+│                   │ │                                                                                     │ │
+│                   │ │                                                                                     │ │
+│                   │ └─────────────────────────────────────────────────────────────────────────────────────┘ │
 └───────────────────┴─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2. Thanh điều hướng trên cùng (Navbar)
-Thanh Navbar cố định trên cùng (`z-index: 100`), luôn hiển thị trong mọi trạng thái làm việc:
-
-1. **Brand Logo & Version**: Biểu tượng mũ cử nhân tốt nghiệp kèm dòng chữ `EduMaster Desktop` sắc nét.
-2. **Bộ chọn Năm học (School Year Selector)**:
-   - Cho phép giáo viên chuyển đổi linh hoạt giữa các năm học (VD: `2025 - 2026`, `2026 - 2027`).
-   - CSDL tự động phân vùng dữ liệu: xem lại điểm số, lớp học của các khóa trước mà không sợ ghi đè.
-3. **Bộ chọn Lớp học nhanh (Quick Class Switcher)**:
-   - Dropdown hiển thị danh sách lớp theo từng khối (Khối 1 đến Khối 5).
-   - Hiển thị sĩ số từng lớp (VD: `Lớp 3A1 (32 HS)`).
-   - Nút `+ Thêm Lớp` và `Nhập Excel` tích hợp ngay trong menu thả xuống.
-4. **Cụm điều khiển môi trường giảng dạy (Teaching Controls)**:
-   - **Nút Chế độ Máy Chiếu (`🖥️ Projector Mode`)**: Bật/tắt chế độ siêu tương phản cao cho máy chiếu.
-   - **Nút Âm Thanh (`🔊 / 🔇`)**: Bật/tắt tức thì toàn bộ âm thanh hiệu ứng trong lớp học.
-   - **Đèn báo trạng thái CSDL (`🟢 SQLite Local`)**: Cho giáo viên biết dữ liệu đang lưu an toàn 100% trong máy, không cần mạng.
-   - **Nút Sao lưu & Phục hồi (`💾`)**: Mở nhanh trung tâm sao lưu dữ liệu đề phòng sự cố.
-
-### 3.3. Thanh điều hướng bên hông (Collapsible Sidebar)
-Sidebar có thể chuyển đổi giữa 2 trạng thái chỉ bằng 1 cú nhấp:
-- **Trạng thái Mở rộng (240px)**: Hiển thị đầy đủ icon + tên phân hệ chữ viết tiếng Việt rõ ràng + huy hiệu trạng thái.
-- **Trạng thái Thu gọn (70px)**: Tối ưu không gian hiển thị bài học và sơ đồ phòng máy. Chỉ hiển thị icon lớn căn giữa kèm tooltip chú thích khi di chuột.
+- **Root Element (`#root`)**:
+  `display: flex; flex-direction: column; min-height: 100vh; width: 100%;`
+- **Thân trang (`app-layout-body`)**:
+  `display: flex; flex-direction: row; min-height: calc(100vh - 58px); width: 100%;`
+- **Vùng nội dung chính (`main.app-content`)**:
+  `flex: 1; min-width: 0; overflow-y: auto; background-color: var(--bg-main); background-image: var(--bg-mesh);`
 
 ---
 
-## 4. ĐẶC TẢ CHI TIẾT GIAO DIỆN TỪNG PHÂN HỆ NGHIỆP VỤ
+# 4. ĐẶC TẢ CHI TIẾT THANH ĐIỀU HƯỚNG (NAVBAR)
 
-### 4.1. Trang Chủ (Home Dashboard)
-Trang tổng quan khi mở phần mềm, cung cấp cái nhìn toàn diện về năm học và các lối tắt hành động:
+Thanh Navbar nằm ở vị trí đỉnh trang, chiều cao chính xác `58px`, `border-bottom: 1px solid var(--surface-border)`, `background: var(--surface-card)`, `backdrop-filter: blur(12px)`.
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│ LỚP ĐANG CHỌN: LỚP 3A1 • MÔN TIN HỌC • NĂM HỌC 2026-2027                                      │
-│ Sĩ số: 32 học sinh  |  Tổng số sao thi đua: 485 ⭐  |  Tiết học gần nhất: Bài 3 - Chuột máy tính│
-└───────────────────────────────────────────────────────────────────────────────────────────────┘
-
-┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-│ TỔNG SỐ LỚP   │ │ TỔNG HỌC SINH │ │ KHỐI 1 - 2    │ │ KHỐI 3 - 4 - 5│ │ SAO TÍCH LŨY  │
-│      18 Lớp   │ │   580 Học sinh│ │ 8 Lớp (Kỹ năng│ │ 10 Lớp (TT 27)│ │   8,420 ⭐    │
-└───────────────┘ └───────────────┘ └───────────────┘ └───────────────┘ └───────────────┘
-
-┌───────────────────────────────────────────────┐ ┌─────────────────────────────────────────────┐
-│ 🎯 TRUNG TÂM TIẾT HỌC (SESSION DASHBOARD)     │ │ 📚 THƯ VIỆN BÀI HỌC & SLIDE                 │
-│ Bắt đầu tiết dạy 35p, bấm giờ, ghi nhận sao.  │ │ Ngân hàng giáo án GDPT 2018, mở PowerPoint. │
-│ [ ▶ Bắt Đầu Tiết Dạy Ngay ]                   │ │ [ Xem Danh Sách Bài Giảng ]                 │
-└───────────────────────────────────────────────┘ └─────────────────────────────────────────────┘
-┌───────────────────────────────────────────────┐ ┌─────────────────────────────────────────────┐
-│ ⚡ QUICK QUIZ (ĐỐ VUI MÁY CHIẾU)              │ │ 🖥️ PHÒNG MÁY THỰC HÀNH (31 MÁY)             │
-│ Kiểm tra hiểu bài tức thì, giơ thẻ A/B/C/D.   │ │ Sơ đồ 5 dãy bàn, báo máy hỏng, ngồi đôi.    │
-│ [ Vào Phòng Đố Vui ]                          │ │ [ Quản Lý Sơ Đồ Phòng Máy ]                 │
-└───────────────────────────────────────────────┘ └─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [🎓 EduMaster] [📅 2026-2027 ▼] [🏫 Khối 3 ▼] [👥 Lớp 3A1 (32 HS) ▼] ─ [⏱️ Tiết 2] ─ [🖥️ Chiếu] [🔊] [⚙️] [💾] [🟢]│
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Thẻ Banner thông minh**: Nếu có tiết học đang chạy dở dở (bị đóng app đột ngột), Banner lập tức chuyển màu xanh Emerald nhấp nháy: `⚡ ĐANG CÓ TIẾT HỌC ĐANG DIỄN RA` kèm nút `▶ Tiếp tục tiết dạy ngay`.
-- **Thống kê phân tầng**: Tách biệt rõ chỉ số học sinh Khối 1-2 (đánh giá kỹ năng) và Khối 3-5 (sổ điểm TT27).
-- **Lưới 10 thẻ chức năng**: Mỗi thẻ có viền màu accent riêng biệt, icon 3D sinh động, mô tả ngắn gọn và nút CTA dẫn thẳng vào nghiệp vụ tương ứng.
+### 4.1. Nhóm 1: Logo Thương Hiệu (Brand Identity) - Góc Trái
+- **Icon**: `GraduationCap` (màu `#4f46e5`, size `24px`).
+- **Tên phần mềm**: `EduMaster` (`font-family: Outfit; font-weight: 800; font-size: 1.25rem; color: var(--text-main)`).
+- **Huy hiệu phụ**: `DESKTOP` (`font-size: 0.65rem; font-weight: 700; padding: 2px 6px; background: #eef2ff; color: #4f46e5; border-radius: 9999px`).
+
+### 4.2. Nhóm 2: Năm Học (Academic School Year Selector)
+- **Nút bấm hiển thị**: Icon `Calendar` + Tên năm học (VD: `2026 - 2027`) + Icon `ChevronDown`.
+- **Menu thả xuống (Dropdown)**:
+  - Danh sách năm học có trong hệ thống (`2025 - 2026`, `2026 - 2027`).
+  - Dòng ngăn cách (Divider).
+  - Lựa chọn: `+ Chuyển giao năm học mới (Lên lớp tự động)` ➔ Mở `SchoolYearTransitionModal`.
+  - Lựa chọn: `⚙️ Cấu hình ngày khai giảng` ➔ Mở `AcademicYearSettingsModal`.
+
+### 4.3. Nhóm 3: Bộ Chọn Lớp Học Nhanh (Class Selector)
+- **Lọc theo khối**: Gồm 6 tab thuốc con: `Tất cả`, `Khối 1`, `Khối 2`, `Khối 3`, `Khối 4`, `Khối 5`.
+- **Dropdown chọn lớp**:
+  - Tên lớp (VD: `Lớp 3A1`).
+  - Huy hiệu sĩ số (VD: `32 học sinh`).
+  - Chữ hiển thị môn học: `Môn Tin học`.
+  - Nút thêm nhanh: `+ Thêm Lớp Mới` (mở modal tạo lớp).
+  - Nút nhập Excel: `📥 Nhập Danh Sách Excel` (mở `ImportExcelModal`).
+
+### 4.4. Nhóm 4: Huy Hiệu Trạng Thái Tiết Dạy Thời Gian Thực (Live Timetable Status)
+- Tự động lấy giờ hệ thống máy tính để tính toán:
+  - Nếu trong giờ học: Hiện huy hiệu xanh lá `● Tiết 2 (08:15 - 08:50) • Còn 15p`.
+  - Nhấp vào huy hiệu: Mở `TimetableModal` xem thời khóa biểu cả tuần của giáo viên.
+
+### 4.5. Nhóm 5: Cụm Nút Điều Khiển Môi Trường (Góc Phải)
+1. **Nút Chế Độ Máy Chiếu (`Projector Mode`)**:
+   - Icon `Monitor` / `Tv`.
+   - Trạng thái BẬT: Nền vàng cam `#f59e0b`, chữ trắng, viền sáng phát quang.
+   - Trạng thái TẮT: Nền xám nhạt `btn-outline`.
+2. **Nút Bật/Tắt Âm Thanh (`Sound Toggle`)**:
+   - Icon `Volume2` (khi bật - xanh lá) hoặc `VolumeX` (khi tắt - xám/đỏ).
+3. **Nút Quản Lý CSDL & Sao Lưu (`Backup & Restore`)**:
+   - Icon `HardDrive` hoặc `Database`. Nhấp vào mở hộp thoại tải file `.sqlite` hoặc xuất bản snapshot.
+4. **Đèn Báo CSDL Nội Bộ (`Database Status Pill`)**:
+   - Huy hiệu bo tròn: Chấm tròn xanh lục `●` nhấp nháy + Chữ `SQLite Local` (khẳng định 100% dữ liệu nằm trong máy tính, không sợ mất mạng).
+5. **Nút Menu Mở Rộng (`... MoreVertical`)**:
+   - Xuất dữ liệu cả trường ra Excel.
+   - Trợ lý AI Gemini (`AiAssistantModal`).
+   - Giới thiệu phiên bản phần mềm.
 
 ---
 
-### 4.2. Trung Tâm Tiết Học (Classroom Session Dashboard)
-Phân hệ quan trọng bậc nhất, là "bàn điều khiển trung tâm" của giáo viên trong suốt 35 phút lên lớp:
+# 5. ĐẶC TẢ CHI TIẾT THANH BÊN (SIDEBAR)
+
+Thanh Sidebar nằm cố định bên trái màn hình (`position: sticky; top: 0; height: 100vh`), chiều rộng linh hoạt:
+- **Trạng thái Mở Rộng**: Chiều rộng `240px` (`min-width: 240px`).
+- **Trạng thái Thu Gọn**: Chiều rộng `70px` (`min-width: 70px`).
+- Hiệu ứng thu mở: `transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1)`.
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│ TIẾT DẠY: LỚP 3A1 • BÀI 4: BÀN PHÍM MÁY TÍNH                                                 │
-│ [⏱️ 28:45 / 35:00] [▶ Tiếp tục / ⏸️ Tạm dừng] [🔔 Rung chuông] [⭐ Thưởng cả lớp] [⏹️ Kết thúc]│
-├───────────────────────────────────────────────┬───────────────────────────────────────────────┤
-│ TIẾN TRÌNH TIẾT HỌC (LESSON FLOW - 35 PHÚT)   │ LƯỚI HỌC SINH & GHI NHẬN PHÁT BIỂU (32 HS)   │
-│                                               │                                               │
-│ ● 1. Khởi động (5 phút)           [✓ Hoàn tất]│ [1. An ⭐⭐⭐ +]   [2. Bình ⭐⭐ +]  [3. Chi ⭐⭐⭐⭐ +]│
-│   • Hát bài hát Tin học vui vẻ                │ [4. Dũng ⭐ +]    [5. Đạt ⭐⭐⭐ +]  [6. Hà ⭐⭐ +]   │
-│                                               │                                               │
-│ ◉ 2. Khám phá kiến thức (12 phút) [ĐANG CHẠY] │ (Nhấp 1-chạm vào tên học sinh để +1 sao ⭐)   │
-│   • Giới thiệu các hàng phím cơ bản           │ (Nhấp chuột phải để mở menu trừ điểm/nội quy) │
-│                                               │                                               │
-│ ○ 3. Luyện tập thực hành (13 phút)[Chờ]       │ ┌───────────────────────────────────────────┐ │
-│   • Luyện gõ hàng phím cơ sở trên Wordpad     │ │ THANH CÔNG CỤ NHANH TRONG TIẾT DẠY        │ │
-│                                               │ │ [🎡 Gọi ngẫu nhiên] [⚡ Đố vui] [🦆 Đua vịt]│ │
-│ ○ 4. Vận dụng & Đánh giá (5 phút) [Chờ]       │ │ [⏱️ Đếm giờ nhóm]   [🖥️ Mở slide bài dạy]   │ │
-│   • Trò chơi Đố vui củng cố kiến thức         │ └───────────────────────────────────────────┘ │
-└───────────────────────────────────────────────┴───────────────────────────────────────────────┘
+┌─────────────────────────┐  ┌───────┐
+│ ĐIỀU HƯỚNG         [ ◀ ]│  │ [ ▶ ] │ (Thu gọn)
+├─────────────────────────┤  ├───────┤
+│ 🏠 Trang Chủ            │  │  🏠   │
+│ 🎯 Tiết Học    [ĐANG DẠY]│ │  🎯   │ (Pulsing Green)
+│ 📚 Bài Học & Slide      │  │  📚   │
+│ ⚡ Quick Quiz (Đố Vui)  │  │  ⚡   │
+│ 🖥️ Phòng Máy (31 Máy)   │  │  🖥️   │
+│ 📋 Sổ Điểm (TT27)       │  │  📋   │
+│ ⭐ Điểm Tốt & Nội Quy   │  │  ⭐   │
+│ 🦆 Đua Vịt              │  │  🦆   │
+│ 🎡 Vòng Quay May Mắn    │  │  🎡   │
+│ ⏱️ Đếm Giờ Lớp Học      │  │  ⏱️   │
+├─────────────────────────┤  ├───────┤
+│ [Phiên bản v1.0.0]      │  │ v1.0  │
+└─────────────────────────┘  └───────┘
 ```
 
-#### Các đặc điểm thiết kế đặc thù:
-1. **Master Session Timer (Đồng hồ nhạc trưởng)**:
-   - Hiển thị cỡ lớn trên đỉnh màn hình, tự động đếm ngược từ 35:00 về 00:00.
-   - Khi còn 5 phút cuối: Đồng hồ chuyển sang màu vàng cảnh báo.
-   - Khi hết giờ (00:00): Tự động phát chuông trường học bính-boong vui nhộn và mở modal nhắc nhở kết thúc tiết dạy.
-2. **Interactive Lesson Flow (Tiến trình bài học)**:
-   - Hiển thị theo dạng timeline 4 bước chuẩn sư phạm: Khởi động ➔ Khám phá ➔ Luyện tập ➔ Vận dụng.
-   - Giáo viên có thể đánh dấu tick hoàn thành từng chặng hoặc điều chỉnh thời lượng linh hoạt.
-3. **One-Click Star Grid (Lưới thưởng sao 1-chạm)**:
-   - Tên và số sao hiện tại của toàn bộ 30-35 học sinh hiển thị dưới dạng các ô thẻ bấm to bản.
-   - Giáo viên chỉ cần chạm 1 lần là học sinh được cộng sao ngay lập tức, kèm âm thanh ting-ting phấn khích mà không làm gián đoạn bài giảng.
-4. **Modal Tổng kết tiết học (Session Summary Modal)**:
-   - Tự động thống kê: Số học sinh phát biểu, tổng số sao đã phát ra trong tiết, học sinh tích cực nhất ("Ngôi sao của tiết học").
-   - Lưu lại lịch sử buổi dạy vào CSDL để giáo viên đối chiếu cuối kỳ.
+### Bảng Danh Mục 10 Tab Điều Hướng (NavTabs Data Contract)
+| Tab ID | Tên hiển thị (Label) | Icon Lucide | Emoji | Huy hiệu đặc biệt (Badge) | Màu sắc Tab khi Active |
+| :--- | :--- | :--- | :---: | :--- | :--- |
+| `home` | **Trang Chủ** | `<Home size={19} />` | 🏠 | - | Nền `--primary-light`, chữ `--primary` |
+| `sessions` | **Tiết Học (Session)** | `<Target size={19} />` | 🎯 | `ĐANG DẠY` (nếu có tiết chạy) hoặc `CHÍNH` | Xanh ngọc lục bảo `#10b981` (khi chạy) |
+| `lessons` | **Bài Học & Slide** | `<BookOpen size={19} />` | 📚 | `GDPT 2018` | Tím Indigo `#8b5cf6` |
+| `quiz` | **Quick Quiz (Đố Vui)** | `<Zap size={19} />` | ⚡ | `MỚI` | Hồng Neon `#ec4899` |
+| `seating` | **Phòng Máy (31 Máy)** | `<Monitor size={19} />` | 🖥️ | `31 MÁY` | Xanh da trời `#0ea5e9` |
+| `gradebook`| **Sổ Điểm (TT27)** *(Khối 3-5)*<br>**Sổ Kỹ Năng & Sao** *(Khối 1-2)* | `<ClipboardList size={19} />` | 📋 | `TT 27` / `KỸ NĂNG` | Xanh lục `#059669` |
+| `goodscores`| **Điểm Tốt & Nội Quy** | `<Star size={19} />` | ⭐ | `SAO ⭐` | Vàng cam hổ phách `#f59e0b` |
+| `duckrace` | **Đua Vịt** | SVG Chú Vịt Vàng | 🦆 | `MINI GAME` | Cam tươi `#f97316` |
+| `luckywheel`| **Vòng Quay** | SVG Bánh Xe Quay | 🎡 | `MAY MẮN` | Đỏ hồng `#e11d48` |
+| `timer` | **Đếm Giờ** | `<Clock size={19} />` | ⏱️ | - | Xanh lơ `#06b6d4` |
 
 ---
 
-### 4.3. Thư Viện Bài Học & Trình Chiếu (Lesson Library & Presentation)
+# 6. ĐẶC TẢ 10 PHÂN HỆ MÀN HÌNH CHÍNH (MAIN VIEWS)
+
+---
+
+## 6.1. TRANG CHỦ (HomeDashboard)
+
+Màn hình chào mừng và tổng quan toàn diện tình hình dạy học của giáo viên:
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│ THƯ VIỆN BÀI GIẢNG TIN HỌC (GDPT 2018)            [+ Nạp PowerPoint (.pptx)] [+ Tạo Bài Mới]  │
-│ [Tất cả khối ▼] [Khối 3] [Khối 4] [Khối 5]    [Chủ đề: A - Máy tính và em ▼]  [🔍 Tìm kiếm...]│
-├───────────────────────────────────────────────────────────────────────────────────────────────┤
-│ ┌───────────────────────────┐ ┌───────────────────────────┐ ┌───────────────────────────┐   │
-│ │ [ẢNH SLIDE 16:9 XEM TRƯỚC]│ │ [ẢNH SLIDE 16:9 XEM TRƯỚC]│ │ [ẢNH SLIDE 16:9 XEM TRƯỚC]│   │
-│ │                           │ │                           │ │                           │   │
-│ │ Bài 1: Thông tin và quyết │ │ Bài 2: Xử lý thông tin    │ │ Bài 3: Máy tính - người   │   │
-│ │ định                      │ │                           │ │ bạn mới                   │   │
-│ │ Khối 3 • 12 Slides        │ │ Khối 3 • 15 Slides        │ │ Khối 3 • 18 Slides        │   │
-│ │ [🖥️ Trình Chiếu Web]      │ │ [🖥️ Trình Chiếu Web]      │ │ [🖥️ Trình Chiếu Web]      │   │
-│ │ [📽️ Mở PowerPoint Gốc]    │ │ [📽️ Mở PowerPoint Gốc]    │ │ [📽️ Mở PowerPoint Gốc]    │   │
-│ └───────────────────────────┘ └───────────────────────────┘ └───────────────────────────┘   │
-└───────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ⚡ TIẾT DẠY ĐANG DIỄN RA: LỚP 3A1 • BÀI 3: CHUỘT MÁY TÍNH (Còn 18 phút)            [ ▶ TIẾP TỤC TIẾT DẠY ]  │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────┐ ┌───────────────────┐ ┌───────────────────┐ ┌───────────────────┐ ┌───────────────────┐
+│ 🏫 TỔNG SỐ LỚP    │ │ 👥 TỔNG HỌC SINH  │ │ 👶 KHỐI 1 & KHỐI 2│ │ 🧑‍💻 KHỐI 3, 4 & 5  │ │ ⭐ SAO THI ĐUA    │
+│      18 Lớp       │ │   580 Học Sinh    │ │  8 Lớp (Kỹ năng)  │ │  10 Lớp (Điểm TT27)│ │   8,420 Ngôi Sao  │
+│ 5 Khối học        │ │ Nam: 310 • Nữ: 270│ │ Đánh giá định tính│ │ Điểm số 1 - 10     │ │ Toàn trường       │
+└───────────────────┘ └───────────────────┘ └───────────────────┘ └───────────────────┘ └───────────────────┘
+
+┌───────────────────────────────────────────────────┐ ┌───────────────────────────────────────────────────┐
+│ 🎯 TRUNG TÂM TIẾT HỌC (CLASSROOM SESSION)         │ │ 📚 THƯ VIỆN BÀI HỌC & SLIDE (LESSON LIBRARY)      │
+│ Quản lý tiến trình 35p, bấm giờ, thưởng sao 1-chạm│ │ Ngân hàng bài giảng GDPT 2018, mở PowerPoint gốc. │
+│ [Vào Trung Tâm Tiết Học ➔]                        │ │ [Xem Thư Viện Bài Học ➔]                          │
+└───────────────────────────────────────────────────┘ └───────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐ ┌───────────────────────────────────────────────────┐
+│ ⚡ QUICK QUIZ (ĐỐ VUI MÁY CHIẾU)                  │ │ 🖥️ PHÒNG MÁY THỰC HÀNH (31 MÁY TÍNH)              │
+│ Trắc nghiệm giơ thẻ A/B/C/D không cần điện thoại. │ │ Sơ đồ 5 dãy bàn, xếp chỗ ngồi đôi, báo máy hỏng.   │
+│ [Vào Quick Quiz ➔]                                │ │ [Xem Sơ Đồ Phòng Máy ➔]                           │
+└───────────────────────────────────────────────────┘ └───────────────────────────────────────────────────┘
 ```
 
-#### Thiết kế chức năng trình chiếu:
-- **Tỉ lệ khung hình Slide**: Chuẩn 16:9 điện ảnh, hỗ trợ xem trước thumbnail sắc nét.
-- **Trình nạp PPTX Kéo-thả (Drag & Drop)**:
-  - Cho phép thả file bài giảng `.pptx` có sẵn của giáo viên vào.
-  - Tự động tách slide, trích xuất ghi chú giáo viên (`Teacher Notes`).
-  - **Modal đối chiếu trùng lặp (Duplicate Comparison Modal)**: Nếu bài giảng đã tồn tại, hiển thị giao diện so sánh 2 bên (Side-by-side) giúp giáo viên quyết định ghi đè hoặc tạo bản sao.
-- **Nút "Mở PowerPoint" (Desktop Native)**:
-  - Nút bấm đặc quyền trên bản Desktop: Mở trực tiếp file gốc bằng phần mềm **Microsoft PowerPoint** có sẵn trên máy với chế độ bảo vệ file (`ReadOnly`), đồng thời mở thanh điều khiển slide từ xa ngay trên EduMaster.
+### Cấu Trúc DOM Chi Tiết:
+1. **Banner Tiết Học Đang Diễn Ra (Ongoing Session Alert)**:
+   - Hiển thị nếu `ongoingSession !== null` và trạng thái là `RUNNING` hoặc `PAUSED`.
+   - Nền: `rgba(16, 185, 129, 0.12)`, đường viền `2px solid #10b981`, bóng đổ xanh lá.
+   - Nút `▶ TIẾP TỤC TIẾT DẠY`: Nền gradient xanh lá, hiệu ứng nhấp nháy phát sáng.
+2. **Hàng 5 Thẻ Thống Kê Toàn Trường (Stats Strip)**:
+   - Bố cục lưới 5 cột (`grid-template-columns: repeat(5, 1fr)`), khoảng cách `16px`.
+   - Mỗi thẻ là một `glass-panel` có icon đầu thẻ, số liệu cực lớn (`font-size: 1.75rem; font-weight: 800`).
+3. **Lưới Thẻ Chức Năng 10 Phân Hệ (Features Grid)**:
+   - Bố cục 2 cột lớn (`grid-template-columns: repeat(2, 1fr)`), khoảng cách `20px`.
+   - Mỗi thẻ có màu viền và màu nền gradient nhạt 8% đặc trưng.
 
 ---
 
-### 4.4. Quick Quiz (Đố Vui Máy Chiếu & Ngân Hàng Câu Hỏi)
-Thiết kế phục vụ đánh giá thường xuyên tại lớp học tiểu học mà **học sinh không cần điện thoại hay máy tính**:
+## 6.2. TRUNG TÂM TIẾT HỌC (SessionDashboard)
+
+Trang điều khiển trực tiếp trên bục giảng trong suốt 35 phút của một tiết học:
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│ CÂU 2 / 5: BỘ PHẬN NÀO SAU ĐÂY DÙNG ĐỂ NHẬP CHỮ VÀO MÁY TÍNH?                    [⏱️ 15s]     │
-├───────────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                               │
-│    ┌──────────────────────────────────────┐    ┌──────────────────────────────────────┐       │
-│    │  A. Màn hình máy tính                │    │  B. Bàn phím máy tính        [✓ ĐÚNG]│       │
-│    └──────────────────────────────────────┘    └──────────────────────────────────────┘       │
-│    ┌──────────────────────────────────────┐    ┌──────────────────────────────────────┐       │
-│    │  C. Chuột máy tính                   │    │  D. Thân máy tính                    │       │
-│    └──────────────────────────────────────┘    └──────────────────────────────────────┘       │
-│                                                                                               │
-├───────────────────────────────────────────────────────────────────────────────────────────────┤
-│ [👁️ Hiện Đáp Án]  [📊 Thống Kê Giơ Thẻ: A: 2 | B: 28 | C: 1 | D: 1]  [⭐ Thưởng Sao Người Đúng]  │
-└───────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ LỚP 3A1 • BÀI 4: BÀN PHÍM MÁY TÍNH                         [Tiết 2: 08:15 - 08:50] [Đồng bộ TKB: BẬT]       │
+│ ⏱️ 26:30 / 35:00  [ ▶ Chạy / ⏸️ Tạm Dừng ]  [ +5 Phút ]  [ 🔔 Rung Chuông ]  [ ⭐ Cả Lớp +1 ]  [ ⏹️ Kết Thúc ] │
+├─────────────────────────────────────────┬───────────────────────────────────────────────────────────────────┤
+│ TIẾN TRÌNH TIẾT HỌC (LESSON FLOW)       │ LƯỚI TƯƠNG TÁC HỌC SINH (STUDENT PARTICIPATION GRID - 32 HS)      │
+│                                         │                                                                   │
+│ [✓] 1. Khởi động (5 phút)               │ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌─────────┐ │
+│     • Hát múa bài hát Bàn phím vui nhộn │ │ MÁY 01: AN    │ │ MÁY 01: BÌNH  │ │ MÁY 02: CHI   │ │ MÁY 02: │ │
+│                                         │ │ ⭐⭐⭐⭐ (4 sao)│ │ ⭐⭐ (2 sao)  │ │ ⭐⭐⭐ (3 sao) │ │ DŨNG    │ │
+│ [◉] 2. Khám phá (12 phút)  [ĐANG CHẠY]  │ │ [  +1 SAO ⭐ ]│ │ [  +1 SAO ⭐ ]│ │ [  +1 SAO ⭐ ]│ │ [ +1 ⭐]│ │
+│     • Nhận biết khu vực phím cơ sở      │ └───────────────┘ └───────────────┘ └───────────────┘ └─────────┘ │
+│                                         │ (Nhấp chuột trái: Thưởng +1 sao tức thì; Nhấp phải: Chọn nội quy) │
+│ [ ] 3. Luyện tập thực hành (13 phút)    │                                                                   │
+│     • Tập gõ 10 ngón hàng cơ sở Wordpad │ ┌───────────────────────────────────────────────────────────────┐ │
+│                                         │ │ THANH TIỆN ÍCH TRONG TIẾT DẠY (QUICK TOOLS BAR)               │ │
+│ [ ] 4. Vận dụng & Đánh giá (5 phút)     │ │ [🎡 Gọi Ngẫu Nhiên] [🦆 Đua Vịt] [⚡ Đố Vui] [🖥️ Mở Bài Chiếu]│ │
+│     • Trò chơi Đố vui củng cố kiến thức │ └───────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────┴───────────────────────────────────────────────────────────────────┘
 ```
 
-- **Typography cực đại**: Phông chữ câu hỏi và 4 đáp án đạt `24px - 32px`, sử dụng màu sắc phân biệt đặc trưng (A: Đỏ, B: Xanh dương, C: Vàng, D: Xanh lá).
-- **Cơ chế giơ thẻ A/B/C/D**: Giáo viên chiếu câu hỏi, học sinh giơ thẻ màu. Giáo viên gõ nhanh số lượng hoặc bấm nút để công bố đáp án với hiệu ứng âm thanh cổ vũ sôi nổi.
+### Quy Chuẩn Các Thành Phần:
+1. **SessionHeader & SessionTimerDisplay**:
+   - Chữ số đồng hồ đếm ngược kích thước `42px`, `font-family: Outfit`, `font-weight: 800`.
+   - Nút `+5 Phút`: Thêm ngay 5 phút vào đồng hồ mà không cần vào cài đặt.
+   - Nút `🔔 Rung Chuông`: Phát chuông bính boong trường học thu hút trật tự cả lớp.
+   - Nút `⭐ Cả Lớp +1`: Cộng đồng loạt 1 sao cho tất cả học sinh có mặt hôm nay.
+2. **LessonFlowList (Tiến trình bài học)**:
+   - Danh sách 4 bước hoạt động theo chuẩn sư phạm Bộ GD&ĐT.
+   - Bước đang chạy có viền xanh dương đậm, nhãn `[ĐANG CHẠY]` và có đồng hồ đếm lùi riêng của hoạt động đó.
+3. **StudentParticipationGrid (Lưới học sinh)**:
+   - Các ô thẻ học sinh xếp dạng lưới `repeat(auto-fill, minmax(130px, 1fr))`.
+   - Mỗi ô hiển thị: Số máy thực hành + Tên học sinh + Số sao hiện tại.
+   - Nhấn chuột trái: Gọi API `changeStars` cộng 1 sao tức thì, phát âm thanh `playStarDing()`.
+   - Thẻ hiển thị số lần phát biểu trong tiết học.
 
 ---
 
-### 4.5. Sơ Đồ Phòng Máy Thực Hành (Seating Chart - 31 Máy)
-Mô phỏng chân thực phòng máy tính tiểu học tiêu chuẩn (1 bàn giáo viên + 5 dãy máy học sinh gồm 31 máy tính):
+## 6.3. BÀI HỌC & TRÌNH CHIẾU (LessonLibrary & PresentationView)
+
+### A. Thư Viện Bài Giảng (LessonLibrary)
+- **Thanh lọc đa chiều**: Lọc theo Khối lớp (Khối 3, 4, 5); lọc theo Chủ đề GDPT 2018 (Chủ đề A: Máy tính và em, Chủ đề B: Mạng máy tính và Internet, Chủ đề C: Tổ chức lưu trữ tìm kiếm, Chủ đề D: Đạo đức pháp luật văn hóa, Chủ đề E: Ứng dụng tin học, Chủ đề F: Giải quyết vấn đề với sự trợ giúp của máy tính).
+- **Thẻ bài giảng (Lesson Card)**:
+  - Khung ảnh xem trước tỉ lệ 16:9 (`slide-preview-container`). Di chuột vào ảnh sẽ phóng to nhẹ (`scale(1.03)`).
+  - Tiêu đề bài học in đậm, số lượng slide (VD: `14 slide`).
+  - Nút **[🖥️ Trình Chiếu Web]**: Mở giao diện trình chiếu toàn màn hình trên nền tảng web.
+  - Nút **[📽️ Mở PowerPoint Gốc]** *(Desktop Native)*: Nút độc quyền gọi Microsoft PowerPoint bản quyền mở file `original.pptx`.
+
+### B. Trình Chiếu Web Slide (PresentationView)
+- Khung trình chiếu cố định tỉ lệ 16:9, tự động phóng to toàn màn hình.
+- **7 Mẫu Slide Đa Dạng**:
+  1. `title`: Slide tiêu đề bài học lớn.
+  2. `concept`: Khám phá khái niệm (ảnh bên trái, định nghĩa bên phải).
+  3. `two-column`: So sánh 2 cột đối chiếu (Đúng / Sai hoặc Bàn phím / Chuột).
+  4. `question`: Câu hỏi tương tác chọn đáp án.
+  5. `practice`: Nhiệm vụ thực hành từng bước.
+  6. `summary`: Ghi nhớ cuối bài.
+  7. `game`: Trò chơi khởi động.
+- **Thanh điều khiển nổi dưới đáy (Floating Presentation Toolbar)**:
+  `[◀ Slide Trước]  [ 3 / 14 ]  [Slide Tiếp ▶]  [📝 Ghi chú GV]  [🖥️ Projector Mode]  [⛶ Toàn Màn Hình]`
+- **Ngăn ghi chú giáo viên (Teacher Notes Drawer)**: Trượt từ mép phải ra, hiển thị các lưu ý sư phạm và lời thoại gợi ý của giáo viên.
+
+---
+
+## 6.4. ĐỐ VUI NHANH (QuickQuizManager & QuizPlayer)
+
+Màn hình tổ chức kiểm tra trắc nghiệm tương tác cho học sinh tiểu học:
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│ PHÒNG THỰC HÀNH TIN HỌC (31 MÁY)  [Chế độ: Đơn / Ngồi Đôi] [🖥️ Chiếu Sơ Đồ] [⚠️ Báo Máy Hỏng]│
-├───────────────────────────────────────────────────────────────────────────────────────────────┤
-│                              ┌───────────────────────────────┐                                │
-│                              │   BÀN GIÁO VIÊN & MÁY CHỦ     │                                │
-│                              └───────────────────────────────┘                                │
-│                                                                                               │
-│   DÃY 1 (Máy 01 - 06)      DÃY 2 (Máy 07 - 12)     DÃY 3 (Máy 13 - 18)     DÃY 4 (19 - 24)    │
-│  ┌──────────────────┐     ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐│
-│  │ MÁY 01           │     │ MÁY 07           │    │ MÁY 13           │    │ MÁY 19 [⚠️ HỎNG] ││
-│  │ • Nguyễn Văn An  │     │ • Trần Thị Mai   │    │ • Lê Hoàng Nam   │    │ (Không xếp chỗ)  ││
-│  │ • Lê Thu Hà      │     │ • Vũ Đức Hải     │    │ • Phạm Gia Huy   │    │                  ││
-│  │ [ ⭐ +1 ]        │     │ [ ⭐ +1 ]        │    │ [ ⭐ +1 ]        │    │                  ││
-│  └──────────────────┘     └──────────────────┘    └──────────────────┘    └──────────────────┘│
-│                                                                                               │
-│                            DÃY 5 (DÃY CUỐI: Máy 25 - Máy 31)                                  │
-│  ┌──────────────────┐     ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐│
-│  │ MÁY 25           │     │ MÁY 26           │    │ MÁY 27           │    │ MÁY 31           ││
-│  └──────────────────┘     └──────────────────┘    └──────────────────┘    └──────────────────┘│
-└───────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ BÀI 3: CHUỘT MÁY TÍNH • CÂU HỎI 2 / 5                             [⏱️ 12 GIÂY] [🔔] [⛶ Toàn Màn Hình]      │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                             │
+│             NÚT NÀO TRÊN CHUỘT MÁY TÍNH DÙNG ĐỂ CUỘN TRANG LÊN VÀ XUỐNG?                                    │
+│                                                                                                             │
+│    ┌───────────────────────────────────────────┐   ┌───────────────────────────────────────────┐            │
+│    │  A. Nút chuột trái                        │   │  B. Nút cuộn (Con lăn chuột)     [✓ ĐÚNG] │            │
+│    │  [Nền Đỏ Nhạt - Viền Đỏ #ef4444]          │   │  [Nền Xanh Lam - Viền Lam #0284c7]        │            │
+│    └───────────────────────────────────────────┘   └───────────────────────────────────────────┘            │
+│    ┌───────────────────────────────────────────┐   ┌───────────────────────────────────────────┐            │
+│    │  C. Nút chuột phải                        │   │  D. Thân chuột                            │            │
+│    │  [Nền Vàng Nhạt - Viền Vàng #f59e0b]      │   │  [Nền Xanh Lục - Viền Lục #10b981]        │            │
+│    └───────────────────────────────────────────┘   └───────────────────────────────────────────┘            │
+│                                                                                                             │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [👁️ CÔNG BỐ ĐÁP ÁN]   [📊 Thống Kê Giơ Thẻ: A: 2  B: 28  C: 1  D: 1]   [⭐ CỘNG SAO CHO CÁC BẠN ĐÚNG]      │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### Tính năng UI/UX nổi bật:
-1. **Hỗ trợ Ngồi đôi (Paired Seating)**: Mỗi máy hiển thị 2 học sinh ngồi chung một máy thực hành, giúp quản lý chính xác trong điều kiện phòng máy đông học sinh.
-2. **Cảnh báo Máy hỏng trực quan (`⚠️ Broken Machine Tag`)**: Máy bị hỏng được đánh dấu viền đỏ, mờ nền và không cho phép xếp chỗ, đồng thời lưu trạng thái hỏng xuyên suốt các lớp khác để báo cho bộ phận thiết bị.
-3. **Chế độ Chiếu sơ đồ (`Seating Display Mode`)**: Giao diện toàn màn hình máy chiếu, phông chữ lớn, để khi học sinh xếp hàng bước vào phòng máy có thể nhìn lên bảng và tự động về đúng vị trí máy của mình mà không gây mất trật tự.
+- **Màu sắc 4 đáp án**:
+  - Đáp án A: Viền Đỏ `#ef4444`, Nền hồng phấn `#fef2f2`.
+  - Đáp án B: Viền Xanh dương `#0284c7`, Nền xanh nhạt `#f0f9ff`.
+  - Đáp án C: Viền Vàng hổ phách `#f59e0b`, Nền vàng nhạt `#fffbeb`.
+  - Đáp án D: Viền Xanh lục `#10b981`, Nền xanh lá nhạt `#f0fdf4`.
+- **Cỡ chữ câu hỏi**: `28px - 34px`, đảm bảo học sinh ngồi cuối lớp nhìn rõ 100%.
 
 ---
 
-### 4.6. Sổ Điểm & Đánh Giá Kỹ Năng (Gradebook - Chuẩn Thông Tư 27)
+## 6.5. SƠ ĐỒ PHÒNG MÁY THỰC HÀNH (SeatingChart & SeatingDisplayMode)
 
-Giao diện tự động thích ứng hoàn toàn dựa trên khối lớp của học sinh:
-
-#### A. Đối với Khối 1 & Khối 2: "Sổ Kỹ Năng & Sao"
-- Không sử dụng điểm số số học (1 - 10) để tránh áp lực tâm lý cho học sinh lớp nhỏ.
-- Theo dõi 4 nhóm kỹ năng tin học nền tảng:
-  1. *Kỹ năng cầm chuột & di chuột*.
-  2. *Kỹ năng nhấp đúp & kéo thả (Drag & Drop)*.
-  3. *Kỹ năng gõ phím cơ bản & phím cách/Enter*.
-  4. *Kỹ năng vẽ hình đơn giản trên phần mềm Paint*.
-- Tích hợp số sao thi đua đạt được và nhận xét định tính (Hoàn thành tốt / Hoàn thành).
-
-#### B. Đối với Khối 3, 4, 5: "Sổ Điểm Thông Tư 27"
-- Đầy đủ cột mục theo quy định chính thức của Bộ Giáo dục & Đào tạo:
-  - Điểm đánh giá thường xuyên (ĐGTX 1, ĐGTX 2, ĐGTX 3, ĐGTX 4).
-  - Điểm kiểm tra định kỳ: Giữa học kỳ I, Cuối học kỳ I, Giữa học kỳ II, Cuối học kỳ II.
-  - Mức đạt được: **T** (Hoàn thành tốt), **H** (Hoàn thành), **C** (Chưa hoàn thành).
-- Nhập điểm trực tiếp trên từng ô (`score-input`) với phím Tab / Enter chuyển ô nhanh, tự động tô màu badge cảnh báo học sinh cần hỗ trợ.
-- Tích hợp 1-click xuất danh sách ra tệp **Microsoft Excel (`.xlsx`)** chuẩn mẫu phòng giáo dục.
-
----
-
-### 4.7. Điểm Tốt, Nội Quy & Đổi Thưởng (Good Scores Board & Rewards)
+Mô phỏng sơ đồ vật lý 31 máy tính phòng thực hành của nhà trường:
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│ BẢNG ĐIỂM TỐT & NỘI QUY PHÒNG MÁY                     [⭐ Sổ Cái Sao] [🎁 Cửa Hàng Đổi Thưởng]│
-├───────────────────────────────────────────────┬───────────────────────────────────────────────┤
-│ NỘI QUY CỘNG / TRỪ SAO PHÒNG MÁY              │ TOP HỌC SINH TÍCH CỰC (BẢNG VINH DANH)        │
-│                                               │                                               │
-│ [🟢 CỘNG SAO THI ĐUA]                         │ 🥇 1. Trần Bảo Nam  ── 45 ⭐ [Cúp Vàng]        │
-│ • Phát biểu hay, sáng tạo:        +2 ⭐        │ 🥈 2. Lê Thị Mai    ── 42 ⭐ [Cúp Bạc]         │
-│ • Giúp đỡ bạn cùng máy:           +1 ⭐        │ 🥉 3. Vũ Đức Hải    ── 39 ⭐ [Cúp Đồng]        │
-│ • Thực hành xong bài sớm nhất:    +2 ⭐        │ 4. Nguyễn Lan Chi   ── 35 ⭐                  │
-│                                               │ 5. Đỗ Gia Huy       ── 31 ⭐                  │
-│ [🔴 NHẮC NHỞ / TRỪ SAO]                       │                                               │
-│ • Đi lại tự do trong phòng máy:   -1 ⭐        │ ┌───────────────────────────────────────────┐ │
-│ • Chơi game / Vào web lạ:         -2 ⭐        │ │ CỬA HÀNG ĐỔI THƯỞNG (REWARD SHOP)         │ │
-│ • Chưa tắt máy tính khi về:       -1 ⭐        │ │ • 10 ⭐: 5 Phút chơi game Tin học tự do   │ │
-│                                               │ │ • 15 ⭐: Làm Trưởng nhóm thực hành 1 tuần │ │
-│                                               │ │ • 20 ⭐: Huy hiệu sticker Tin học siêu cấp│ │
-│                                               │ └───────────────────────────────────────────┘ │
-└───────────────────────────────────────────────┴───────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SƠ ĐỒ PHÒNG MÁY TIN HỌC (31 MÁY)         [Bàn GV: Bên Phải ▼] [Góc Nhìn: Giáo Viên ▼] [🖥️ Chiếu Sơ Đồ]     │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                            ┌─────────────────────────────────┐              │
+│                                                            │   🖥️ BÀN GIÁO VIÊN & MÁY CHỦ     │              │
+│                                                            └─────────────────────────────────┘              │
+│                                                                                                             │
+│   DÃY 1 (Máy 01 - 06)     DÃY 2 (Máy 07 - 12)     DÃY 3 (Máy 13 - 18)     DÃY 4 (Máy 19 - 24)               │
+│  ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐              │
+│  │ MÁY 01            │   │ MÁY 07            │   │ MÁY 13            │   │ MÁY 19 [⚠️ HỎNG]  │              │
+│  │ 👤 Nguyễn Văn An  │   │ 👤 Trần Mai Hoa   │   │ 👤 Lê Hoàng Nam   │   │ (Máy hỏng nguồn)  │              │
+│  │ 👤 Lê Thu Hà      │   │ 👤 Vũ Quốc Bảo    │   │ (Trống 1 chỗ)     │   │ [Không cho xếp]   │              │
+│  │ [ ⭐ Thưởng Sao ] │   │ [ ⭐ Thưởng Sao ] │   │ [ ⭐ Thưởng Sao ] │   │ [Bỏ Báo Hỏng]     │              │
+│  └───────────────────┘   └───────────────────┘   └───────────────────┘   └───────────────────┘              │
+│                                                                                                             │
+│                             DÃY 5 (DÃY CUỐI CÙNG: Máy 25 đến Máy 31)                                        │
+│  ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐              │
+│  │ MÁY 25            │   │ MÁY 26            │   │ MÁY 27            │   │ MÁY 31            │              │
+│  └───────────────────┘   └───────────────────┘   └───────────────────┘   └───────────────────┘              │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ KHAY HỌC SINH CHƯA XẾP CHỖ (Chưa có máy thực hành: 4 học sinh)            [Kéo thả hoặc Nhấp để gán máy]     │
+│ [ 👤 Đỗ Gia Huy (Kéo vào máy) ]  [ 👤 Phạm Minh Khôi ]  [ 👤 Hoàng Thùy Linh ]  [ 👤 Bùi Tuấn Kiệt ]        │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Sổ cái sao (Star Ledger)**: Mọi giao dịch cộng/trừ sao đều được lưu trữ nhật ký minh bạch kèm nhãn nguyên nhân (VD: `+1 sao: Giúp bạn`), đảm bảo tính công bằng và có thể kiểm tra lại bất cứ lúc nào.
-- **Cửa hàng đổi thưởng (Reward Shop)**: Tạo động lực thực tế để các em phấn đấu học tốt và giữ gìn nội quy phòng máy.
+### Đặc Tả Kỹ Thuật:
+1. **Bố cục 5 dãy bàn máy tính**:
+   - Dãy 1: Máy 01 ➔ Máy 06 (6 máy).
+   - Dãy 2: Máy 07 ➔ Máy 12 (6 máy).
+   - Dãy 3: Máy 13 ➔ Máy 18 (6 máy).
+   - Dãy 4: Máy 19 ➔ Máy 24 (6 máy).
+   - Dãy 5: Máy 25 ➔ Máy 31 (7 máy).
+   - Tổng cộng: **31 máy học sinh**.
+2. **Cơ chế Ngồi Ghép Đôi (Paired Seating)**:
+   - Mỗi máy tính hỗ trợ hiển thị tối đa 2 học sinh ngồi cùng.
+   - Nhấp vào thẻ học sinh để đổi chỗ hoặc gỡ khỏi máy.
+3. **Cơ chế Quản Lý Máy Hỏng Toàn Trường (`brokenMachines`)**:
+   - Máy bị hỏng được đánh dấu viền đỏ đứt nét `2px dashed #ef4444`, nền đỏ nhạt `rgba(239, 68, 68, 0.08)`.
+   - Danh sách máy hỏng lưu tập trung trong SQLite, tự động áp dụng cho tất cả 20+ lớp học khác.
+4. **Chế Độ Trình Chiếu Sơ Đồ (`SeatingDisplayMode`)**:
+   - Bấm `[🖥️ Chiếu Sơ Đồ]` để mở giao diện toàn màn hình máy chiếu.
+   - Chữ số máy to `36px`, tên học sinh in đậm rõ ràng để các em bước vào phòng nhìn lên bảng tự tìm đúng máy.
 
 ---
 
-### 4.8. Trò Chơi Tương Tác Lớp Học (Gamification: Duck Race & Lucky Wheel)
+## 6.6. SỔ ĐIỂM & ĐÁNH GIÁ KỸ NĂNG (Gradebook)
 
-#### 1. Đua Vịt (Duck Race)
-- Mô phỏng đường đua bơi lội nhiều làn (Làn 1 đến Làn 6 đại diện cho các Tổ hoặc các nhóm học sinh).
-- Mỗi chú vịt có màu sắc rực rỡ, số đeo và hoạt ảnh lắc lư khi bơi.
-- Thuật toán bước tiến ngẫu nhiên có gia tốc, tạo sự kịch tính nghẹt thở đến giây cuối cùng.
-- Khi vịt chạm đích: Hiển thị bục vinh danh Top 1, Top 2, Top 3 kèm hiệu ứng pháo hoa Confetti và nút cộng sao tự động cho các thành viên trong tổ thắng cuộc.
+Tự động phân hóa giao diện dựa vào khối lớp của lớp đang chọn:
 
-#### 2. Vòng Quay May Mắn (Lucky Wheel)
-- Bánh xe hình tròn vẽ bằng canvas độ nét cao với các múi màu xen kẽ chứa tên học sinh hoặc tên tổ.
-- Nút bấm `QUAY NGAY` ở trung tâm kèm âm thanh cơ học cạch-cạch khi kim chỉ qua từng nan quạt.
-- Hiệu ứng hãm đà quán tính chân thực, dừng lại chính xác tại học sinh được chọn để trả lời câu hỏi hoặc nhận phần thưởng may mắn.
+### A. Khối 1 & Khối 2: "Sổ Kỹ Năng & Sao" (Đánh Giá Định Tính)
+- Không có các cột điểm số 1-10.
+- **Các cột dữ liệu**:
+  1. `STT`
+  2. `Họ và Tên`
+  3. `Giới tính`
+  4. `Máy số`
+  5. `Cầm chuột & Nhấp đúp`: Chọn Tốt (T) / Đạt (H).
+  6. `Kéo thả (Drag & Drop)`: Chọn Tốt (T) / Đạt (H).
+  7. `Nhận biết bàn phím`: Chọn Tốt (T) / Đạt (H).
+  8. `Vẽ tranh Paint`: Chọn Tốt (T) / Đạt (H).
+  9. `Sao thi đua ⭐`: Hiển thị số sao tích lũy.
+  10. `Nhận xét giáo viên`: Có các nút bấm nhận xét mẫu 1-chạm (VD: *"Thao tác chuột nhanh nhẹn"*, *"Vẽ tranh sáng tạo"*).
 
----
-
-### 4.9. Đếm Giờ Lớp Học (Classroom Timer)
-- Màn hình số kỹ thuật số siêu lớn (Digital Clock) chiếm trọn trung tâm, kết hợp vòng tròn tiến trình (Progress Ring SVG) rút ngắn dần theo thời gian.
-- Các nút chọn nhanh thời lượng bài tập: `1 Phút`, `2 Phút`, `3 Phút`, `5 Phút`, `10 Phút`, `15 Phút`.
-- Cho phép tùy chỉnh nhạc nền tập trung khi đang đếm giờ và chuông báo reo vang khi hết giờ.
-
----
-
-### 4.10. Hệ Thống Trợ Lý AI Giáo Viên (Gemini AI Integration)
-Bộ 5 cửa sổ chức năng AI được thiết kế dưới dạng Modal cao cấp (`backdrop-filter: blur(16px)`):
-
-1. **AiAssistantModal**: Trợ lý trò chuyện sư phạm, gợi ý phương pháp tổ chức trò chơi, quản lý lớp học nghịch ngợm trong phòng máy.
-2. **AiClassAnalysisModal**: Phân tích biểu đồ học tập của cả lớp, chỉ ra nhóm học sinh tiến bộ nhanh và nhóm học sinh còn yếu thao tác chuột/phím.
-3. **AiLessonAnalysisModal**: So khớp bài giảng hiện tại với chuẩn đầu ra GDPT 2018 Tin học.
-4. **AiLessonFlowModal**: Tự động gợi ý phân bổ thời lượng 35 phút cho bài giảng cụ thể.
-5. **AiQuestionGeneratorModal**: Đọc nội dung bài học và tự động sinh 5 - 10 câu hỏi trắc nghiệm kèm đáp án và giải thích chi tiết.
+### B. Khối 3, 4, 5: "Sổ Điểm Thông Tư 27" (Đánh Giá Định Lượng & Định Tính)
+- Chuyển đổi giữa 2 tab: `📘 Học Kỳ I` và `📙 Học Kỳ II`.
+- **Các cột Học kỳ I**:
+  `STT` | `Họ và Tên` | `Giới tính` | `Máy số` | `ĐGTX 1` | `ĐGTX 2` | `Điểm Giữa Kỳ (ĐGK)` | `Điểm Cuối Kỳ (ĐGCK)` | `Mức Đạt Được (T/H/C)` | `Nhận xét`
+- **Các cột Học kỳ II & Cả Năm**:
+  `ĐGTX 3` | `ĐGTX 4` | `Điểm GK II` | `Điểm CK II` | `Điểm Trung Bình Cả Năm` | `Đánh Giá Cả Năm` | `Nhận xét`
+- **Quy chuẩn ô nhập điểm (`score-input`)**:
+  - Rộng `58px`, căn giữa, chữ số đậm `font-weight: 600`.
+  - Phím `Tab` hoặc `Enter` tự động nhảy sang ô của học sinh tiếp theo.
+  - Tự động giới hạn từ `0` đến `10`.
 
 ---
 
-## 5. THIẾT KẾ KHẢ NĂNG TIẾP CẬN & MÔI TRƯỜNG THỰC TẾ
+## 6.7. BẢNG ĐIỂM TỐT, NỘI QUY & CỬA HÀNG (GoodScoresBoard & RewardShop)
 
-### 5.1. Chế độ Máy Chiếu (Projector Mode)
-Được kích hoạt tức thì bằng phím tắt hoặc nút bấm trên Navbar:
-- **Độ tương phản cực hạn**: Nền đổi sang xám trắng sáng `#f1f5f9`, các thẻ đổi sang trắng `#ffffff` với viền đậm `2px solid #94a3b8`.
-- **Chữ đen tuyền 100% (`#000000`)**: Loại bỏ các màu chữ xám nhạt khó đọc.
-- **Tăng cỡ chữ toàn cục**: Kích thước phông chữ cơ bản tự động nâng lên `18px`.
-- Đảm bảo học sinh ngồi ở góc xa phòng máy hoặc phòng có ánh sáng ban ngày mạnh vẫn nhìn rõ từng con số và câu hỏi.
-
-### 5.2. Hoạt động Ngoại tuyến 100% (Offline-First UX)
-- Mọi tài nguyên giao diện (phông chữ, icon Lucide SVG, âm thanh chuông) đều được đóng gói tĩnh trong bộ cài đặt `EduMaster.exe`.
-- Khi máy tính phòng thực hành không có Internet (hoặc mạng chập chờn), ứng dụng vẫn khởi động trong 2 giây và vận hành trơn tru không có bất kỳ thông báo lỗi kết nối nào.
-
----
-
-## 6. DANH MỤC THÀNH PHẦN GIAO DIỆN (UI COMPONENT CATALOG)
-
-### 6.1. Hệ thống Nút bấm (Button Styles)
-```css
-/* Nút Chính (Primary CTA) */
-.btn-primary   /* Nền gradient Indigo 600 -> 500, chữ trắng, shadow phát sáng */
-/* Nút Thành Công (Success CTA) */
-.btn-success   /* Nền gradient Emerald 600 -> 500, chữ trắng */
-/* Nút Sao / Thưởng (Amber CTA) */
-.btn-amber     /* Nền gradient Amber 600 -> 500, chữ trắng, shadow vàng */
-/* Nút Bài Giảng (Purple CTA) */
-.btn-purple    /* Nền gradient Purple 600 -> 500, chữ trắng */
-/* Nút Thứ Cấp (Secondary) */
-.btn-secondary /* Nền xám nhạt, viền mờ, chữ đậm */
-/* Nút Viền (Outline) */
-.btn-outline   /* Nền trong suốt, viền mỏng, đổi màu khi hover */
-/* Nút Nguy Hiểm (Danger) */
-.btn-danger    /* Nền đỏ nhạt, chữ đỏ đậm cảnh báo */
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ĐIỂM TỐT & NỘI QUY PHÒNG MÁY                      [📘 Học Kỳ I] [📙 Học Kỳ II]       [🎁 Cửa Hàng Đổi Quà]  │
+├─────────────────────────────────────────┬───────────────────────────────────────────────────────────────────┤
+│ MA TRẬN NỘI QUY CỘNG / TRỪ ĐIỂM         │ BẢNG VINH DANH TOP HỌC SINH TÍCH CỰC                              │
+│                                         │                                                                   │
+│ [🟢 HÀNH VI TỐT - CỘNG SAO]             │ 🥇 TOP 1: TRẦN BẢO NAM   ─── 52 ⭐ [Cúp Vàng 🏆]                   │
+│ • Phát biểu bài hay:        +2 ⭐        │ 🥈 TOP 2: LÊ THỊ MAI     ─── 48 ⭐ [Cúp Bạc 🥈]                   │
+│ • Giúp đỡ bạn cùng máy:     +1 ⭐        │ 🥉 TOP 3: VŨ ĐỨC HẢI     ─── 45 ⭐ [Cúp Đồng 🥉]                  │
+│ • Thực hành xuất sắc:       +2 ⭐        │ 4. Nguyễn Lan Chi        ─── 40 ⭐                                │
+│ • Giữ gìn bàn máy sạch:     +1 ⭐        │ 5. Đỗ Gia Huy            ─── 38 ⭐                                │
+│                                         │                                                                   │
+│ [🔴 NHẮC NHỞ - TRỪ SAO]                 │ NHẬT KÝ GIAO DỊCH SAO GẦN ĐÂY (STAR LEDGER)                       │
+│ • Đi lại lộn xộn trong phòng:  -1 ⭐     │ • 08:35: An được +2⭐ (Phát biểu hay)                             │
+│ • Vào mạng chơi game:          -2 ⭐     │ • 08:40: Bình được +1⭐ (Giúp bạn máy 01)                         │
+│ • Không tắt máy khi về:        -1 ⭐     │ • 08:42: Huy bị -1⭐ (Đi lại tự do)                               │
+└─────────────────────────────────────────┴───────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.2. Hệ thống Huy hiệu (Badges)
-- `.badge-excellent`: Nền xanh lá nhạt `#dcfce7`, chữ xanh đậm `#15803d` (Hoàn thành Tốt).
-- `.badge-good`: Nền xanh dương nhạt `#e0f2fe`, chữ xanh đậm `#0369a1` (Hoàn thành).
-- `.badge-average`: Nền vàng nhạt `#fef3c7`, chữ nâu hổ phách `#b45309` (Cần cố gắng).
-- `.badge-weak`: Nền đỏ nhạt `#fee2e2`, chữ đỏ sẫm `#b91c1c` (Chưa hoàn thành).
-
-### 6.3. Bảng Dữ Liệu Tương Tác (Data Tables)
-- Tiêu đề cột `th` có nền xám sáng, chữ in hoa đệm, cố định (`position: sticky; top: 0`) khi cuộn trang dài.
-- Hàng dữ liệu `tr:hover` đổi màu nền mượt mà giúp giáo viên không bị nhìn lệch dòng giữa các học sinh.
-- Ô nhập điểm `score-input` bo góc nhỏ, căn giữa, khi chọn sẽ sáng đèn viền xanh nổi bật.
+- **Sổ cái sao (Star Ledger)**: Giao diện bảng hiển thị dòng thời gian giao dịch có dấu (+/-), ID học sinh, số dư mới, lý do, người phê duyệt.
+- **Cửa Hàng Đổi Quà (`RewardShop`)**:
+  - Modal danh mục quà tặng: Đổi 10 sao lấy `5 phút chơi game Tin học`, Đổi 15 sao lấy `Làm Trưởng nhóm thực hành`, Đổi 20 sao lấy `Sticker Tin học đặc biệt`.
+  - Nút bấm `Đổi quà` tự động kiểm tra số dư sao của học sinh và trừ điểm an toàn.
 
 ---
 
-## 7. TỔNG KẾT
+## 6.8. TRÒ CHƠI ĐUA VỊT (DuckRace)
 
-Hệ thống thiết kế giao diện của **EduMaster** là sự kết hợp chặt chẽ giữa **mỹ thuật số hiện đại** và **thực tế phòng máy trường học Việt Nam**. Với thiết kế lấy người học làm trung tâm, tối ưu triệt để cho tiết dạy 35 phút trên máy chiếu và hệ thống Gamification đầy hứng khởi, EduMaster mang lại trải nghiệm giảng dạy Tin học chuẩn mực, chuyên nghiệp và tràn ngập niềm vui học tập.
+- **Đồ họa**: Vẽ trên `<canvas>` HTML5 với chiều cao sông `440px`. Bờ trên xanh cỏ, dòng nước sông xanh lam có gợn sóng lượn sóng mềm mại.
+- **Vịnh xuất phát**: Các chú vịt xếp so le 2 hoặc 3 cột, hiển thị tên học sinh phía trên lưng vịt.
+- **Vật lý bơi**: Vịt bơi từ trái sang phải với vận tốc ngẫu nhiên và các cú tăng tốc đột ngột (*Boost*).
+- **Vạch đích**: Cờ caro đen trắng và dải ruy băng đỏ.
+- **Bục vinh danh (Podium Modal)**: Vịt về đích kích hoạt pháo hoa `canvas-confetti`, hiện bục 3 cấp (Hạng Nhất, Nhì, Ba) kèm nút cộng điểm thi đua tức thì.
+
+---
+
+## 6.9. VÒNG QUAY MAY MẮN (LuckyWheel)
+
+- **Bánh xe quay**: Đường tròn Canvas nhiều múi màu xen kẽ rực rỡ, mỗi múi in tên một học sinh hoặc tên một tổ.
+- **Kim chỉ**: Mũi tên tam giác màu vàng viền đỏ nằm ở góc 12 giờ hoặc 3 giờ.
+- **Nút quay lớn ở tâm**: Nút tròn `QUAY NGAY` nằm chính giữa trục quay.
+- **Âm thanh**: Tiếng lách cách cơ học khi kim chạm từng nan quạt, tiếng nhạc chiến thắng khi bánh xe dừng lại.
+- **Modal Chúc Mừng**: Nổi lên với tên học sinh được chọn in cỡ chữ `36px` kèm hiệu ứng ngôi sao lấp lánh.
+
+---
+
+## 6.10. ĐỒNG HỒ ĐẾM GIỜ LỚP HỌC (ClassroomTimer)
+
+- **Mặt đồng hồ tròn lớn**:
+  - Đồng hồ số kỹ thuật số: `font-size: 4rem; font-weight: 800; font-family: Outfit`.
+  - Vòng tiến trình SVG: Vòng tròn mỏng bao quanh mặt số, rút ngắn dần theo phần trăm thời gian còn lại.
+- **Các mốc thời gian đặt sẵn**:
+  `[ 1 Phút ]  [ 2 Phút ]  [ 3 Phút ]  [ 5 Phút ]  [ 10 Phút ]  [ 15 Phút ]`
+- **Bộ phím điều khiển**:
+  - Nút `Bắt đầu` / `Tạm dừng` (Nút to tròn màu xanh lá hoặc hổ phách).
+  - Nút `Đặt lại` (Icon `RotateCcw`).
+  - Nút `Rung chuông thử` (Icon `Bell`).
+- Khi hết giờ (00:00): Mặt đồng hồ nhấp nháy đỏ rực và phát chuông trường học bính boong.
+
+---
+
+# 7. ĐẶC TẢ TOÀN BỘ CÁC CỬA SỔ HỘP THOẠI (MODALS & DRAWERS)
+
+Mọi cửa sổ Modal trong EduMaster đều tuân thủ cấu trúc HTML chuẩn:
+
+```html
+<div class="modal-overlay">
+  <div class="modal-content" style="max-width: ...px">
+    <div class="modal-header">
+      <h3>Tiêu đề Modal</h3>
+      <button class="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- Nội dung tương tác -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary">Đóng / Hủy</button>
+      <button class="btn btn-primary">Xác nhận / Lưu</button>
+    </div>
+  </div>
+</div>
+```
+
+- **`.modal-overlay`**: `position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); z-index: 10000; animation: fadeIn 0.2s ease`.
+- **`.modal-content`**: `background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)`.
+
+### Danh Sách 15 Modals Toàn Dự Án:
+1. **`AcademicYearSettingsModal`** (`max-width: 480px`): Cài đặt ngày tựu trường (ngày 5 tháng 9).
+2. **`NewSchoolYearDetectedModal`** (`max-width: 520px`): Thông báo phát hiện bước sang năm học mới.
+3. **`SchoolYearTransitionModal`** (`max-width: 680px`): Xem trước danh sách học sinh lên lớp (Khối 1 lên 2, Khối 5 Tốt nghiệp), nút xác nhận chuyển giao năm học.
+4. **`ImportExcelModal`** (`max-width: 840px`): Vùng thả file Excel kéo thả, bảng chọn ánh xạ cột (Họ tên, Ngày sinh, Giới tính, Lớp, Số máy), bảng xem trước dữ liệu với thông báo lỗi dòng.
+5. **`AiAssistantModal`** (`max-width: 600px`): Khung chat với AI sư phạm Gemini, danh sách câu hỏi mẫu gợi ý, câu trả lời định dạng Markdown.
+6. **`AiClassAnalysisModal`** (`max-width: 720px`): Biểu đồ phân tích năng lực học sinh, nhóm cần bồi dưỡng, đề xuất phương pháp dạy.
+7. **`AiLessonAnalysisModal`** (`max-width: 700px`): Phân tích bài giảng hiện tại theo chuẩn GDPT 2018.
+8. **`AiLessonFlowModal`** (`max-width: 680px`): Lập tiến trình 4 hoạt động 35 phút kèm nút *[Áp dụng vào tiết dạy]*.
+9. **`AiQuestionGeneratorModal`** (`max-width: 760px`): Sinh trắc nghiệm tự động từ văn bản giáo án, nút *[Lưu vào ngân hàng]* .
+10. **`CreateSessionModal`** (`max-width: 600px`): Chọn lớp dạy, chọn bài học, gắn khung giờ TKB, nhập sĩ số ban đầu.
+11. **`TimetableModal`** (`max-width: 900px`): Lưới thời khóa biểu 5 ngày trong tuần (Thứ 2 - Thứ 6), sáng 4 tiết, chiều 3 tiết.
+12. **`QuickToolModal`** (`max-width: 500px`): Lối tắt mở Vòng quay, Đua vịt, Quick Quiz, Sơ đồ lớp ngay trong tiết học.
+13. **`SessionSummaryModal`** (`max-width: 640px`): Bảng tổng kết tiết dạy (số học sinh phát biểu, số sao đã thưởng, học sinh xuất sắc nhất).
+14. **`ImportPptxModal` & `DuplicateComparisonModal`** (`max-width: 880px`): Tải file PowerPoint lên, so sánh 2 bài giảng bị trùng lặp bằng hình ảnh slide đối chiếu hai bên.
+15. **`StarExchangeModal`** (`max-width: 520px`): Chọn phần quà trong Reward Shop, chọn học sinh và bấm xác nhận đổi sao.
+
+---
+
+# 8. HỆ THỐNG PHẢN HỒI ÂM THANH & HIỆU ỨNG TRỰC QUAN
+
+Hệ thống âm thanh được gói trọn trong `src/utils/audio.js`, sử dụng Web Audio API tổng hợp sóng âm thanh (Synthesizer) hoặc phát file WAV/MP3 offline, không bao giờ bị lỗi gián đoạn mạng:
+
+- **`playStarDing()`**: Tiếng "ting-ting" thanh thoát ở tần số cao khi cộng 1 sao thưởng cho học sinh.
+- **`playVictory()`**: Chuỗi hợp âm vinh quang ngân vang khi vịt về đích hoặc học sinh đạt giải Top 1.
+- **`playBuzzer()`**: Âm trầm ngắn khi có thao tác nhắc nhở hoặc trừ sao.
+- **`playSchoolBell()`**: Chuông reo trường học âm vang hai hồi khi tiết học kết thúc (00:00).
+- **Nút bật/tắt toàn cục**: Khi nút âm thanh trên Navbar bị tắt (`soundEnabled === false`), toàn bộ các hàm trên tự động trả về `null` ngay lập tức, không gây ồn trong lớp.
+
+---
+
+# 9. CHẾ ĐỘ MÁY CHIẾU ĐẶC BIỆT (PROJECTOR MODE)
+
+Chế độ Máy Chiếu là một đặc sản thiết kế của EduMaster nhằm giải quyết vấn đề thực tế: **máy chiếu trường học thường bị mờ, lóa sáng bởi ánh nắng cửa sổ**.
+
+### Cơ chế hoạt động kỹ thuật:
+1. Nhấn nút `Projector Mode` trên Navbar ➔ Gọi hàm `onToggleProjector()`.
+2. Ứng dụng đặt thuộc tính `data-projector="true"` lên thẻ gốc `<html>` hoặc `<body>`.
+3. Toàn bộ các quy tắc CSS ghi đè có hiệu lực tức thì:
+   - Cỡ chữ toàn trang nhảy từ `14px - 15px` lên **`18px`**.
+   - Mọi màu chữ xám mờ (`--text-muted`, `--text-dim`) bị triệt tiêu, thay bằng **đen tuyền `#000000`** hoặc **xanh đậm `#1e293b`**.
+   - Mọi đường viền mờ 1px đổi thành **viền đậm 2px `#94a3b8`**.
+   - Các nút bấm loại bỏ hiệu ứng bóng mờ nhẹ, chuyển thành khối màu đặc rõ nét.
+   - Các ô trên sơ đồ phòng máy và bảng điểm tăng độ giãn cách để tránh nhìn nhầm dòng.
+
+---
+
+# 10. QUY CHUẨN VIẾT CODE GIAO DIỆN (COMPONENT CATALOG & CSS CHECKLIST)
+
+Khi tạo mới hoặc sửa bất kỳ component nào trong dự án, bắt buộc phải tuân theo danh mục lớp CSS sau:
+
+### 10.1. Danh mục Lớp Nút Bấm (`.btn`)
+```html
+<button class="btn btn-primary">Nút Hành Động Chính (Indigo Gradient)</button>
+<button class="btn btn-success">Nút Thành Công / Bắt Đầu (Emerald Gradient)</button>
+<button class="btn btn-amber">Nút Thưởng Sao / Điểm Tốt (Amber Gradient)</button>
+<button class="btn btn-purple">Nút Bài Học & Slide (Purple Gradient)</button>
+<button class="btn btn-secondary">Nút Đóng / Phụ (Xám Surface Secondary)</button>
+<button class="btn btn-outline">Nút Viền Mỏng (Trong Suốt)</button>
+<button class="btn btn-danger">Nút Báo Hỏng / Xóa (Hồng Đỏ Danger)</button>
+
+<!-- Biến thể kích thước -->
+<button class="btn btn-sm">Nút Nhỏ (padding 0.375rem 0.75rem)</button>
+<button class="btn btn-lg">Nút Lớn (padding 0.875rem 1.75rem)</button>
+<button class="btn btn-icon"><LucideIcon size={18} /></button>
+```
+
+### 10.2. Danh mục Huy Hiệu Xếp Loại (`.badge`)
+```html
+<span class="badge badge-excellent">Hoàn Thành Tốt (Xanh Lá #dcfce7)</span>
+<span class="badge badge-good">Hoàn Thành (Xanh Lam #e0f2fe)</span>
+<span class="badge badge-average">Cần Cố Gắng (Vàng Cam #fef3c7)</span>
+<span class="badge badge-weak">Chưa Đạt (Đỏ Nhạt #fee2e2)</span>
+```
+
+### 10.3. Ô Nhập Điểm Thông Tư 27 (`.score-input`)
+```html
+<input 
+  type="number" 
+  class="score-input" 
+  min="0" 
+  max="10" 
+  step="0.5" 
+  value={score} 
+/>
+```
+
+---
+
+# 11. KẾT LUẬN
+
+Tài liệu thiết kế giao diện này phản ánh **nguyên vẹn 100%** kiến trúc, quy chuẩn và trải nghiệm người dùng thực tế của phần mềm **EduMaster Desktop**. Bất kỳ hệ thống AI nào khi được cung cấp tệp `DESIGN.md` này đều có thể tự động sinh ra mã nguồn giao diện React + CSS hoàn chỉnh, khớp chính xác từng chi tiết và chức năng như phiên bản đang vận hành.
