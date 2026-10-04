@@ -62,7 +62,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, 200, { success: true, ...previewData });
     } catch (err) {
       console.error('Lỗi render PPTX preview:', err);
-      sendJson(res, 500, { error: err.message || 'Không thể xử lý file PowerPoint.' });
+      sendJson(res, err.statusCode || 500, { error: err.message || 'Không thể xử lý file PowerPoint.' });
     }
     return true;
   }
@@ -113,7 +113,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, 201, { success: true, lesson: created });
     } catch (err) {
       console.error('Lỗi xác nhận import PPTX:', err);
-      sendJson(res, 500, { error: err.message || 'Không thể lưu bài học PowerPoint vào thư viện.' });
+      sendJson(res, err.statusCode || 500, { error: err.message || 'Không thể lưu bài học PowerPoint vào thư viện.' });
     }
     return true;
   }
@@ -127,7 +127,7 @@ export async function tryHandlePptx(req, res, ctx) {
       }
       sendJson(res, 200, { success: true });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -183,7 +183,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, 200, { success: true, count: results.length, results });
     } catch (err) {
       console.error('Lỗi kiểm tra trùng lặp:', err);
-      sendJson(res, 500, { error: err.message || 'Lỗi kiểm tra bài giảng trùng lặp.' });
+      sendJson(res, err.statusCode || 500, { error: err.message || 'Lỗi kiểm tra bài giảng trùng lặp.' });
     }
     return true;
   }
@@ -197,7 +197,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, 200, { success: true, ...report });
     } catch (err) {
       console.error('Lỗi quét trùng lặp thư viện:', err);
-      sendJson(res, 500, { error: err.message || 'Lỗi quét trùng lặp thư viện.' });
+      sendJson(res, err.statusCode || 500, { error: err.message || 'Lỗi quét trùng lặp thư viện.' });
     }
     return true;
   }
@@ -218,7 +218,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, 200, { success: true, message: 'Đã xác nhận giữ lại bài giảng' });
     } catch (err) {
       console.error('Lỗi resolve duplicate:', err);
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -291,7 +291,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, 201, result);
     } catch (err) {
       console.error('Lỗi fastImportPptx:', err);
-      sendJson(res, 500, { error: err.message || 'Không thể import nhanh file PowerPoint.' });
+      sendJson(res, err.statusCode || 500, { error: err.message || 'Không thể import nhanh file PowerPoint.' });
     }
     return true;
   }
@@ -342,7 +342,7 @@ export async function tryHandlePptx(req, res, ctx) {
         }))
       });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -364,7 +364,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, result.success ? 200 : 422, result);
     } catch (err) {
       console.error(`Lỗi khi retry slide ${slideNumber} của bài ${lessonId}:`, err);
-      sendJson(res, 500, { error: err.message || 'Lỗi xử lý kết xuất lại slide' });
+      sendJson(res, err.statusCode || 500, { error: err.message || 'Lỗi xử lý kết xuất lại slide' });
     }
     return true;
   }
@@ -378,7 +378,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, 200, result);
     } catch (err) {
       console.error(`Lỗi khi tạo thumbnail cho bài ${lessonId}:`, err);
-      sendJson(res, 500, { error: err.message || 'Không thể tạo ảnh xem trước' });
+      sendJson(res, err.statusCode || 500, { error: err.message || 'Không thể tạo ảnh xem trước' });
     }
     return true;
   }
@@ -396,7 +396,7 @@ export async function tryHandlePptx(req, res, ctx) {
       sendJson(res, result.success ? 200 : 422, result);
     } catch (err) {
       console.error('Lỗi khi retry slide:', err);
-      sendJson(res, 500, { error: err.message || 'Lỗi xử lý kết xuất lại slide' });
+      sendJson(res, err.statusCode || 500, { error: err.message || 'Lỗi xử lý kết xuất lại slide' });
     }
     return true;
   }

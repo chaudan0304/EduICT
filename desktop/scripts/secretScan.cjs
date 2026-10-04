@@ -63,6 +63,8 @@ function scanDirectory(root, { literals = [], skipDirNames = new Set() } = {}) {
         walk(full);
       } else if (e.isFile()) {
         if (FORBIDDEN_FILE.test(rel)) findings.push({ file: rel, kind: 'forbidden-file' });
+        const isBinary = /\.(exe|dll|pak|dat|bin|node)$/i.test(full);
+        if (isBinary) continue;
         const size = fs.statSync(full).size;
         if (size > MAX_FILE_BYTES) continue;
         filesScanned += 1;

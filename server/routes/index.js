@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { applyCorsHeaders } from '../services/corsConfig.js';
+import { applyCorsHeaders, isOriginAllowed } from '../services/corsConfig.js';
 import { getAllClassesWithStudents, getDatabasePath } from '../db.js';
 import { handleAiApiRequest } from '../ai/aiHandler.js';
 import { sendJson, parseJsonBody } from './helpers.js';
@@ -20,7 +20,11 @@ export async function handleApiRequest(req, res) {
   const pathname = url.pathname;
   const method = req.method.toUpperCase();
 
-  // CORS headers (Part 12: config-driven, mặc định '*' giữ nguyên hành vi WEB)
+  // Same-origin mặc định; từ chối browser request từ origin lạ để chặn cả CSRF lẫn đọc dữ liệu.
+  if (!isOriginAllowed(req.headers.origin, req.headers.host)) {
+    sendJson(res, 403, { error: 'Origin không được phép truy cập API.' });
+    return true;
+  }
   applyCorsHeaders(res, req.headers.origin);
 
   if (method === 'OPTIONS') {

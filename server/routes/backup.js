@@ -21,7 +21,7 @@ export async function tryHandleBackup(req, res, ctx) {
     try {
       sendJson(res, 200, { success: true, data: listBackups() });
     } catch (err) {
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }
@@ -31,7 +31,7 @@ export async function tryHandleBackup(req, res, ctx) {
       const result = await createBackup();
       sendJson(res, 200, result);
     } catch (err) {
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }
@@ -55,7 +55,7 @@ export async function tryHandleBackup(req, res, ctx) {
       const result = await restoreBackup(backupId);
       sendJson(res, 200, result);
     } catch (err) {
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }
@@ -67,7 +67,7 @@ export async function tryHandleBackup(req, res, ctx) {
       const result = deleteBackup(backupId);
       sendJson(res, 200, result);
     } catch (err) {
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }
@@ -81,7 +81,7 @@ export async function tryHandleBackup(req, res, ctx) {
       res.setHeader('Content-Disposition', `attachment; filename="edumaster_dump_${new Date().toISOString().slice(0, 10)}.sql"`);
       res.end(sqlDump);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -100,7 +100,7 @@ export async function tryHandleBackup(req, res, ctx) {
       res.setHeader('Content-Disposition', `attachment; filename="${path.basename(dbPath)}"`);
       fs.createReadStream(dbPath).pipe(res);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -116,7 +116,7 @@ export async function tryHandleBackup(req, res, ctx) {
       executeSqlDump(sql);
       sendJson(res, 200, { success: true, message: 'Đã thực thi thành công kịch bản SQL' });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }

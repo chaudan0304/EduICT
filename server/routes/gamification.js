@@ -31,7 +31,7 @@ export async function tryHandleGamification(req, res, ctx) {
       return sendJson(res, 200, result);
     } catch (e) {
       console.error('Lỗi khi tặng sao:', e);
-      return sendJson(res, 400, { error: e.message || 'Lỗi server.' });
+      return sendJson(res, e.statusCode || 400, { error: e.message || 'Lỗi server.' });
     }
   }
 
@@ -54,7 +54,7 @@ export async function tryHandleGamification(req, res, ctx) {
       return sendJson(res, 200, result);
     } catch (e) {
       console.error('Lỗi khi điều chỉnh sao:', e);
-      return sendJson(res, 400, { error: e.message || 'Lỗi server.' });
+      return sendJson(res, e.statusCode || 400, { error: e.message || 'Lỗi server.' });
     }
   }
 
@@ -68,7 +68,7 @@ export async function tryHandleGamification(req, res, ctx) {
       return sendJson(res, 200, history);
     } catch (e) {
       console.error('Lỗi lấy lịch sử sao:', e);
-      return sendJson(res, 500, { error: 'Lỗi server.' });
+      return sendJson(res, e.statusCode || 500, { error: 'Lỗi server.' });
     }
   }
 
@@ -79,7 +79,7 @@ export async function tryHandleGamification(req, res, ctx) {
       return sendJson(res, 200, rewards);
     } catch (e) {
       console.error('Lỗi lấy phần thưởng:', e);
-      return sendJson(res, 500, { error: 'Lỗi server.' });
+      return sendJson(res, e.statusCode || 500, { error: 'Lỗi server.' });
     }
   }
 
@@ -97,7 +97,7 @@ export async function tryHandleGamification(req, res, ctx) {
       return sendJson(res, 200, result);
     } catch (e) {
       console.error('Lỗi đổi quà:', e);
-      return sendJson(res, 400, { error: e.message || 'Lỗi server.' });
+      return sendJson(res, e.statusCode || 400, { error: e.message || 'Lỗi server.' });
     }
   }
 
@@ -111,7 +111,7 @@ export async function tryHandleGamification(req, res, ctx) {
       return sendJson(res, 200, history);
     } catch (e) {
       console.error('Lỗi lấy lịch sử đổi quà:', e);
-      return sendJson(res, 500, { error: 'Lỗi server.' });
+      return sendJson(res, e.statusCode || 500, { error: 'Lỗi server.' });
     }
   }
 

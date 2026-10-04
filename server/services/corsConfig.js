@@ -1,14 +1,13 @@
 /**
  * corsConfig — cấu hình CORS theo môi trường (Giai đoạn 1 - Part 12)
  *
- * Mục tiêu: chuyển CORS từ hardcode 'Access-Control-Allow-Origin: *'
- * sang đọc từ cấu hình, NHƯNG giữ nguyên hành vi mặc định (WEB mode).
+ * Mặc định không cấp CORS cho origin khác: giao diện web/dev/desktop gọi API
+ * cùng origin nên không cần wildcard. Có thể cấu hình allowlist khi cần.
  *
  * Biến môi trường EDUICT_CORS_ORIGIN:
- *   - Không đặt / rỗng / '*'  -> trả '*' (hành vi hiện tại, mặc định)
+ *   - Không đặt / rỗng         -> không bật CORS cho origin khác
  *   - Một origin cụ thể       -> chỉ cho origin đó
- *   - Danh sách phân tách ','  -> echo lại Origin của request nếu nằm trong allowlist,
- *                                  ngược lại trả về origin đầu tiên (thắt chặt)
+ *   - Danh sách phân tách ','  -> chỉ echo lại Origin nếu nằm trong allowlist
  *
  * Module lá: chỉ đọc process.env, không import module khác (tránh vòng lặp phụ thuộc).
  */
@@ -18,7 +17,7 @@ const ALLOWED_HEADERS = 'Content-Type';
 
 function getConfiguredOrigins() {
   const raw = (process.env.EDUICT_CORS_ORIGIN || '').trim();
-  if (!raw || raw === '*') return null; // null => wildcard (mặc định)
+  if (!raw || raw === '*') return [];
   return raw
     .split(',')
     .map((o) => o.trim())
@@ -32,9 +31,18 @@ function getConfiguredOrigins() {
  */
 export function resolveCorsOrigin(requestOrigin) {
   const origins = getConfiguredOrigins();
-  if (!origins) return '*';
   if (requestOrigin && origins.includes(requestOrigin)) return requestOrigin;
-  return origins[0];
+  return null;
+}
+
+export function isOriginAllowed(requestOrigin, requestHost) {
+  if (!requestOrigin) return true;
+  if (resolveCorsOrigin(requestOrigin)) return true;
+  try {
+    return new URL(requestOrigin).origin === `http://${requestHost}`;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -45,12 +53,10 @@ export function resolveCorsOrigin(requestOrigin) {
  */
 export function applyCorsHeaders(res, requestOrigin) {
   const allowOrigin = resolveCorsOrigin(requestOrigin);
-  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
+  if (allowOrigin) res.setHeader('Access-Control-Allow-Origin', allowOrigin);
   res.setHeader('Access-Control-Allow-Methods', ALLOWED_METHODS);
   res.setHeader('Access-Control-Allow-Headers', ALLOWED_HEADERS);
-  if (allowOrigin !== '*') {
-    res.setHeader('Vary', 'Origin');
-  }
+  res.setHeader('Vary', 'Origin');
 }
 
-export default { resolveCorsOrigin, applyCorsHeaders };
+export default { resolveCorsOrigin, isOriginAllowed, applyCorsHeaders };

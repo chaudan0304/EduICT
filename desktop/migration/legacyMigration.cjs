@@ -129,7 +129,7 @@ function inspectDatabase(dbPath, { checkpoint = false } = {}) {
     return { ok: integrity === 'ok', integrity: String(integrity), tables, counts, schoolYear };
   } finally {
     try {
-      db && db.close();
+      if (db) db.close();
     } catch {
       /* đã đóng */
     }

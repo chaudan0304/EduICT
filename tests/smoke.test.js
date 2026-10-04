@@ -33,15 +33,15 @@ process.env.EDUICT_DB_PATH = TMP_DB;
 // --- Part 12: corsConfig ---
 const { resolveCorsOrigin } = await import('../server/services/corsConfig.js');
 
-test('corsConfig: mặc định trả wildcard (giữ nguyên hành vi WEB)', () => {
+test('corsConfig: mặc định không cấp quyền CORS cho origin khác', () => {
   delete process.env.EDUICT_CORS_ORIGIN;
-  assert.equal(resolveCorsOrigin('http://any.example'), '*');
+  assert.equal(resolveCorsOrigin('http://any.example'), null);
 });
 
 test('corsConfig: allowlist echo lại origin hợp lệ, chặn origin lạ', () => {
   process.env.EDUICT_CORS_ORIGIN = 'http://a.local, http://b.local';
   assert.equal(resolveCorsOrigin('http://b.local'), 'http://b.local');
-  assert.equal(resolveCorsOrigin('http://evil.local'), 'http://a.local');
+  assert.equal(resolveCorsOrigin('http://evil.local'), null);
   delete process.env.EDUICT_CORS_ORIGIN;
 });
 

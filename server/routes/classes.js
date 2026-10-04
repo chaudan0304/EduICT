@@ -28,7 +28,7 @@ export async function tryHandleClasses(req, res, ctx) {
       const classes = getAllClassesWithStudents(schoolYear);
       sendJson(res, 200, classes);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -41,7 +41,7 @@ export async function tryHandleClasses(req, res, ctx) {
       const stats = getStudentStatistics(schoolYear);
       sendJson(res, 200, stats);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -53,7 +53,7 @@ export async function tryHandleClasses(req, res, ctx) {
       saveOrUpdateClass(body);
       sendJson(res, 201, { success: true });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -65,7 +65,7 @@ export async function tryHandleClasses(req, res, ctx) {
       const result = batchImportClassesAndStudents(body);
       sendJson(res, 200, result);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -77,7 +77,7 @@ export async function tryHandleClasses(req, res, ctx) {
       deleteClassById(classId);
       sendJson(res, 200, { success: true });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -92,7 +92,7 @@ export async function tryHandleClasses(req, res, ctx) {
       saveStudentsForClass(classId, studentsList);
       sendJson(res, 200, { success: true });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -103,7 +103,7 @@ export async function tryHandleClasses(req, res, ctx) {
       const result = sortAllStudentsInDatabase();
       sendJson(res, 200, { success: true, ...result });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -115,7 +115,7 @@ export async function tryHandleClasses(req, res, ctx) {
         const machines = getDbBrokenMachines();
         sendJson(res, 200, machines);
       } catch (err) {
-        sendJson(res, 500, { error: err.message });
+        sendJson(res, err.statusCode || 500, { error: err.message });
       }
       return true;
     }
@@ -126,7 +126,7 @@ export async function tryHandleClasses(req, res, ctx) {
         saveDbBrokenMachines(machines);
         sendJson(res, 200, { success: true });
       } catch (err) {
-        sendJson(res, 500, { error: err.message });
+        sendJson(res, err.statusCode || 500, { error: err.message });
       }
       return true;
     }
@@ -139,7 +139,7 @@ export async function tryHandleClasses(req, res, ctx) {
         const rules = getDbRules();
         sendJson(res, 200, rules);
       } catch (err) {
-        sendJson(res, 500, { error: err.message });
+        sendJson(res, err.statusCode || 500, { error: err.message });
       }
       return true;
     }
@@ -150,7 +150,7 @@ export async function tryHandleClasses(req, res, ctx) {
         saveDbRules(rules);
         sendJson(res, 200, { success: true });
       } catch (err) {
-        sendJson(res, 500, { error: err.message });
+        sendJson(res, err.statusCode || 500, { error: err.message });
       }
       return true;
     }
@@ -163,7 +163,7 @@ export async function tryHandleClasses(req, res, ctx) {
         const profile = getDbTeacherProfile();
         sendJson(res, 200, profile);
       } catch (err) {
-        sendJson(res, 500, { error: err.message });
+        sendJson(res, err.statusCode || 500, { error: err.message });
       }
       return true;
     }
@@ -187,7 +187,7 @@ export async function tryHandleClasses(req, res, ctx) {
         const timetable = getDbTimetable();
         sendJson(res, 200, { timetable });
       } catch (err) {
-        sendJson(res, 500, { error: err.message });
+        sendJson(res, err.statusCode || 500, { error: err.message });
       }
       return true;
     }
@@ -202,7 +202,7 @@ export async function tryHandleClasses(req, res, ctx) {
         if (err.code === 'TIMETABLE_CONFLICT') {
           sendJson(res, 409, { success: false, error: err.message, conflicts: err.conflicts || [] });
         } else {
-          sendJson(res, 500, { error: err.message });
+          sendJson(res, err.statusCode || 500, { error: err.message });
         }
       }
       return true;

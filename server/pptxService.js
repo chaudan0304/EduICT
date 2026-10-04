@@ -478,6 +478,10 @@ export async function renderSingleSlideFallback({ pptxPath, pdfPath, slideNumber
 
         child.stdout.on('data', chunk => stdoutData += chunk.toString('utf-8'));
         child.stderr.on('data', chunk => stderrData += chunk.toString('utf-8'));
+        child.on('error', (err) => {
+          clearTimeout(timer);
+          reject(new Error(`Không thể khởi chạy Python để render single slide: ${err.message}`));
+        });
         child.on('close', () => {
           clearTimeout(timer);
           try {

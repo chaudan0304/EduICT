@@ -32,7 +32,7 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
       const status = getAiStatus();
       sendJson(res, 200, status);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -50,7 +50,7 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
       sendJson(res, result.success ? 200 : 400, result);
     } catch (err) {
       console.error('[AI Route] Lỗi analyze-lesson:', err);
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }
@@ -74,7 +74,7 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
       sendJson(res, result.success ? 200 : 400, result);
     } catch (err) {
       console.error('[AI Route] Lỗi generate-questions:', err);
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }
@@ -96,7 +96,7 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
       sendJson(res, result.success ? 200 : 400, result);
     } catch (err) {
       console.error('[AI Route] Lỗi generate-lesson-flow:', err);
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }
@@ -118,7 +118,7 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
       sendJson(res, result.success ? 200 : 400, result);
     } catch (err) {
       console.error('[AI Route] Lỗi analyze-quiz:', err);
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }
@@ -143,7 +143,7 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
       sendJson(res, result.success ? 200 : 400, result);
     } catch (err) {
       console.error('[AI Route] Lỗi analyze-class:', err);
-      sendJson(res, 500, { success: false, error: err.message });
+      sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
     return true;
   }

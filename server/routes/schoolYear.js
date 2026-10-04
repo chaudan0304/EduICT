@@ -19,7 +19,7 @@ export async function tryHandleSchoolYear(req, res, ctx) {
       const info = getAvailableSchoolYears();
       sendJson(res, 200, info);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -36,7 +36,7 @@ export async function tryHandleSchoolYear(req, res, ctx) {
       setCurrentSchoolYear(schoolYear);
       sendJson(res, 200, { success: true, currentYear: getCurrentSchoolYear() });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -66,7 +66,7 @@ export async function tryHandleSchoolYear(req, res, ctx) {
         activeCurrentYear
       });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -97,7 +97,7 @@ export async function tryHandleSchoolYear(req, res, ctx) {
       const result = checkAndInitializeSchoolYear();
       sendJson(res, 200, result);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }

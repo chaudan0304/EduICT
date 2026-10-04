@@ -39,8 +39,15 @@ function Get-ErrorCode($Err, [string]$Default) {
 }
 
 function Get-RunningApp {
-    try { return [System.Runtime.InteropServices.Marshal]::GetActiveObject('PowerPoint.Application') }
-    catch { return $null }
+    for ($i = 0; $i -lt 3; $i++) {
+        try {
+            $app = [System.Runtime.InteropServices.Marshal]::GetActiveObject('PowerPoint.Application')
+            if ($null -ne $app) { return $app }
+        } catch {
+            Start-Sleep -Milliseconds 250
+        }
+    }
+    return $null
 }
 
 function Get-CurrentSlide($App) {

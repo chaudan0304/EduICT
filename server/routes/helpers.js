@@ -13,20 +13,40 @@ export function parseRequestBodyBuffer(req) {
   });
 }
 
+const MAX_JSON_BODY_BYTES = 10 * 1024 * 1024;
+
 export function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
-    let body = '';
+    const chunks = [];
+    let bodyBytes = 0;
+    let settled = false;
+
     req.on('data', chunk => {
-      body += chunk;
+      if (settled) return;
+      bodyBytes += chunk.length;
+      if (bodyBytes > MAX_JSON_BODY_BYTES) {
+        settled = true;
+        const error = new Error('Nội dung yêu cầu vượt quá giới hạn 10 MB.');
+        error.statusCode = 413;
+        reject(error);
+        // Drain remaining bytes so the server can return the error response cleanly.
+        req.resume();
+        return;
+      }
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     });
     req.on('end', () => {
+      if (settled) return;
       try {
+        const body = Buffer.concat(chunks).toString('utf8');
         resolve(body ? JSON.parse(body) : {});
       } catch (err) {
         reject(err);
       }
     });
-    req.on('error', reject);
+    req.on('error', err => {
+      if (!settled) reject(err);
+    });
   });
 }
 

@@ -21,7 +21,7 @@ export async function tryHandleSessions(req, res, ctx) {
       const sessions = getAllSessions(classId);
       sendJson(res, 200, sessions);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -33,7 +33,7 @@ export async function tryHandleSessions(req, res, ctx) {
       const created = createSession(body);
       sendJson(res, 201, created);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -49,7 +49,7 @@ export async function tryHandleSessions(req, res, ctx) {
       }
       sendJson(res, 200, session);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -62,7 +62,7 @@ export async function tryHandleSessions(req, res, ctx) {
       const updated = updateSession(sessionId, body);
       sendJson(res, 200, updated);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -74,7 +74,7 @@ export async function tryHandleSessions(req, res, ctx) {
       deleteSession(sessionId);
       sendJson(res, 200, { success: true });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -89,7 +89,7 @@ export async function tryHandleSessions(req, res, ctx) {
       const saved = saveSessionActivities(sessionId, activities);
       sendJson(res, 200, saved);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -103,7 +103,7 @@ export async function tryHandleSessions(req, res, ctx) {
       const result = addSessionEvent(sessionId, body);
       sendJson(res, 201, result);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -117,7 +117,7 @@ export async function tryHandleSessions(req, res, ctx) {
       const result = addStudentParticipation(sessionId, body);
       sendJson(res, 201, result);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }

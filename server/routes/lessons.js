@@ -26,7 +26,7 @@ export async function tryHandleLessonsCollection(req, res, ctx) {
       const lessons = getAllLessons({ grade, topic, search, similarity_status, type });
       sendJson(res, 200, lessons);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -38,7 +38,7 @@ export async function tryHandleLessonsCollection(req, res, ctx) {
       const created = createLesson(body);
       sendJson(res, 201, created);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -62,7 +62,7 @@ export async function tryHandleLessonsCrud(req, res, ctx) {
       }
       sendJson(res, 200, lesson);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -75,7 +75,7 @@ export async function tryHandleLessonsCrud(req, res, ctx) {
       const updated = updateLesson(lessonId, body);
       sendJson(res, 200, updated);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -88,7 +88,7 @@ export async function tryHandleLessonsCrud(req, res, ctx) {
       deleteLessonPresentationsDir(lessonId);
       sendJson(res, 200, { success: true, id: lessonId });
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -101,7 +101,7 @@ export async function tryHandleLessonsCrud(req, res, ctx) {
       const duplicated = duplicateLesson(lessonId);
       sendJson(res, 201, duplicated);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
@@ -116,7 +116,7 @@ export async function tryHandleLessonsCrud(req, res, ctx) {
       const saved = saveLessonSlides(lessonId, slides);
       sendJson(res, 200, saved);
     } catch (err) {
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, err.statusCode || 500, { error: err.message });
     }
     return true;
   }
