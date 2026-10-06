@@ -7,7 +7,8 @@ export default function TeacherNotesDrawer({
   slide,
   lesson,
   currentSlideIndex,
-  totalSlides
+  totalSlides,
+  onlineMode = false
 }) {
   if (!isOpen) return null;
 
@@ -54,7 +55,7 @@ export default function TeacherNotesDrawer({
               Ghi Chú Sư Phạm
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Slide {currentSlideIndex + 1} / {totalSlides}
+              {onlineMode ? 'Ghi chú chung cho bài Online' : `Slide ${currentSlideIndex + 1} / ${totalSlides}`}
             </div>
           </div>
         </div>
@@ -82,7 +83,7 @@ export default function TeacherNotesDrawer({
         fontWeight: 600
       }}>
         <EyeOff size={16} />
-        <span>Khung này chỉ giáo viên thấy trên máy tính điều khiển</span>
+        <span>{onlineMode ? 'Ghi chú sẽ hiển thị trên màn hình đang mở EduICT.' : 'Khung này chỉ giáo viên thấy trên máy tính điều khiển'}</span>
       </div>
 
       {/* Nội dung ghi chú */}
@@ -102,7 +103,7 @@ export default function TeacherNotesDrawer({
           padding: '1rem'
         }}>
           <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#0284c7', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
-            💡 Hướng Dẫn Giảng Dạy Slide Này
+            {onlineMode ? '💡 Ghi chú dạy học của bài' : '💡 Hướng Dẫn Giảng Dạy Slide Này'}
           </div>
           <div style={{
             fontSize: '0.925rem',

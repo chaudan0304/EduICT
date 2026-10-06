@@ -419,7 +419,7 @@ export async function fetchLessonsApi(filters = {}) {
   let cached = getLocalLessonsCache();
   if (filters.type && filters.type !== 'all') {
     cached = cached.filter(l => ['imported', 'powerpoint'].includes(filters.type)
-      ? ['imported', 'linked_powerpoint'].includes(l.type)
+      ? ['imported', 'linked_powerpoint', 'powerpoint_online'].includes(l.type)
       : filters.type === 'native' ? !l.type || l.type === 'native' : l.type === filters.type);
   }
   if (filters.grade && filters.grade !== 'all') {

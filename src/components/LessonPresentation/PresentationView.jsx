@@ -24,6 +24,9 @@ import SlideRenderer from './SlideRenderer';
 import TeacherNotesDrawer from './TeacherNotesDrawer';
 import OpenPowerPointButton from './OpenPowerPointButton';
 import NativePowerPointSurface from './NativePowerPointSurface';
+import PowerPointOnlineSurface from './PowerPointOnlineSurface';
+import PowerPointOnlineControls from './PowerPointOnlineControls';
+import { hasOnlinePowerPoint } from '../../../shared/powerPointOnline.js';
 import LuckyWheel from '../LuckyWheel';
 import DuckRace from '../DuckRace';
 import { soundEffects } from '../../utils/audio';
@@ -49,7 +52,9 @@ export default function PresentationView({
   soundEnabled = true
 }) {
   const [activeLesson, setActiveLesson] = useState(initialLesson);
-  const isNativePowerPoint = activeLesson?.type === 'linked_powerpoint';
+  const isOnlinePowerPoint = hasOnlinePowerPoint(activeLesson);
+  const isNativePowerPoint = activeLesson?.type === 'linked_powerpoint' && !isOnlinePowerPoint;
+  const [onlineReloadKey, setOnlineReloadKey] = useState(0);
   const nativeSurfaceRef = useRef(null);
   const [nativeStatus, setNativeStatus] = useState({ active: false, busy: false });
   const openTool = async (setter) => {
@@ -66,7 +71,7 @@ export default function PresentationView({
   }, [isNativePowerPoint, onClose]);
   const [isLoading, setIsLoading] = useState(() => {
     if (lessonId && !initialLesson) return true;
-    if (initialLesson && initialLesson.type !== 'linked_powerpoint' && (!initialLesson.slides || (initialLesson.slides_count > 0 && initialLesson.slides.length === 0))) return true;
+    if (initialLesson && !hasOnlinePowerPoint(initialLesson) && initialLesson.type !== 'linked_powerpoint' && (!initialLesson.slides || (initialLesson.slides_count > 0 && initialLesson.slides.length === 0))) return true;
     return false;
   });
   const [loadError, setLoadError] = useState(null);
@@ -87,7 +92,7 @@ export default function PresentationView({
     let ignore = false;
     const targetId = lessonId || initialLesson?.id;
 
-    if (initialLesson?.type === 'linked_powerpoint') {
+    if (initialLesson?.type === 'linked_powerpoint' || hasOnlinePowerPoint(initialLesson)) {
       setActiveLesson(initialLesson);
       setIsLoading(false);
       return;
@@ -154,7 +159,7 @@ export default function PresentationView({
 
   // Preload thông minh (Smart Preload): Slide trước (currentIndex - 1) và Slide sau (currentIndex + 1)
   useEffect(() => {
-    if (!slides || slides.length === 0) return;
+    if (isOnlinePowerPoint || !slides || slides.length === 0) return;
     const preloadIndices = [currentIndex - 1, currentIndex + 1].filter(idx => idx >= 0 && idx < slides.length);
     preloadIndices.forEach(idx => {
       const s = slides[idx];
@@ -164,11 +169,11 @@ export default function PresentationView({
         img.src = url;
       }
     });
-  }, [currentIndex, slides, activeLesson?.id]);
+  }, [currentIndex, slides, activeLesson?.id, isOnlinePowerPoint]);
 
   // Tự động polling cập nhật nếu bài học đang ở trạng thái render slide nền
   useEffect(() => {
-    if (activeLesson?.render_status !== 'processing' || !activeLesson?.id) return;
+    if (isOnlinePowerPoint || activeLesson?.render_status !== 'processing' || !activeLesson?.id) return;
 
     const interval = setInterval(async () => {
       try {
@@ -188,7 +193,7 @@ export default function PresentationView({
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [activeLesson?.id, activeLesson?.render_status]);
+  }, [activeLesson?.id, activeLesson?.render_status, isOnlinePowerPoint]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
@@ -317,7 +322,7 @@ export default function PresentationView({
     }
   };
 
-  const currentSlide = isNativePowerPoint ? { teacher_notes: activeLesson?.teacher_notes } : slides[currentIndex] || slides[0];
+  const currentSlide = isNativePowerPoint || isOnlinePowerPoint ? { teacher_notes: activeLesson?.teacher_notes } : slides[currentIndex] || slides[0];
   const totalSlides = isNativePowerPoint ? nativeStatus.slideCount || 0 : slides.length;
   const nativeVisible = !(showStarModal || showWheelModal || showDuckRaceModal || showQuizModal || activeQuizSession || isQuizResultOpen || isTimetableOpen || isNotesOpen);
   const prevDisabled = isNativePowerPoint ? !nativeStatus.active || nativeStatus.busy : currentIndex === 0;
@@ -363,6 +368,7 @@ export default function PresentationView({
       // Nếu đang mở modal thì không bắt phím điều hướng slide
       if (showStarModal || showWheelModal || showDuckRaceModal || showQuizModal || activeQuizSession || isQuizResultOpen || isTimetableOpen) return;
       if (e.target instanceof HTMLElement && (e.target.matches('input, textarea, select') || e.target.isContentEditable)) return;
+      if (isOnlinePowerPoint && ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', ' ', 'Home', 'End'].includes(e.key)) return;
 
       switch (e.key) {
         case 'ArrowRight':
@@ -403,11 +409,11 @@ export default function PresentationView({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev, closePresentation, totalSlides, isNotesOpen, showStarModal, showWheelModal, showDuckRaceModal, showQuizModal, activeQuizSession, isQuizResultOpen, isTimetableOpen, isNativePowerPoint]);
+  }, [handleNext, handlePrev, closePresentation, totalSlides, isNotesOpen, showStarModal, showWheelModal, showDuckRaceModal, showQuizModal, activeQuizSession, isQuizResultOpen, isTimetableOpen, isNativePowerPoint, isOnlinePowerPoint]);
 
   // Tự động ẩn thanh công cụ khi không rê chuột (Auto-hide dock)
   useEffect(() => {
-    if (isNativePowerPoint) { setIsControlsVisible(true); return; }
+    if (isNativePowerPoint || isOnlinePowerPoint) { setIsControlsVisible(true); return; }
     let timeoutId = null;
     const handleMouseMove = () => {
       setIsControlsVisible(true);
@@ -422,7 +428,7 @@ export default function PresentationView({
       window.removeEventListener('mousemove', handleMouseMove);
       clearTimeout(timeoutId);
     };
-  }, [isNativePowerPoint]);
+  }, [isNativePowerPoint, isOnlinePowerPoint]);
 
   // Xử lý cộng sao nhanh cho học sinh — ⭐ qua sổ cái server, merit giữ riêng
   const handleAwardStarToStudent = async (studentId, starCount = 1) => {
@@ -589,7 +595,7 @@ export default function PresentationView({
   }
 
   // 3. Màn hình Bài Học Chưa Có Slide (Yêu cầu đặc tả của người dùng)
-  if (slides.length === 0 && !isNativePowerPoint) {
+  if (slides.length === 0 && !isNativePowerPoint && !isOnlinePowerPoint) {
     return (
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -652,13 +658,13 @@ export default function PresentationView({
   }
 
   return (
-    <div className={isNativePowerPoint ? 'presentation-native' : undefined} style={{
+    <div className={isOnlinePowerPoint ? 'online-ppt-view' : isNativePowerPoint ? 'presentation-native' : undefined} style={{
       position: 'fixed',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      background: isNativePowerPoint ? '#090d16' : 'var(--surface-ground)',
+      background: isNativePowerPoint || isOnlinePowerPoint ? '#090d16' : 'var(--surface-ground)',
       color: 'var(--text-main)',
       zIndex: 1000,
       display: 'flex',
@@ -667,7 +673,7 @@ export default function PresentationView({
       overflow: 'hidden'
     }}>
       {/* 1. Header Nhẹ Nhàng: Tiêu đề bài & Thông số góc trên */}
-      <div className={isNativePowerPoint ? 'presentation-native-header' : undefined} style={{
+      <div className={isOnlinePowerPoint ? 'online-ppt-header' : isNativePowerPoint ? 'presentation-native-header' : undefined} style={{
         position: 'absolute',
         top: '1rem',
         left: '1.5rem',
@@ -696,7 +702,7 @@ export default function PresentationView({
             <span style={{ color: '#0284c7' }}>📖 {activeLesson?.title || 'Bài giảng'}</span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
             <span style={{ color: 'var(--text-muted)' }}>Khối {activeLesson?.grade || 3}</span>
-            {(activeLesson?.type === 'imported' || isNativePowerPoint) && (
+            {(activeLesson?.type === 'imported' || isNativePowerPoint || isOnlinePowerPoint) && (
               <span style={{
                 background: 'rgba(168, 85, 247, 0.15)',
                 color: '#a855f7',
@@ -710,7 +716,7 @@ export default function PresentationView({
                 gap: '0.25rem'
               }}>
                 <span>🟣</span>
-                <span>PowerPoint</span>
+                <span>{isOnlinePowerPoint ? 'PowerPoint Online' : 'PowerPoint'}</span>
               </span>
             )}
           </div>
@@ -812,7 +818,7 @@ export default function PresentationView({
               <span>Lịch giảng dạy</span>
             </button>
           )}
-          {!isNativePowerPoint && <OpenPowerPointButton sourceFilePath={activeLesson?.source_file_path} />}
+          {!isNativePowerPoint && !isOnlinePowerPoint && <OpenPowerPointButton sourceFilePath={activeLesson?.source_file_path} />}
         </div>
 
         {/* Nút thoát góc trên */}
@@ -837,7 +843,7 @@ export default function PresentationView({
       {/* 2. Slide Canvas Chính (Fullscreen / 16:9 responsive) */}
       {(() => {
         const isImported = activeLesson?.type === 'imported' || currentSlide?.type === 'IMPORTED_SLIDE';
-        const edgeToEdge = isImported || isNativePowerPoint;
+        const edgeToEdge = isImported || isNativePowerPoint || isOnlinePowerPoint;
         return (
           <main style={{
             flex: 1,
@@ -863,7 +869,7 @@ export default function PresentationView({
               flexDirection: 'column',
               position: 'relative'
             }}>
-              {isNativePowerPoint ? <NativePowerPointSurface ref={nativeSurfaceRef} filePath={activeLesson.source_file_path} initialSlideIndex={initialSlideIndex} visible={nativeVisible} onStatusChange={setNativeStatus} /> : <SlideRenderer
+              {isOnlinePowerPoint ? <PowerPointOnlineSurface embedUrl={activeLesson.online_embed_url} title={activeLesson.title} interactive={nativeVisible} reloadKey={onlineReloadKey} /> : isNativePowerPoint ? <NativePowerPointSurface ref={nativeSurfaceRef} filePath={activeLesson.source_file_path} initialSlideIndex={initialSlideIndex} visible={nativeVisible} onStatusChange={setNativeStatus} /> : <SlideRenderer
                 slide={currentSlide} 
                 isProjector={true} 
                 isPresentation={true}
@@ -891,7 +897,7 @@ export default function PresentationView({
       })()}
 
       {/* 3. Thanh Điều Khiển Cố Định Dưới (Floating Dock) */}
-      <div className={isNativePowerPoint ? 'presentation-native-dock' : undefined} style={{
+      <div className={isOnlinePowerPoint ? 'online-ppt-dock' : isNativePowerPoint ? 'presentation-native-dock' : undefined} style={{
         position: 'absolute',
         bottom: '1.25rem',
         left: '50%',
@@ -913,6 +919,7 @@ export default function PresentationView({
           boxShadow: '0 12px 32px rgba(0, 0, 0, 0.4)',
           color: '#fff'
         }}>
+          {isOnlinePowerPoint ? <PowerPointOnlineControls embedUrl={activeLesson.online_embed_url} onReload={() => setOnlineReloadKey(n => n + 1)} onHide={() => setIsControlsVisible(false)} /> : <>
           {/* Nút lùi */}
           <button
             onClick={handlePrev}
@@ -991,6 +998,8 @@ export default function PresentationView({
           </button>
 
           <div style={{ width: 1, height: 24, background: 'rgba(255, 255, 255, 0.2)' }} />
+
+          </>}
 
           {/* Công cụ sư phạm: Thưởng sao */}
           {currentClass && onUpdateStudents && (
@@ -1122,6 +1131,8 @@ export default function PresentationView({
         </div>
       </div>
 
+      {isOnlinePowerPoint && !isControlsVisible && <button type="button" className="btn online-ppt-restore" onClick={() => setIsControlsVisible(true)}><Layers size={17} />Hiện công cụ EduICT</button>}
+
       {/* 4. Ngăn Kéo Ghi Chú Sư Phạm (Teacher Notes) */}
       <TeacherNotesDrawer
         isOpen={isNotesOpen}
@@ -1130,6 +1141,7 @@ export default function PresentationView({
         lesson={activeLesson}
         currentSlideIndex={currentIndex}
         totalSlides={totalSlides}
+        onlineMode={isOnlinePowerPoint}
       />
 
       {/* 5. Modal Thưởng Sao Nhanh Cho Học Sinh */}

@@ -38,6 +38,9 @@ import { getTopicsByGrade } from '../../data/ppctMapping';
 import { detectGradeFromName } from '../../utils/storage';
 import LinkPowerPointModal from './LinkPowerPointModal';
 import LinkedPowerPointCard from './LinkedPowerPointCard';
+import PowerPointOnlineModal from './PowerPointOnlineModal';
+import PowerPointOnlineCard from './PowerPointOnlineCard';
+import { hasOnlinePowerPoint } from '../../../shared/powerPointOnline.js';
 import EditImportedLessonModal from './EditImportedLessonModal';
 import DuplicateComparisonModal from './DuplicateComparisonModal';
 import ErrorBoundary from '../ErrorBoundary';
@@ -64,6 +67,7 @@ export default function LessonLibrary({
   const [sortBy, setSortBy] = useState('lesson_order'); // 'lesson_order' | 'title_asc' | 'title_desc' | 'recent'
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingLinkedLesson, setEditingLinkedLesson] = useState(null);
+  const [onlineModal, setOnlineModal] = useState(null);
   const [editingImportedLesson, setEditingImportedLesson] = useState(null);
   const [duplicateDetailModal, setDuplicateDetailModal] = useState(null); // { lesson, matchedLesson, ... }
   const [scanReport, setScanReport] = useState(null);
@@ -126,7 +130,7 @@ export default function LessonLibrary({
   // Polling tự động cập nhật các bài học đang render slide nền hoặc thiếu thumbnail
   useEffect(() => {
     const hasPendingLessons = lessons.some(l => 
-      l.type === 'imported' && (
+      l.type === 'imported' && !hasOnlinePowerPoint(l) && (
         l.render_status === 'processing' || 
         l.renderStatus === 'processing' || 
         l.import_status === 'IMPORTING' ||
@@ -139,7 +143,7 @@ export default function LessonLibrary({
       let hasChanges = false;
       const updatedLessons = await Promise.all(
         lessons.map(async (l) => {
-          if (l.type === 'imported' && (l.render_status === 'processing' || l.renderStatus === 'processing' || (!l.thumbnail_url && !l.thumbnailUrl))) {
+          if (l.type === 'imported' && !hasOnlinePowerPoint(l) && (l.render_status === 'processing' || l.renderStatus === 'processing' || (!l.thumbnail_url && !l.thumbnailUrl))) {
             try {
               const statusData = await fetchLessonRenderStatusApi(l.id);
               if (statusData && (
@@ -383,7 +387,9 @@ export default function LessonLibrary({
   // Xóa bài học
   const handleDeleteLesson = async (lesson, e) => {
     e.stopPropagation();
-    const message = lesson.type === 'linked_powerpoint'
+    const message = lesson.type === 'powerpoint_online'
+      ? `Xóa liên kết bài "${lesson.title}" khỏi thư viện?\nFile trên OneDrive/SharePoint vẫn được giữ nguyên.`
+      : lesson.type === 'linked_powerpoint'
       ? `Xóa liên kết bài "${lesson.title}" khỏi thư viện?\nFile PowerPoint gốc vẫn được giữ trên máy.`
       : `Thầy/cô có chắc chắn muốn xóa bài học "${lesson.title}"?\nThao tác này sẽ xóa toàn bộ các slide con trong bài.`;
     if (!(await DialogService.confirmAsync(message))) {
@@ -460,7 +466,8 @@ export default function LessonLibrary({
           {isScanning ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
           Quét trùng{scanReport?.totalDuplicates > 0 ? ` (${scanReport.totalDuplicates})` : ''}
         </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsImportModalOpen(true)}><UploadCloud size={16} />Liên kết PowerPoint</button>
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => setOnlineModal({ lesson: null })}><UploadCloud size={16} />PowerPoint Online</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsImportModalOpen(true)}><FolderOpen size={16} />File trên máy</button>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => onOpenEditor(null)}><Plus size={16} />Tạo bài học</button>
       </PageHeader>
 
@@ -684,7 +691,8 @@ export default function LessonLibrary({
       ) : (
         <div className="library-card-grid">
           {filteredLessons.map(lesson => {
-            if (lesson.type === 'linked_powerpoint') return <LinkedPowerPointCard key={lesson.id} lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setEditingLinkedLesson(lesson)} onDelete={e => handleDeleteLesson(lesson, e)} />;
+            if (hasOnlinePowerPoint(lesson)) return <PowerPointOnlineCard key={lesson.id} lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />;
+            if (lesson.type === 'linked_powerpoint') return <LinkedPowerPointCard key={lesson.id} lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setEditingLinkedLesson(lesson)} onOnline={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />;
             const gc = gradeColors[lesson.grade] || gradeColors[3];
             const slideCount = lesson.slide_count || lesson.slides_count || lesson.slides?.length || 0;
             const isImported = lesson.type === 'imported';
@@ -1232,6 +1240,8 @@ export default function LessonLibrary({
                       <span>AI Phân tích</span>
                     </button>
 
+                    {isImported && <button type="button" className="btn btn-outline btn-sm" onClick={event => { event.stopPropagation(); setOnlineModal({ lesson }); }} title="Thêm liên kết Microsoft, giữ bài và tiết học hiện tại"><UploadCloud size={14} />Online</button>}
+
                     {/* Menu "..." More actions (Nhân bản, Xóa) */}
                     <div style={{ position: 'relative' }}>
                       <button
@@ -1363,6 +1373,11 @@ export default function LessonLibrary({
           })}
         </div>
       )}
+
+      {onlineModal && <PowerPointOnlineModal isOpen lesson={onlineModal.lesson} defaultGrade={currentGrade} onClose={() => setOnlineModal(null)} onSaved={saved => {
+        setLessons(prev => prev.some(l => l.id === saved.id) ? prev.map(l => l.id === saved.id ? { ...l, ...saved } : l) : [saved, ...prev]);
+        setSelectedTopic('all'); setSearchTerm(''); setTypeFilter('all'); setSimilarityFilter('all');
+      }} />}
 
       {/* Modal Import PowerPoint */}
       <ErrorBoundary title="Không thể hiển thị hộp thoại liên kết PowerPoint" onClose={() => { setIsImportModalOpen(false); setEditingLinkedLesson(null); }}>

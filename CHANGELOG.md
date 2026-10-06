@@ -1,5 +1,17 @@
 # Lịch sử thay đổi
 
+## 1.3.0 — 06/10/2026
+
+### Thêm
+
+- PowerPoint Online trong màn trình chiếu EduICT: lưu URL Embed OneDrive/SharePoint và dùng trình xem Microsoft thay cho ảnh slide.
+- Thêm bài Online mới hoặc gắn liên kết Online cho bài đã nhập, giữ ID bài và liên kết tiết học. Có thể gỡ liên kết ở bài cũ để trở về cách trình chiếu trước đó.
+- Giữ Thưởng sao, Vòng quay, Đua vịt, Quick Quiz, Ghi chú và Lịch dạy; ẩn/hiện thanh EduICT để dùng điều khiển Microsoft. Điều hướng slide thuộc trình xem Microsoft.
+- Hướng dẫn tải file lên OneDrive, lấy mã Embed, tải file gốc của bài đã nhập; xử lý URL không hợp lệ, mất mạng, nạp chậm, tải lại và mở bài trên Microsoft.
+- API/browser dùng chung validator URL nhúng; không thực thi HTML dán vào, không tải PPTX từ server. Backup SQLite/SQL và nhân bản giữ liên kết Online.
+
+Bộ cài Windows 1.3.0 đã build và kiểm tra payload. Chưa có URL Embed thật của người dùng để xác nhận trình chiếu/hiệu ứng. Người dùng cần tải bài lên tài khoản Microsoft và lấy Embed; phiên bản này chưa có OAuth/Graph để tự tải 88 bài. PowerPoint Online cần Internet và có giới hạn trigger/hiệu ứng theo Microsoft.
+
 ## 1.2.2 — 06/10/2026
 
 ### Sửa

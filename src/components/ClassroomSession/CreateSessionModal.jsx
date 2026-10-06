@@ -420,7 +420,7 @@ export default function CreateSessionModal({
                       title={`Nhấp để chọn: ${l.title}`}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
-                        <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{['imported', 'linked_powerpoint'].includes(l.type) ? '🟣' : '📖'}</span>
+                        <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{['imported', 'linked_powerpoint', 'powerpoint_online'].includes(l.type) ? '🟣' : '📖'}</span>
                         <div style={{ minWidth: 0 }}>
                           <div style={{
                             fontSize: '0.8125rem',
@@ -485,7 +485,7 @@ export default function CreateSessionModal({
                 const topicSuffix = l.topic && !l.title.includes(l.topic) ? ` (${l.topic})` : '';
                 return (
                   <option key={l.id} value={l.id}>
-                    {['imported', 'linked_powerpoint'].includes(l.type) ? '🟣 [PowerPoint] ' : '📖 '} {l.title}{topicSuffix}
+                    {['imported', 'linked_powerpoint', 'powerpoint_online'].includes(l.type) ? '🟣 [PowerPoint] ' : '📖 '} {l.title}{topicSuffix}
                   </option>
                 );
               })}
