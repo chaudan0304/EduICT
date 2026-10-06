@@ -12,6 +12,7 @@ import { tryHandleLessonsCollection, tryHandleLessonsCrud } from './lessons.js';
 import { tryHandlePptx } from './pptx.js';
 import { tryHandleQuiz } from './quiz.js';
 import { tryHandleGamification } from './gamification.js';
+import { tryHandlePowerPointOnline } from './powerPointOnline.js';
 import { getDatabase } from '../db/connection.js';
 import { getRuntimeConfig } from '../services/runtimeConfig.js';
 
@@ -78,6 +79,7 @@ export async function handleApiRequest(req, res) {
   if (await tryHandleBackup(req, res, ctx)) return true;
   if (await tryHandleSessions(req, res, ctx)) return true;
   if (await tryHandleLessonsCollection(req, res, ctx)) return true;
+  if (await tryHandlePowerPointOnline(req, res, ctx)) return true;
   if (await tryHandlePptx(req, res, ctx)) return true;
   if (await tryHandleLessonsCrud(req, res, ctx)) return true;
   if (await tryHandleQuiz(req, res, ctx)) return true;

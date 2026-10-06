@@ -22,11 +22,22 @@ Người dùng tải file lên OneDrive/SharePoint trong tài khoản của mìn
 - `load` của iframe không chứng minh bài được phép xem: lỗi quyền hoặc yêu cầu đăng nhập có thể hiển thị bên trong iframe, EduICT không đọc được nội dung đó.
 - Cần Internet và quyền xem trên Microsoft. Mã Embed có thể cho phép người có link xem bài; người dùng quyết định quyền chia sẻ. Không cam kết hiệu ứng/trigger tương đương PowerPoint Desktop.
 
+## Gắn Online hàng loạt
+
+- Trong thư viện chọn **Gắn Online hàng loạt**, dán mỗi URL/mã Embed vào một dòng hoặc nhập file TXT UTF-8. Hỗ trợ iframe xuống nhiều dòng và định dạng `Tên bài | mã Embed`. Tối đa 200 bài/đợt; không nhận link thư mục thay cho mã từng bài.
+- Bước xem danh sách cho phép sửa mã, tên, khối, bỏ dòng và chọn bài đang có. Không tự ghép bài theo tên. Chọn bài đã có chỉ thay URL Online, giữ ID, file, slide, lịch dạy và ghi chú. Tạo bài mới dùng thời lượng 35 phút và chủ đề Chung.
+- Liên kết/bài trùng trong một đợt bị chặn. Thay URL đã có cần tích xác nhận từng bài. Khi bài thay đổi kể từ lúc tải danh sách, yêu cầu tải lại và kiểm tra lại xác nhận.
+- `POST /api/lessons/powerpoint-online/batch`: JSON `{ items: [...] }`, 1–200 phần tử. Dòng gắn bài cũ: `{ lesson_id, online_embed_url, expected_url, expected_updated_at, replace_existing }`. Dòng tạo bài: `{ new_id: UUIDv4, title, grade: 1..5, online_embed_url }`. ID mới được server đặt tiền tố `online_`; không nhận metadata/file/slide tùy ý trong batch.
+- Thành công HTTP 200: `{ lessons, created, updated, unchanged }`. Lỗi theo hợp đồng hiện tại `{ error: string }`: 400 dữ liệu không hợp lệ, 409 bài bị xóa/thay đổi hoặc ID mới xung đột, 413 body vượt 10 MB, 500 lỗi lưu chung. Không trả nội dung SQL/URL trong lỗi.
+- Giao dịch SQLite `BEGIN IMMEDIATE` kiểm tra toàn bộ mục tiêu, sau đó lưu một lần; lỗi rollback cả đợt. UUID ổn định theo dòng giúp gửi lại sau mất phản hồi không tạo bài mới lần nữa. Đợt đã lưu được gửi lại sẽ trả `unchanged`.
+- Không tải file lên Microsoft qua API, không tự cấp quyền chia sẻ. Người dùng có thể tải nhiều file/cả thư mục qua OneDrive rồi lấy mã Embed riêng từng bài.
+
 ## Nguồn
 
 - https://support.microsoft.com/en-us/powerpoint/embed-a-presentation-in-a-web-page-or-blog
 - https://support.microsoft.com/en-us/powerpoint/animation-effects-available-in-powerpoint-for-the-web
 - https://support.microsoft.com/en-us/powerpoint/compare-powerpoint-features-on-different-platforms
+- https://support.microsoft.com/en-us/onedrive/upload-and-save-files-and-folders-to-onedrive
 
 ## Nghiệm thu
 
