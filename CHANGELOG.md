@@ -1,5 +1,16 @@
 # Lịch sử thay đổi
 
+## 1.5.0 — 06/10/2026
+
+### Thêm
+
+- Nút **Chọn thư mục OneDrive**: kết nối tài khoản cá nhân, mở thư mục, đọc tên/file PowerPoint qua Microsoft Graph, chọn tối đa 200 file và khối lớp trước khi nhập.
+- Tạo link Embed tự động sau xác nhận, có tiến độ và dừng đợt nhập. Giữ file trên OneDrive, không tải nội dung PPTX vào ứng dụng.
+- Chọn bài đã có hoặc tạo bài mới; ghép tên trùng theo yêu cầu, nhận diện file OneDrive đã nhập bằng drive/item ID. Backup giữ nhận diện; đổi link thủ công hoặc nhân bản không gán nhầm file nguồn.
+- Hướng dẫn đăng ký Microsoft Entra/client ID trong hộp thoại. Đăng nhập trên Microsoft bằng device code, token chỉ giữ trong bộ nhớ backend theo phiên, cookie HttpOnly/SameSite, giới hạn origin/phiên/file và HTTPS cho web ngoài localhost.
+
+Cần Application (client) ID với public client flow và quyền Files.ReadWrite. Graph chỉ tạo Embed tự động cho OneDrive cá nhân. Đã build/kiểm tra payload; chưa kết nối Microsoft thật vì người dùng chưa đăng ký client ID. Chi tiết cấu hình và giới hạn ở `docs/onedrive-folder-import.md`.
+
 ## 1.4.1 — 06/10/2026
 
 ### Sửa

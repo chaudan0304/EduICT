@@ -12,7 +12,7 @@ export async function tryHandleOneDrive(req, res, { pathname, method, url }) {
     const ctx = oneDriveRequestContext(req);
     let result;
     if (pathname === prefix + 'status' && method === 'GET') {
-      result = { connected: Boolean(ctx.session?.token), clientId: getOneDriveClientId(), driveName: ctx.session?.driveName || '', job: ctx.session?.job?.state === 'running' ? publicOneDriveJob(ctx.session.job) : null };
+      result = { connected: Boolean(ctx.session?.token && ctx.session.driveId), clientId: getOneDriveClientId(), driveName: ctx.session?.driveName || '', job: ctx.session?.job?.state === 'running' ? publicOneDriveJob(ctx.session.job) : null };
     } else if (pathname === prefix + 'connect' && method === 'POST') {
       const body = await parseJsonBody(req);
       result = await startOneDriveSignIn(ctx, res, body?.clientId);

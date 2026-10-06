@@ -20,6 +20,32 @@
 .online-batch-row textarea { font-size: .8rem; overflow-wrap: anywhere; }
 .online-batch-replace { display: flex; align-items: center; gap: .5rem; font-size: .85rem; line-height: 1.5; }
 .online-batch-actions { flex-wrap: wrap; }
+.onedrive-setup { padding: 1rem; border: 1px solid var(--surface-border); border-radius: .75rem; font-size: .85rem; line-height: 1.7; }
+.onedrive-setup summary { cursor: pointer; font-weight: 700; }
+.onedrive-setup ol { padding-left: 1.3rem; }
+.onedrive-setup a { color: var(--primary); }
+.onedrive-device-code, .onedrive-import-status { display: grid; justify-items: start; gap: .75rem; }
+.onedrive-device-code > strong { padding: .75rem 1.5rem; font-size: 1.7rem; letter-spacing: .12em; background: #eff6ff; color: #075985; border-radius: .75rem; }
+.onedrive-folder-heading, .onedrive-folder-heading > div { display: flex; align-items: center; gap: .5rem; }
+.onedrive-folder-heading { justify-content: space-between; }
+.onedrive-breadcrumb { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; font-size: .8rem; }
+.onedrive-breadcrumb button { color: var(--primary); text-align: left; overflow-wrap: anywhere; }
+.onedrive-folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .6rem; max-height: 24dvh; overflow-y: auto; margin: .75rem 0; }
+.onedrive-folder-grid > button { display: flex; align-items: center; gap: .6rem; text-align: left; padding: .75rem; border-radius: .6rem; border: 1px solid var(--surface-border); background: var(--surface-card); color: var(--text-main); }
+.onedrive-folder-grid span { overflow-wrap: anywhere; }
+.onedrive-folder-grid button:hover { border-color: var(--primary); }
+.onedrive-file-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; font-size: .85rem; }
+.onedrive-file-tools select { padding: .5rem; border: 1px solid var(--surface-border); border-radius: .5rem; background: var(--surface-card); color: var(--text-main); }
+.onedrive-file-list { max-height: 35dvh; overflow-y: auto; border: 1px solid var(--surface-border); border-radius: .75rem; }
+.onedrive-file-list > label { display: flex; align-items: center; gap: .7rem; padding: .8rem; border-bottom: 1px solid var(--surface-border); cursor: pointer; }
+.onedrive-file-list span { flex: 1; overflow-wrap: anywhere; font-size: .85rem; }
+.onedrive-file-list small { white-space: nowrap; color: var(--text-muted); }
+.onedrive-file-list p { padding: 1rem; font-size: .85rem; }
+.onedrive-sharing-confirm { display: flex; align-items: start; gap: .75rem; padding: 1rem; border: 1px solid #fbbf24; border-radius: .75rem; background: #fffbeb; color: #92400e; font-size: .85rem; line-height: 1.6; }
+.onedrive-sharing-confirm input { margin-top: .3rem; flex-shrink: 0; }
+.onedrive-import-status progress { width: 100%; height: 1rem; accent-color: var(--primary); }
+.onedrive-import-status ul { max-height: 30dvh; overflow-y: auto; font-size: .85rem; line-height: 1.6; }
+.onedrive-loading { display: flex; align-items: center; gap: .5rem; color: var(--text-muted); font-size: .85rem; }
 @media (max-width: 540px) {
   .online-batch-row-fields { grid-template-columns: 1fr; }
   .online-batch-actions > button { flex: 1 1 100%; }

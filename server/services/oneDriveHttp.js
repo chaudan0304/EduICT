@@ -29,7 +29,9 @@ export async function microsoftJson(url, options = {}) {
 export async function graphJson(session, route, options = {}) {
   if (!session.token || Date.now() >= session.expiresAt) throw oneDriveError('Phiên OneDrive đã hết hạn. Hãy kết nối lại.', 401);
   const url = new URL(route, 'https://graph.microsoft.com/v1.0/');
-  if (url.origin !== 'https://graph.microsoft.com' || !/^\/v1\.0\/me\/drive(?:\/|$)/.test(url.pathname) || url.username || url.password || url.port) throw oneDriveError('Đường dẫn Microsoft Graph không hợp lệ.', 502);
+  const currentDrivePath = session.driveId ? `/v1.0/drives/${encodeURIComponent(session.driveId)}` : '';
+  const allowedPath = /^\/v1\.0\/me\/drive(?:\/|$)/.test(url.pathname) || (currentDrivePath && (url.pathname === currentDrivePath || url.pathname.startsWith(currentDrivePath + '/')));
+  if (url.origin !== 'https://graph.microsoft.com' || !allowedPath || url.username || url.password || url.port) throw oneDriveError('Đường dẫn Microsoft Graph không hợp lệ.', 502);
   let response;
   let data;
   for (let attempt = 0; attempt < 3; attempt++) {

@@ -67,7 +67,7 @@ export function disconnectOneDrive(ctx, res) {
 }
 
 export function requireOneDrive(ctx) {
-  if (!ctx.session?.token) throw oneDriveError('Hãy kết nối OneDrive trước.', 401);
+  if (!ctx.session?.token || !ctx.session.driveId) throw oneDriveError('Hãy hoàn tất kết nối OneDrive trước.', 401);
   return ctx.session;
 }
 
@@ -101,7 +101,7 @@ export async function startOneDriveSignIn(ctx, res, clientId) {
 export async function pollOneDriveSignIn(ctx) {
   const session = ctx.session;
   if (!session) throw oneDriveError('Phiên đăng nhập đã hết hạn. Hãy kết nối lại.', 401);
-  if (session.token) return { state: 'connected', driveName: session.driveName };
+  if (session.token && session.driveId) return { state: 'connected', driveName: session.driveName };
   if (session.polling || Date.now() < session.nextPollAt) return { state: 'pending', pollAfterMs: Math.max(1000, session.nextPollAt - Date.now()) };
   session.polling = true;
   session.nextPollAt = Date.now() + session.interval;

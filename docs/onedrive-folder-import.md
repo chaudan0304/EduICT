@@ -39,7 +39,7 @@ OAuth device authorization theo endpoint consumers cố định. Token opaque ch
 
 API OneDrive chỉ nhận POST JSON từ chính origin; không thay CORS toàn ứng dụng. Desktop/localhost dùng HTTP loopback. Web ngoài localhost phải có HTTPS và `EDUICT_ONEDRIVE_PUBLIC_ORIGIN=https://…`; proxy/CORS hiện tại cần cấu hình origin đó trong `EDUICT_CORS_ORIGIN`. Không dùng trên HTTP LAN.
 
-Graph chỉ gọi HTTPS graph.microsoft.com/v1.0/me/drive, không theo redirect, không fetch nội dung/download URL. Phản hồi Microsoft có timeout/giới hạn kích thước; lỗi OAuth/Graph không đưa raw response, token hoặc stack trace ra UI. Tạo Embed anonymous cần xác nhận rõ vì người có link có thể xem bài; giữ inherited permissions.
+Graph chỉ gọi HTTPS graph.microsoft.com/v1.0/me/drive hoặc /drives/{drive hiện tại} để theo các trang danh sách, không theo redirect, không fetch nội dung/download URL. Phản hồi Microsoft có timeout/giới hạn kích thước; lỗi OAuth/Graph không đưa raw response, token hoặc stack trace ra UI. Tạo Embed anonymous cần xác nhận rõ vì người có link có thể xem bài; giữ inherited permissions.
 
 ## Nghiệm thu
 

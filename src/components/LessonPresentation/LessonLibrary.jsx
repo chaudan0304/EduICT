@@ -40,6 +40,7 @@ import LinkPowerPointModal from './LinkPowerPointModal';
 import LinkedPowerPointCard from './LinkedPowerPointCard';
 import PowerPointOnlineModal from './PowerPointOnlineModal';
 import PowerPointOnlineBatchModal from './PowerPointOnlineBatchModal';
+import OneDriveFolderModal from './OneDriveFolderModal';
 import PowerPointOnlineCard from './PowerPointOnlineCard';
 import { hasOnlinePowerPoint } from '../../../shared/powerPointOnline.js';
 import EditImportedLessonModal from './EditImportedLessonModal';
@@ -70,7 +71,15 @@ export default function LessonLibrary({
   const [editingLinkedLesson, setEditingLinkedLesson] = useState(null);
   const [onlineModal, setOnlineModal] = useState(null);
   const [onlineBatchOpen, setOnlineBatchOpen] = useState(false);
+  const [oneDriveOpen, setOneDriveOpen] = useState(false);
   const [onlineBatchNotice, setOnlineBatchNotice] = useState('');
+
+  function handleOnlineBatchSaved(result) {
+    const saved = new Map(result.lessons.map(item => [item.id, item]));
+    setLessons(prev => [...result.lessons.filter(item => !prev.some(lesson => lesson.id === item.id)), ...prev.map(lesson => saved.has(lesson.id) ? { ...lesson, ...saved.get(lesson.id) } : lesson)]);
+    setSelectedTopic('all'); setSearchTerm(''); setTypeFilter('all'); setSimilarityFilter('all');
+    setOnlineBatchNotice(`Đã lưu ${result.lessons.length} liên kết: ${result.created} bài mới, ${result.updated} bài cập nhật, ${result.unchanged} bài giữ nguyên. Bài thuộc khối khác nằm trong thư viện khối tương ứng.`);
+  }
   const [editingImportedLesson, setEditingImportedLesson] = useState(null);
   const [duplicateDetailModal, setDuplicateDetailModal] = useState(null); // { lesson, matchedLesson, ... }
   const [scanReport, setScanReport] = useState(null);
@@ -470,6 +479,7 @@ export default function LessonLibrary({
           Quét trùng{scanReport?.totalDuplicates > 0 ? ` (${scanReport.totalDuplicates})` : ''}
         </button>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => setOnlineModal({ lesson: null })}><UploadCloud size={16} />PowerPoint Online</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => { setOnlineBatchNotice(''); setOneDriveOpen(true); }}><FolderOpen size={16} />Chọn thư mục OneDrive</button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => { setOnlineBatchNotice(''); setOnlineBatchOpen(true); }}><UploadCloud size={16} />Gắn Online hàng loạt</button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsImportModalOpen(true)}><FolderOpen size={16} />File trên máy</button>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => onOpenEditor(null)}><Plus size={16} />Tạo bài học</button>
@@ -1385,12 +1395,8 @@ export default function LessonLibrary({
         setSelectedTopic('all'); setSearchTerm(''); setTypeFilter('all'); setSimilarityFilter('all');
       }} />}
 
-      {onlineBatchOpen && <PowerPointOnlineBatchModal defaultGrade={currentGrade} onClose={() => setOnlineBatchOpen(false)} onSaved={result => {
-        const saved = new Map(result.lessons.map(item => [item.id, item]));
-        setLessons(prev => [...result.lessons.filter(item => !prev.some(lesson => lesson.id === item.id)), ...prev.map(lesson => saved.has(lesson.id) ? { ...lesson, ...saved.get(lesson.id) } : lesson)]);
-        setSelectedTopic('all'); setSearchTerm(''); setTypeFilter('all'); setSimilarityFilter('all');
-        setOnlineBatchNotice(`Đã lưu ${result.lessons.length} liên kết: ${result.created} bài mới, ${result.updated} bài cập nhật, ${result.unchanged} bài giữ nguyên. Bài thuộc khối khác nằm trong thư viện khối tương ứng.`);
-      }} />}
+      {onlineBatchOpen && <PowerPointOnlineBatchModal defaultGrade={currentGrade} onClose={() => setOnlineBatchOpen(false)} onSaved={handleOnlineBatchSaved} />}
+      {oneDriveOpen && <OneDriveFolderModal defaultGrade={currentGrade} onClose={() => setOneDriveOpen(false)} onSaved={handleOnlineBatchSaved} />}
 
       {/* Modal Import PowerPoint */}
       <ErrorBoundary title="Không thể hiển thị hộp thoại liên kết PowerPoint" onClose={() => { setIsImportModalOpen(false); setEditingLinkedLesson(null); }}>
