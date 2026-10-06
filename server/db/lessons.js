@@ -1,5 +1,6 @@
 import { getDatabase } from './connection.js';
-import { linkedPowerPointMetadata, assertManagedPowerPoint } from '../services/linkedPowerPoint.js';
+import { assertManagedPowerPoint } from '../services/linkedPowerPoint.js';
+import { normalizeLessonMetadata } from '../services/powerPointOnline.js';
 
 // ========================================================
 // LESSONS & SLIDES CRUD
@@ -119,7 +120,7 @@ export function getAllLessons(filters = {}) {
     if (filters.type === 'native') {
       conditions.push("(l.type = 'native' OR l.type IS NULL)");
     } else if (filters.type === 'imported' || filters.type === 'powerpoint') {
-      conditions.push("l.type IN ('imported', 'linked_powerpoint')");
+      conditions.push("l.type IN ('imported', 'linked_powerpoint', 'powerpoint_online')");
     } else {
       conditions.push('l.type = ?');
       params.push(filters.type);
@@ -225,7 +226,7 @@ export function getLessonByFileHash(fileHash) {
 
 // 3. Tạo bài học mới
 export function createLesson(lessonData) {
-  lessonData = linkedPowerPointMetadata(lessonData);
+  lessonData = normalizeLessonMetadata(lessonData);
   const db = getDatabase();
   const lessonId = lessonData.id || `les_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
 
@@ -237,8 +238,8 @@ export function createLesson(lessonData) {
       render_status, file_hash, source_file_size, similarity_status, similarity_score,
       duplicate_of_id, content_fingerprint,
       import_status, render_progress, thumbnail_path, total_slides, rendered_slides, failed_slides,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+      online_embed_url, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
   `);
 
   const slideCount = Array.isArray(lessonData.slides) ? lessonData.slides.length : (Number(lessonData.slide_count) || 0);
@@ -272,7 +273,8 @@ export function createLesson(lessonData) {
     lessonData.thumbnail_path || lessonData.thumbnailPath || '',
     Number(lessonData.total_slides || lessonData.totalSlides || slideCount) || 0,
     Number(lessonData.rendered_slides || lessonData.renderedSlides) || 0,
-    Number(lessonData.failed_slides || lessonData.failedSlides) || 0
+    Number(lessonData.failed_slides || lessonData.failedSlides) || 0,
+    lessonData.online_embed_url || ''
   );
 
   if (Array.isArray(lessonData.slides) && lessonData.slides.length > 0) {
@@ -285,7 +287,7 @@ export function createLesson(lessonData) {
 // 4. Cập nhật bài học
 export function updateLesson(lessonId, lessonData) {
   const db = getDatabase();
-  lessonData = linkedPowerPointMetadata(lessonData, db.prepare('SELECT * FROM lessons WHERE id = ?;').get(lessonId));
+  lessonData = normalizeLessonMetadata(lessonData, db.prepare('SELECT * FROM lessons WHERE id = ?;').get(lessonId));
   const stmt = db.prepare(`
     UPDATE lessons SET
       title = COALESCE(?, title),
@@ -315,6 +317,7 @@ export function updateLesson(lessonId, lessonData) {
       total_slides = COALESCE(?, total_slides),
       rendered_slides = COALESCE(?, rendered_slides),
       failed_slides = COALESCE(?, failed_slides),
+      online_embed_url = COALESCE(?, online_embed_url),
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?;
   `);
@@ -350,6 +353,7 @@ export function updateLesson(lessonId, lessonData) {
     lessonData.total_slides !== undefined ? Number(lessonData.total_slides) : (lessonData.totalSlides !== undefined ? Number(lessonData.totalSlides) : null),
     lessonData.rendered_slides !== undefined ? Number(lessonData.rendered_slides) : (lessonData.renderedSlides !== undefined ? Number(lessonData.renderedSlides) : null),
     lessonData.failed_slides !== undefined ? Number(lessonData.failed_slides) : (lessonData.failedSlides !== undefined ? Number(lessonData.failedSlides) : null),
+    lessonData.online_embed_url !== undefined ? lessonData.online_embed_url : null,
     lessonId
   );
 

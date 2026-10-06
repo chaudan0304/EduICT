@@ -162,6 +162,7 @@ export function initSchema(db) {
       type TEXT NOT NULL DEFAULT 'native',
       source_file_name TEXT,
       source_file_path TEXT,
+      online_embed_url TEXT DEFAULT '',
       thumbnail_url TEXT,
       slide_count INTEGER DEFAULT 0,
       render_status TEXT DEFAULT 'ready',
@@ -203,6 +204,7 @@ export function initSchema(db) {
   try { db.exec(`ALTER TABLE lessons ADD COLUMN type TEXT DEFAULT 'native';`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_name TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_path TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN online_embed_url TEXT DEFAULT '';`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN thumbnail_url TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN slide_count INTEGER DEFAULT 0;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch (e) {}

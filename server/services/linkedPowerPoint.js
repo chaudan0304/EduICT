@@ -25,5 +25,6 @@ export function linkedPowerPointMetadata(data, existing = null) {
 }
 
 export function assertManagedPowerPoint(lesson) {
+  if (lesson?.type === 'powerpoint_online') throw Object.assign(new Error('Bài Online phát bằng Microsoft, không tạo ảnh slide.'), { statusCode: 409 });
   if (lesson?.type === 'linked_powerpoint') throw Object.assign(new Error('Bài liên kết được trình chiếu bằng PowerPoint Desktop, không tạo ảnh slide.'), { statusCode: 409 });
 }

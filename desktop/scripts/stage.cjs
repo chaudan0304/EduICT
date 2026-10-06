@@ -49,6 +49,7 @@ function main() {
   fs.mkdirSync(STAGE, { recursive: true });
 
   copyTree(dist, path.join(STAGE, 'dist'));
+  copyTree(path.join(REPO, 'shared'), path.join(STAGE, 'shared'));
   fs.copyFileSync(path.join(REPO, 'server.js'), path.join(STAGE, 'server.js'));
   copyTree(path.join(REPO, 'server'), path.join(STAGE, 'server'), { excludeFile: (n) => SERVER_EXCLUDE.has(n) });
   for (const d of DESKTOP_DIRS) copyTree(path.join(REPO, 'desktop', d), path.join(STAGE, 'desktop', d));

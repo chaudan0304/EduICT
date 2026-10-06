@@ -95,7 +95,7 @@ export function generateSqlScriptDump() {
   const lessons = db.prepare('SELECT * FROM lessons;').all();
   if (lessons.length > 0) {
     sql += `-- 4. BẢNG BÀI HỌC (lessons - ${lessons.length} bài học)\n`;
-    sql += `CREATE TABLE IF NOT EXISTS lessons (\n  id VARCHAR(50) PRIMARY KEY,\n  title TEXT NOT NULL,\n  grade INT NOT NULL DEFAULT 3,\n  subject VARCHAR(100) NOT NULL DEFAULT 'Tin Học',\n  topic VARCHAR(100) DEFAULT 'Chung',\n  duration_minutes INT NOT NULL DEFAULT 35,\n  objectives TEXT,\n  keywords TEXT,\n  teacher_notes TEXT,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\n`;
+    sql += `CREATE TABLE IF NOT EXISTS lessons (\n  id VARCHAR(50) PRIMARY KEY,\n  title TEXT NOT NULL,\n  grade INT NOT NULL DEFAULT 3,\n  subject VARCHAR(100) NOT NULL DEFAULT 'Tin Học',\n  topic VARCHAR(100) DEFAULT 'Chung',\n  duration_minutes INT NOT NULL DEFAULT 35,\n  objectives TEXT,\n  keywords TEXT,\n  teacher_notes TEXT,\n  type TEXT DEFAULT 'native',\n  source_file_name TEXT DEFAULT '',\n  source_file_path TEXT DEFAULT '',\n  online_embed_url TEXT DEFAULT '',\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\n`;
     for (const l of lessons) {
       const esc = (v) => String(v == null ? '' : v).replace(/'/g, "''");
       const tEsc = esc(l.title);
@@ -104,7 +104,7 @@ export function generateSqlScriptDump() {
       const objEsc = esc(l.objectives);
       const keyEsc = esc(l.keywords);
       const noteEsc = esc(l.teacher_notes);
-      sql += `INSERT OR REPLACE INTO lessons (id, title, grade, subject, topic, duration_minutes, objectives, keywords, teacher_notes) VALUES ('${esc(l.id)}', '${tEsc}', ${Number(l.grade) || 0}, '${subEsc}', '${topEsc}', ${Number(l.duration_minutes) || 0}, '${objEsc}', '${keyEsc}', '${noteEsc}');\n`;
+      sql += `INSERT OR REPLACE INTO lessons (id, title, grade, subject, topic, duration_minutes, objectives, keywords, teacher_notes, type, source_file_name, source_file_path, online_embed_url) VALUES ('${esc(l.id)}', '${tEsc}', ${Number(l.grade) || 0}, '${subEsc}', '${topEsc}', ${Number(l.duration_minutes) || 0}, '${objEsc}', '${keyEsc}', '${noteEsc}', '${esc(l.type || 'native')}', '${esc(l.source_file_name)}', '${esc(l.source_file_path)}', '${esc(l.online_embed_url)}');\n`;
     }
     sql += `\n`;
   }
