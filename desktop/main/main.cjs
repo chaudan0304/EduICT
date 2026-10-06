@@ -5,7 +5,7 @@
 //            → tạo cửa sổ → nạp EduMaster.   Đóng cửa sổ → thông báo lifecycle → backend tắt êm → thoát.
 // Shell chỉ BAO QUANH hệ thống hiện có (React + Node + SQLite); không chứa logic nghiệp vụ, không chứa secret.
 
-const { app, BrowserWindow, dialog, ipcMain, session, shell, powerMonitor } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell, powerMonitor, screen } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
@@ -18,6 +18,7 @@ const {
 const { createLogger } = require('./logger.cjs');
 const { startBackend } = require('./backendProcess.cjs');
 const { createIpcHandlers, registerIpc } = require('./ipc.cjs');
+const { createPresentationWindow } = require('./presentationWindow.cjs');
 const { isAllowedExternalUrl, isAllowedNavigation } = require('./security.cjs');
 const { createPowerPointBridge, createPowerShellRunner } = require('../native/powerpointBridge.cjs');
 const { createLinkedPresentations } = require('../native/linkedPresentations.cjs');
@@ -50,6 +51,7 @@ app.on('render-process-gone', (_event, _wc, details) => {
 });
 let backend = null;
 let mainWindow = null;
+let presentationWindow = null;
 let quitting = false;
 let dataDirPath = '';
 let exitCode = 0;
@@ -87,6 +89,7 @@ function createMainWindow(origin) {
   });
   mainWindow.on('closed', () => {
     mainWindow = null;
+    presentationWindow?.dispose();
   });
 
   mainWindow.loadURL(origin);
@@ -235,7 +238,8 @@ async function boot() {
     app.quit();
   });
 
-  const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, linkedPresentations, logger });
+  presentationWindow = createPresentationWindow({ BrowserWindow, screen, getWindow: () => mainWindow, origin: backend.origin });
+  const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, linkedPresentations, presentationWindow, logger });
   registerIpc({ ipcMain, handlers, backendOrigin: backend.origin, logger });
 
   // Từ chối mọi yêu cầu quyền trình duyệt trừ nhóm an toàn tối thiểu.
@@ -256,6 +260,7 @@ async function boot() {
 app.on('before-quit', (event) => {
   if (quitting) return;
   quitting = true;
+  presentationWindow?.dispose();
   event.preventDefault();
   (async () => {
     try {

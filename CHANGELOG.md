@@ -1,5 +1,16 @@
 # Lịch sử thay đổi
 
+## 1.1.1 — 06/10/2026
+
+### Sửa
+
+- PowerPoint toàn màn hình che bảng điều khiển EduICT: thêm cửa sổ công cụ nổi riêng khi bắt đầu slideshow.
+- Có Trước/Tiếp, Hiện EduICT, Về slide, Dừng và lối tắt Đếm giờ/Điểm tốt/Vòng quay; kéo để di chuyển, thu gọn/mở rộng.
+- Khi kết thúc slideshow hoặc bấm Esc, thanh nổi đóng và EduICT được đưa trở lại. Trạng thái luôn nổi của cửa sổ chính được phục hồi sau khi dừng.
+- Có nút mở lại thanh nổi trong bảng điều khiển bài liên kết.
+
+Bộ cài thử nghiệm Windows x64; đã kiểm tra build, cú pháp, lint và nội dung gói cài. Hiển thị trên PowerPoint toàn màn hình, nhiều màn hình và nâng cấp thực tế còn cần thử trên máy người dùng.
+
 ## 1.1.0 — 06/10/2026
 
 Bộ cài Windows x64 phục vụ thử nghiệm trên máy người dùng.

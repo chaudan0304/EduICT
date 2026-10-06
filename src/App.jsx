@@ -1,5 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import DialogService from './services/DialogService';
+import { onPresentationNavigate } from './services/PresentationWindowService';
 import StorageService from './services/StorageService';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
@@ -57,6 +58,7 @@ export default function App() {
     return 'home';
   });
   const [ongoingSession, setOngoingSession] = useState(() => getActiveOngoingSession());
+  useEffect(() => onPresentationNavigate(setActiveTab), []);
   const [isProjector, setIsProjector] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [dbStatus, setDbStatus] = useState({ connected: false, dbFile: 'edumaster.sqlite' });

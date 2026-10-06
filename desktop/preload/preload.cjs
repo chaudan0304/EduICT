@@ -39,6 +39,13 @@ const desktop = {
     error: (message) => ipcRenderer.invoke('edumaster:dialog', { kind: 'error', message }),
   },
   bridge,
+  presentationWindow: (options) => ipcRenderer.invoke('edumaster:presentationWindow', options),
+  onNavigate: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, tab) => { if (['timer', 'goodscores', 'luckywheel'].includes(tab)) callback(tab); };
+    ipcRenderer.on('edumaster:navigate', handler);
+    return () => ipcRenderer.removeListener('edumaster:navigate', handler);
+  },
   // Đăng ký nhận sự kiện vòng đời do Native Layer phát; trả hàm hủy đăng ký.
   onLifecycle: (callback) => {
     if (typeof callback !== 'function') return () => {};

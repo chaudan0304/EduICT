@@ -3,6 +3,7 @@ import { FileSliders, Play, ChevronLeft, ChevronRight, X, Square, FolderOpen } f
 import PresentationService from '../../services/PresentationService';
 import { getCapabilities } from '../../services/DesktopCapabilityService';
 import LinkPowerPointModal from './LinkPowerPointModal';
+import { presentationWindowAction } from '../../services/PresentationWindowService';
 
 const messages = {
   PRESENTATION_NOT_FOUND: 'Không tìm thấy file. File có thể đã được đổi tên, di chuyển hoặc ổ đĩa chưa kết nối. Hãy chọn lại file.',
@@ -45,14 +46,15 @@ export default function LinkedPowerPointPresentation({ lesson, onClose }) {
     const timer = setInterval(async () => {
       const info = await PresentationService.getActivePresentation().catch(() => null);
       if (!canceled) { setActive(info?.ok === false ? null : info); if (!info || info.ok === false) setOpened(false); }
-    }, 3000);
+    }, 6000);
     return () => { canceled = true; clearInterval(timer); };
   }, [opened]);
   return <aside className="linked-ppt-companion" aria-label="Điều khiển PowerPoint">
     <header className="linked-ppt-heading"><div><span className="linked-ppt-eyebrow">BẢNG ĐIỀU KHIỂN</span><h2>PowerPoint gốc</h2></div><button className="btn btn-ghost" aria-label="Ẩn bảng điều khiển" onClick={onClose} disabled={busy}><X size={20} /></button></header>
     <div className="linked-ppt-source"><FileSliders size={36} /><h3>{current.title}</h3><p>Khối {current.grade} · {current.duration_minutes || 35} phút</p><div className="linked-ppt-path">{current.source_file_path}</div></div>
     <button className="btn btn-primary" disabled={busy} onClick={start}><Play size={18} />{busy ? 'Đang xử lý…' : 'Trình chiếu PowerPoint'}</button>
-    <p className="linked-ppt-help">PowerPoint phát hiệu ứng từ file gốc. Chọn màn hình chiếu trong PowerPoint; các công cụ tiết học vẫn dùng ở EduICT.</p>
+    <p className="linked-ppt-help">PowerPoint phát hiệu ứng từ file gốc. Thanh EduICT nổi trên slide: bấm “Hiện EduICT” để dùng công cụ, rồi “Về slide” để tiếp tục chiếu.</p>
+    <button className="btn btn-outline" disabled={busy || !opened} onClick={() => perform(() => presentationWindowAction('show'))}>Hiện lại thanh công cụ nổi</button>
     <div className="linked-ppt-controls"><button className="btn btn-outline" disabled={busy || !opened} onClick={() => perform(PresentationService.previousSlide)}><ChevronLeft size={18} />Trước</button><span aria-live="polite">{active ? `${active.currentSlide || '—'} / ${active.slideCount}` : 'Chưa mở bài'}</span><button className="btn btn-outline" disabled={busy || !opened} onClick={() => perform(PresentationService.nextSlide)}>Tiếp<ChevronRight size={18} /></button></div>
     <p className="linked-ppt-help">“Tiếp” chạy bước tiếp theo của slideshow, bao gồm hiệu ứng. Các trigger tương tác được bấm trực tiếp trong PowerPoint.</p>
     {current.teacher_notes && <div className="linked-ppt-notes"><strong>Ghi chú dạy học</strong><p>{current.teacher_notes}</p></div>}

@@ -84,3 +84,5 @@ Tham khảo API PowerPoint: [Presentations.Open](https://learn.microsoft.com/en-
 **Trạng thái:** LP1–LP4 đã triển khai trong mã nguồn; LP5 còn cần nghiệm thu trên EduICT Desktop + Microsoft PowerPoint.
 
 Bộ cài thử nghiệm **1.1.0** đã đóng gói ngày 06/10/2026. Kiểm tra nội dung/phiên bản và hướng dẫn cài thử: [Báo cáo bộ cài 1.1.0](desktop-build-1.1.0-2026-10-06.md).
+
+Sau phản hồi PowerPoint che phần mềm, bản **1.1.1** thêm cửa sổ công cụ nổi native, gọi cửa sổ EduICT lên trước và trở về slideshow. Đã đóng gói; thứ tự cửa sổ toàn màn hình và nhiều màn hình còn cần nghiệm thu thực tế. Xem [báo cáo bộ cài 1.1.1](desktop-build-1.1.1-2026-10-06.md).

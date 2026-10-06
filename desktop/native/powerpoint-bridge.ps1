@@ -90,7 +90,17 @@ try {
     }
 
     if ($Action -eq 'Status') {
-        Write-Result @{ ok = $true; running = [bool]($null -ne $pres); slideShowActive = [bool]($null -ne $show) }
+        $status = @{ ok = $true; running = [bool]($null -ne $pres); slideShowActive = [bool]($null -ne $show) }
+        if ($null -ne $pres) {
+            $status.name = [string]$pres.Name
+            $status.slideCount = [int]$pres.Slides.Count
+            $status.currentSlide = 0
+            try {
+                if ($null -ne $show) { $status.currentSlide = [int]$show.View.CurrentShowPosition }
+                else { $status.currentSlide = [int]$pres.Windows.Item(1).View.Slide.SlideIndex }
+            } catch { }
+        }
+        Write-Result $status
         return
     }
 

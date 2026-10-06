@@ -14,13 +14,15 @@ import '@fontsource/plus-jakarta-sans/700.css'
 import './index.css'
 import './ui.css'
 import App from './App.jsx'
+import PowerPointToolbar from './components/LessonPresentation/PowerPointToolbar.jsx'
 import installNativeAdapter from './services/nativeAdapterBootstrap.js'
 
 // Desktop: đăng ký native adapter nếu Desktop Shell có mặt; Web: không làm gì.
 installNativeAdapter()
+const isPowerPointToolbar = new URLSearchParams(window.location.search).get('desktopView') === 'powerpoint-tools'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    {isPowerPointToolbar ? <PowerPointToolbar /> : <App />}
   </StrictMode>,
 )

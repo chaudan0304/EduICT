@@ -47,6 +47,7 @@ function createIpcHandlers({
   getWindow = () => null,
   bridge,
   linkedPresentations,
+  presentationWindow,
   platform = process.platform,
   logger = noopLogger,
   fsImpl = fs,
@@ -167,11 +168,34 @@ function createIpcHandlers({
     if (method === 'openPowerPoint' && typeof arg !== 'string') return denied('INVALID_PRESENTATION_PATH');
     if (method === 'goToSlide' && !Number.isInteger(arg)) return denied('INVALID_SLIDE_INDEX');
     try {
-      return await bridge[method](arg);
+      const result = await bridge[method](arg);
+      if (result?.ok !== false && presentationWindow) {
+        if (method === 'startSlideShow' && result?.started) await presentationWindow.show();
+        if (method === 'exitSlideShow' || method === 'closePowerPoint' ||
+          (method === 'getStatus' && result?.slideShowActive === false && presentationWindow.isActive())) presentationWindow.stop();
+      }
+      return result;
     } catch (err) {
       logger.error(`[ipc] bridge.${method} lỗi: ${err && err.message}`);
       return { ok: false, code: 'POWERPOINT_CONTROL_FAILED', message: ERROR_CODES.POWERPOINT_CONTROL_FAILED };
     }
+  }
+
+  async function presentationAction(payload = {}) {
+    if (!presentationWindow) return denied();
+    if (payload.action === 'stop') {
+      const exit = await bridge.exitSlideShow();
+      if (exit?.ok === false) return exit;
+      const close = await bridge.closePowerPoint();
+      if (close?.ok === false) return close;
+      presentationWindow.stop();
+      return { ok: true };
+    }
+    if (payload.action === 'show') {
+      const status = await bridge.getStatus();
+      if (!status?.slideShowActive) return { ok: false, message: 'Hãy mở trình chiếu trước.' };
+    }
+    return presentationWindow.action(payload);
   }
 
   return {
@@ -182,6 +206,7 @@ function createIpcHandlers({
     'edumaster:selectFolder': selectFolder,
     'edumaster:dialog': messageDialog,
     'edumaster:bridge': bridgeCall,
+    'edumaster:presentationWindow': presentationAction,
   };
 }
 

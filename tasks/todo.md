@@ -90,6 +90,8 @@ Nhánh: `codex/ui-polish`. Chi tiết nghiệm thu, phụ thuộc và kiểm tra
 
 ## Nhật ký thực hiện
 
+06/10/2026 — sửa sau phản hồi bộ cài 1.1.0: đã thêm thanh công cụ nổi native trên PowerPoint và đóng gói 1.1.1. Build/lint/cú pháp/gói cài đã kiểm tra; thứ tự cửa sổ thật, Esc, công cụ tiết học và nhiều màn hình còn cần nghiệm thu. Xem [báo cáo 1.1.1](../docs/desktop-build-1.1.1-2026-10-06.md).
+
 06/10/2026: hoàn thành tài liệu kế hoạch. Các nhiệm vụ triển khai A–H chưa bắt đầu.
 
 06/10/2026 — đợt đầu: đã triển khai khung điều hướng, tokens/font, PageHeader, trang chủ, ClassContextBar và bố cục thư viện. B1/B2/B4/D1 đang thực hiện, chưa đóng nghiệm thu toàn bộ. A2 đã có bản chạy Home/Library, còn mẫu sổ đánh giá. Chi tiết kiểm tra và giới hạn: [báo cáo triển khai](../docs/ui-implementation-2026-10-06.md).
