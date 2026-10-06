@@ -12,6 +12,7 @@ import '@fontsource/plus-jakarta-sans/500.css'
 import '@fontsource/plus-jakarta-sans/600.css'
 import '@fontsource/plus-jakarta-sans/700.css'
 import './index.css'
+import './ui.css'
 import App from './App.jsx'
 import installNativeAdapter from './services/nativeAdapterBootstrap.js'
 

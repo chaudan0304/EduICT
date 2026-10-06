@@ -239,7 +239,8 @@ export default function Navbar({
       }}>
         <div className="navbar-header-inner">
           {/* Logo & Brand: Tin Học Tiểu Học (Zone 1: Trái) */}
-          <div 
+          <div className="navbar-brand" role="button" tabIndex={0}
+            onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelectTab?.('home'); } }}
             onClick={() => onSelectTab?.('home')}
             style={{ 
               display: 'flex', 
@@ -289,7 +290,7 @@ export default function Navbar({
           </div>
 
           {/* Nhóm Thao Tác & Công Cụ (Zone 2: Giữa) */}
-          <div style={{
+          <div className="navbar-tools" style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.45rem',
@@ -653,7 +654,7 @@ export default function Navbar({
           </div>
 
           {/* Cụm Quản Lý Năm Học Riêng Biệt (Zone 3: Phải - Cấp Cao Nhất) */}
-          <div style={{
+          <div className="navbar-year-controls" style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.35rem',
@@ -846,19 +847,19 @@ export default function Navbar({
               onClick={() => setShowTransitionModal(true)}
               style={{
                 height: 30,
-                background: 'linear-gradient(135deg, #0284c7, #2563eb)',
-                color: '#fff',
+                background: 'var(--surface)',
+                color: 'var(--text-muted)',
                 fontSize: '0.725rem',
                 fontWeight: 700,
                 padding: '0 0.55rem',
                 borderRadius: 'var(--radius-md)',
-                border: 'none',
+                border: '1px solid var(--surface-border)',
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.3rem',
                 whiteSpace: 'nowrap',
-                boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+                boxShadow: 'none'
               }}
               title="Tự động chuyển sang năm học mới & lên lớp"
             >
