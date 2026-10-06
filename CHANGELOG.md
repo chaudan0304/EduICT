@@ -1,5 +1,15 @@
 # Lịch sử thay đổi
 
+## 1.2.2 — 06/10/2026
+
+### Sửa
+
+- Lỗi `No slideshow window handle` trên bản cài 1.2.1: thay việc đọc HWND một lần bằng getter COM rõ ràng, đọc lại cửa sổ của đúng bài và chờ tối đa 5 giây.
+- Thêm tìm cửa sổ native khi getter chưa trả HWND hợp lệ: kiểm tra tiến trình PowerPoint, lớp slideshow, snapshot cửa sổ trước khi Run và tên bài. Không chọn khi mơ hồ hoặc nhiều bài trùng tên.
+- Giữ bố cục slide phủ vùng trình chiếu và công cụ nổi của 1.2.1. Không thay đổi file PowerPoint gốc.
+
+Bộ cài NSIS đã tạo và kiểm tra payload. Chưa chạy lại PowerPoint thật với bản sửa; cần nghiệm thu trên máy người dùng.
+
 ## 1.2.1 — 06/10/2026
 
 ### Sửa

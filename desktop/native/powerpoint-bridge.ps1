@@ -170,6 +170,15 @@ try {
         }
         'StartEmbeddedShow' {
             if ($inShow) { $show.View.Exit() }
+            . (Join-Path $PSScriptRoot 'powerpoint-show-window.ps1')
+            $editorHandle = 0
+            try { $editorHandle = Read-PptComHwnd $pres.Windows.Item(1) } catch { }
+            if ($editorHandle -eq 0) { $editorHandle = Read-PptComHwnd $app }
+            $nativeProcessId = [EduIctShowWindow]::PowerPointProcess($editorHandle)
+            if ($nativeProcessId -eq 0) { throw 'Cannot identify the linked PowerPoint process safely' }
+            $windowsBefore = @([EduIctShowWindow]::VisibleRoots($nativeProcessId, $false))
+            $sameNameCount = 0
+            foreach ($candidate in $app.Presentations) { if ($candidate.Name -ieq $pres.Name) { $sameNameCount++ } }
             $settings = $pres.SlideShowSettings
             $oldType = $settings.ShowType
             $oldScrollbar = $settings.ShowScrollbar
@@ -181,9 +190,7 @@ try {
                 $settings.ShowScrollbar = 0
                 $settings.ShowPresenterView = 0
                 $window = $settings.Run()
-                $handle = [long]$window.HWND
-                if ($handle -lt 0) { $handle += 4294967296 }
-                if ($handle -eq 0) { throw 'No slideshow window handle' }
+                $handle = Get-StartedSlideShowHandle $window $pres $nativeProcessId $windowsBefore ($sameNameCount -eq 1)
                 $embeddedResult = @{ ok = $true; started = $true; windowHandle = [string]$handle; name = [string]$pres.Name; slideCount = $count; currentSlide = [int]$window.View.CurrentShowPosition; aspectRatio = [double]$pres.PageSetup.SlideWidth / [double]$pres.PageSetup.SlideHeight }
             } catch {
                 if ($null -ne $window) { try { $window.View.Exit() } catch { } }

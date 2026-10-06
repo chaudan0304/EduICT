@@ -13,7 +13,7 @@ Giả định: Windows có Microsoft PowerPoint; giao diện React, lớp và c�
 - Dùng lại `PresentationView` cho bài `linked_powerpoint`; giữ nguyên các công cụ và lớp/tiết học đang chọn.
 - PowerPoint chạy slideshow dạng cửa sổ (`ppShowTypeWindow`), giữ các thiết lập hiệu ứng/timing/âm thanh của bài. Các thiết lập cửa sổ tạm thời được phục hồi trong bộ nhớ, không Save file.
 - Native host bỏ viền và neo cửa sổ slideshow vào hình chữ nhật của vùng slide. Cửa sổ được đặt owner là cửa sổ EduICT; không dùng SetParent qua hai process vì Microsoft ghi nhận vấn đề DPI với cách đó. Đây là cửa sổ PowerPoint thật, không phải nội dung PowerPoint trong DOM.
-- Một worker PowerShell cố định nhận lệnh JSON whitelist để gắn/di chuyển/ẩn/khôi phục đúng HWND slideshow do COM trả về. Main process giữ HWND, kiểm tra process PowerPoint và chủ cửa sổ; renderer chỉ nhận session ID và metadata.
+- Bridge đọc HWND qua COM (có getter tường minh), chờ tối đa 5 giây để native window sẵn sàng. Khi cần, tìm cửa sổ mới theo snapshot, đúng tiến trình PowerPoint/lớp slideshow và tên bài; từ chối trường hợp mơ hồ hoặc tên bài trùng. Một worker PowerShell cố định nhận lệnh JSON whitelist để gắn/di chuyển/ẩn/khôi phục HWND đã xác thực. Main process giữ HWND, kiểm tra process PowerPoint và chủ cửa sổ; renderer chỉ nhận session ID và metadata.
 - Renderer gửi bounds của vùng slide; main xác thực, giới hạn trong content bounds và đổi DIP sang pixel màn hình theo API Electron. Main cập nhật khi cửa sổ di chuyển, resize, maximize/fullscreen hoặc đổi DPI.
 - Vùng slide chiếm toàn viewport trình chiếu, không có padding trên/dưới, thanh trạng thái cố định hoặc cột học sinh làm giảm diện tích. Tiêu đề/lịch/nút thoát, dock và thẻ học sinh giữ dạng nổi trên slide.
 - Vì native window nằm trên DOM, renderer đo từng capsule tương tác; main xác thực tối đa 12 vùng và đổi sang pixel theo DPI. Worker dùng SetWindowRgn với RGN_DIFF để dành đúng các vùng bo góc đó cho UI EduICT bên dưới. Kích thước cửa sổ slide vẫn bằng toàn vùng trình chiếu; PowerPoint tự giữ tỷ lệ nội dung. Các capsule dùng nền đặc để vùng clip khớp hình dạng điều khiển; native window tiếp tục nhận click/trigger ở phần slide.
@@ -25,6 +25,7 @@ Giả định: Windows có Microsoft PowerPoint; giao diện React, lớp và c�
 ## Phạm vi mã
 
 - `desktop/native/powerpoint-bridge.ps1`, `powerpointBridge.cjs`: mở show dạng cửa sổ và lấy handle nội bộ.
+- `desktop/native/powerpoint-show-window.ps1`: đọc COM HWND và tìm đúng cửa sổ native mới, hỗ trợ trường hợp đọc HWND trực tiếp trả 0.
 - `desktop/native/powerpoint-window-host.ps1`, `powerpointWindowHost.cjs`: worker và protocol native cố định.
 - `desktop/main/presentationHost.cjs`, `ipc.cjs`, `main.cjs`: lifecycle, bounds, IPC xác thực.
 - `desktop/preload/preload.cjs`, `src/services/nativeAdapterBootstrap.js`, `NativePresentationService.js`: API optional ngoài contract bridge chín phương thức.
@@ -54,3 +55,4 @@ Không thêm/chạy test tự động vì người dùng chưa yêu cầu và h�
 - [SetParent và DPI](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setparent).
 - [Electron screen, DIP/pixel](https://www.electronjs.org/docs/latest/api/screen).
 - [SetWindowRgn](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowrgn), [CombineRgn](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-combinergn) và [CreateRoundRectRgn](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createroundrectrgn).
+- [EnumWindows](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumwindows).
