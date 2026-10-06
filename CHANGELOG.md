@@ -9,7 +9,7 @@
 - Ẩn cửa sổ slide trước khi mở công cụ, hiện lại khi đóng; cập nhật vị trí theo resize, fullscreen và DPI. Thẻ học sinh có vùng riêng cạnh slide.
 - Chỉ lưu đường dẫn/metadata; không sao chép slide, không chuyển thành ảnh, không Save các thiết lập trình chiếu tạm thời vào file gốc.
 
-Bản ứng dụng Windows x64 1.2.0 đã đóng gói thành ZIP chạy trực tiếp. Bộ cài NSIS chưa tạo được do công cụ `makensis.exe` gặp lỗi `Illegal System DLL Relocation` trong môi trường hiện tại. Build/lint/cú pháp/nội dung gói đã kiểm tra; hiển thị native, hiệu ứng và tương tác PowerPoint thật còn cần thử trên máy người dùng.
+Bản ứng dụng Windows x64 1.2.0 có bộ cài NSIS EXE và ZIP chạy trực tiếp. Lỗi `Illegal System DLL Relocation` khi chạy `makensis.exe` không còn tái hiện sau khi quyền thực thi của môi trường được mở; đã dựng EXE thành công bằng các công cụ trong cache. Build/lint/cú pháp/nội dung gói đã kiểm tra; hiển thị native, hiệu ứng và tương tác PowerPoint thật còn cần thử trên máy người dùng.
 
 ## 1.1.1 — 06/10/2026
 

@@ -12,6 +12,19 @@ Main process giữ handle nội bộ, renderer chỉ nhận session ID/metadata.
 
 Thiết kế và nguồn kỹ thuật: [powerpoint-in-app-spec.md](powerpoint-in-app-spec.md).
 
+## Bộ cài EXE — đã tạo thành công
+
+Cập nhật 06/10/2026, sau khi người dùng cấp quyền và môi trường chuyển sang cho phép thực thi đầy đủ:
+
+- File: `D:\DU_AN\EduICT\release\EduMaster-Setup-1.2.0.exe`.
+- Dung lượng: **113,098,210 bytes**.
+- SHA256: `D04C58886398D9F736A2ACF6CFFD520F6EF52D828BED64D8D48F2EB741C14FB9`.
+- FileVersion/ProductVersion của Setup: **1.2.0 / 1.2.0**.
+- Chữ ký: `NotSigned`.
+- NSIS build kết thúc với exit code 0. Chi tiết khôi phục: [Báo cáo NSIS](nsis-build-recovery-2026-10-06.md).
+
+Đóng EduMaster đang chạy, mở bộ cài có tên phiên bản trên và cài vào thư mục hiện có, sau đó mở lại. Không cài/nâng cấp tự động trên máy người dùng trong lượt này; hành vi PowerPoint thực tế vẫn cần thử.
+
 ## Gói chạy trực tiếp
 
 - ZIP: `D:\DU_AN\EduICT\release\EduMaster-1.2.0-chay-truc-tiep.zip`.
@@ -47,11 +60,11 @@ Staging offline dùng 41 package backend đã cài, kiểm tra dependency/peer t
 
 Không thêm hoặc chạy test tự động trong lượt này. Không cài ứng dụng hoặc điều khiển PowerPoint thật. Native docking, animation/transition/trigger/media, nhiều màn hình và hành vi file nguồn vẫn cần nghiệm thu trên máy người dùng; kết quả build không xác nhận các mục đó. Build còn cảnh báo bundle lớn và SQLite experimental.
 
-## Bộ cài NSIS chưa hoàn thành
+## Lỗi NSIS ban đầu — đã khôi phục
 
-Công cụ `makensis.exe` trong cache NSIS 3.0.4.1 không khởi chạy được: Windows báo `Illegal System DLL Relocation`; electron-builder báo `spawn UNKNOWN`. Đã dùng cache NSIS/resources/7zip cục bộ để tránh tải mạng nhưng lỗi thực thi còn tồn tại. Không tạo file `EduMaster-Setup-1.2.0.exe` và không đổi tên ZIP/EXE chạy trực tiếp thành bộ cài.
+Trong môi trường bị giới hạn trước đó, công cụ `makensis.exe` trong cache NSIS 3.0.4.1 không khởi chạy được: Windows báo `Illegal System DLL Relocation`; electron-builder báo `spawn UNKNOWN`. Khi đó đã dùng cache NSIS/resources/7zip cục bộ nhưng chưa tạo được bộ cài.
 
-Hệ thống duyệt quyền tự động cũng từ chối lệnh dọn thư mục đóng gói, và phiên hiện tại không cho phép xin quyền bổ sung. Vì vậy stage/output mới được tạo trong thư mục mới, giữ bộ cài 1.1.1. Bộ cài 1.2.0 cần được dựng lại trong môi trường có NSIS chạy bình thường.
+Hệ thống duyệt quyền tự động khi đó cũng từ chối lệnh dọn thư mục đóng gói. Vì vậy stage/output mới được tạo trong thư mục mới, giữ bộ cài 1.1.1. Sau khi quyền thực thi thay đổi, cùng binary NSIS trả về `v3.04` và cùng lệnh đóng gói tạo EXE thành công; không sửa mã ứng dụng hoặc thay binary NSIS. Không còn tái hiện lỗi trong môi trường hiện tại; chưa xác định được DLL cụ thể gây lỗi ở môi trường cũ.
 
 ## GitHub
 
