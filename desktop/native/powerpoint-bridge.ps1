@@ -50,14 +50,6 @@ function Get-RunningApp {
     return $null
 }
 
-function Get-CurrentSlide($App) {
-    try {
-        if ($App.SlideShowWindows.Count -gt 0) { return [int]$App.SlideShowWindows.Item(1).View.CurrentShowPosition }
-        if ($App.Windows.Count -gt 0) { return [int]$App.ActiveWindow.View.Slide.SlideIndex }
-    } catch { }
-    return 0
-}
-
 try {
     if ($Action -eq 'Probe') {
         $installed = Test-Path -LiteralPath 'Registry::HKEY_CLASSES_ROOT\PowerPoint.Application'
@@ -75,76 +67,99 @@ try {
         foreach ($p in $app.Presentations) {
             if ($p.FullName -ieq $full) { $pres = $p; break }
         }
-        if ($null -eq $pres) { $pres = $app.Presentations.Open($full, -1, 0, -1) }  # ReadOnly, not Untitled, WithWindow
+        $openedByApp = ($null -eq $pres)
+        if ($openedByApp) { $pres = $app.Presentations.Open($full, -1, 0, -1) }  # ReadOnly, not Untitled, WithWindow
         try { $pres.Windows.Item(1).Activate() } catch { }
-        Write-Result @{ ok = $true; opened = $true; name = [string]$pres.Name; slideCount = [int]$pres.Slides.Count }
+        Write-Result @{ ok = $true; opened = $true; openedByApp = $openedByApp; name = [string]$pres.Name; slideCount = [int]$pres.Slides.Count }
         return
     }
 
     $app = Get-RunningApp
 
+    $pres = $null
+    $show = $null
+    if ($null -ne $app) {
+        foreach ($p in $app.Presentations) {
+            if ($p.FullName -ieq $PptxPath) { $pres = $p; break }
+        }
+        if ($null -ne $pres) {
+            foreach ($w in $app.SlideShowWindows) {
+                if ($w.Presentation.FullName -ieq $PptxPath) { $show = $w; break }
+            }
+        }
+    }
+
     if ($Action -eq 'Status') {
-        if ($null -eq $app) { Write-Result @{ ok = $true; running = $false; slideShowActive = $false }; return }
-        Write-Result @{ ok = $true; running = $true; slideShowActive = [bool]($app.SlideShowWindows.Count -gt 0) }
+        Write-Result @{ ok = $true; running = [bool]($null -ne $pres); slideShowActive = [bool]($null -ne $show) }
         return
     }
 
     if ($Action -eq 'Close') {
         $closed = 0
-        if ($null -ne $app -and $AllowedRoot) {
-            # Chi dong cac bai trinh chieu nam trong vung presentations cua EduMaster; khong dong file khac cua nguoi dung.
-            $root = [System.IO.Path]::GetFullPath($AllowedRoot).TrimEnd('\') + '\'
-            for ($i = $app.Presentations.Count; $i -ge 1; $i--) {
-                $p = $app.Presentations.Item($i)
-                if ($p.FullName.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
-                    $p.Saved = -1
-                    $p.Close()
-                    $closed++
-                }
-            }
+        if ($null -ne $pres) {
+            $pres.Saved = -1
+            $pres.Close()
+            $closed++
             if ($closed -gt 0 -and $app.Presentations.Count -eq 0) { $app.Quit() }
         }
         Write-Result @{ ok = $true; closed = $true; closedCount = $closed }
         return
     }
 
-    if ($null -eq $app -or $app.Presentations.Count -eq 0) {
+    if ($null -eq $pres) {
         if ($Action -eq 'Active') { Write-Result @{ ok = $true; presentation = $null }; return }
         if ($Action -eq 'ExitShow') { Write-Result @{ ok = $true; exited = $true }; return }
         Write-Fail 'POWERPOINT_NOT_RUNNING'
         return
     }
 
-    $inShow = ($app.SlideShowWindows.Count -gt 0)
-    $count = [int]$app.ActivePresentation.Slides.Count
+    $inShow = ($null -ne $show)
+    $count = [int]$pres.Slides.Count
+    function Get-LinkedSlide {
+        try {
+            if ($inShow) { return [int]$show.View.CurrentShowPosition }
+            return [int]$pres.Windows.Item(1).View.Slide.SlideIndex
+        } catch { return 0 }
+    }
 
     switch ($Action) {
         'Active' {
-            $pr = $app.ActivePresentation
-            Write-Result @{ ok = $true; presentation = @{ name = [string]$pr.Name; slideCount = $count; currentSlide = (Get-CurrentSlide $app) } }
+            Write-Result @{ ok = $true; presentation = @{ name = [string]$pres.Name; slideCount = $count; currentSlide = (Get-LinkedSlide) } }
         }
         'Next' {
-            if ($inShow) { $app.SlideShowWindows.Item(1).View.Next() }
-            else { $app.ActiveWindow.View.GotoSlide([Math]::Min((Get-CurrentSlide $app) + 1, $count)) }
-            Write-Result @{ ok = $true; currentSlide = (Get-CurrentSlide $app) }
+            if ($inShow) {
+                $clickIndex = [int]$show.View.GetClickIndex()
+                $clickCount = [int]$show.View.GetClickCount()
+                # -2 is msoClickStateAfterAllAnimations; -1 is before automatic animations.
+                if ($clickIndex -ne -2 -and $clickCount -gt [Math]::Max(0, $clickIndex)) {
+                    $show.View.GotoClick([Math]::Max(0, $clickIndex) + 1)
+                } else { $show.View.Next() }
+            }
+            else { $pres.Windows.Item(1).View.GotoSlide([Math]::Min((Get-LinkedSlide) + 1, $count)) }
+            Write-Result @{ ok = $true; currentSlide = (Get-LinkedSlide) }
         }
         'Previous' {
-            if ($inShow) { $app.SlideShowWindows.Item(1).View.Previous() }
-            else { $app.ActiveWindow.View.GotoSlide([Math]::Max((Get-CurrentSlide $app) - 1, 1)) }
-            Write-Result @{ ok = $true; currentSlide = (Get-CurrentSlide $app) }
+            if ($inShow) {
+                $clickIndex = [int]$show.View.GetClickIndex()
+                if ($clickIndex -eq -2) { $clickIndex = [int]$show.View.GetClickCount() }
+                if ($clickIndex -gt 0) { $show.View.GotoClick($clickIndex - 1) }
+                else { $show.View.Previous() }
+            }
+            else { $pres.Windows.Item(1).View.GotoSlide([Math]::Max((Get-LinkedSlide) - 1, 1)) }
+            Write-Result @{ ok = $true; currentSlide = (Get-LinkedSlide) }
         }
         'GoTo' {
             if ($Index -lt 1 -or $Index -gt $count) { Write-Fail 'INVALID_SLIDE_INDEX'; return }
-            if ($inShow) { $app.SlideShowWindows.Item(1).View.GotoSlide($Index) }
-            else { $app.ActiveWindow.View.GotoSlide($Index) }
-            Write-Result @{ ok = $true; currentSlide = (Get-CurrentSlide $app) }
+            if ($inShow) { $show.View.GotoSlide($Index) }
+            else { $pres.Windows.Item(1).View.GotoSlide($Index) }
+            Write-Result @{ ok = $true; currentSlide = (Get-LinkedSlide) }
         }
         'StartShow' {
-            if (-not $inShow) { $null = $app.ActivePresentation.SlideShowSettings.Run() }
+            if (-not $inShow) { $null = $pres.SlideShowSettings.Run() }
             Write-Result @{ ok = $true; started = $true }
         }
         'ExitShow' {
-            if ($inShow) { $app.SlideShowWindows.Item(1).View.Exit() }
+            if ($inShow) { $show.View.Exit() }
             Write-Result @{ ok = $true; exited = $true }
         }
     }

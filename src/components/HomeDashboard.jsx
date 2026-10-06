@@ -21,7 +21,7 @@ export default function HomeDashboard({ classes = [], currentClass, onSelectClas
     onSelectTab('sessions');
   };
   const tools = [
-    ['lessons', 'Bài học & slide', 'Soạn bài, nhập PowerPoint và trình chiếu.', BookOpen],
+    ['lessons', 'Bài học & slide', 'Soạn bài, liên kết PowerPoint và trình chiếu.', BookOpen],
     ['quiz', 'Đố vui', 'Câu hỏi tương tác và kiểm tra nhanh.', Zap],
     ['seating', 'Phòng máy', 'Xếp chỗ và quản lý máy thực hành.', Monitor],
     ['gradebook', grade <= 2 ? 'Sổ kỹ năng & sao' : 'Sổ đánh giá', 'Theo dõi tiến bộ của từng học sinh.', ClipboardList],

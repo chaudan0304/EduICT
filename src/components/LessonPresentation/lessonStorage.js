@@ -417,6 +417,11 @@ export async function fetchLessonsApi(filters = {}) {
 
   // Fallback sang local cache
   let cached = getLocalLessonsCache();
+  if (filters.type && filters.type !== 'all') {
+    cached = cached.filter(l => ['imported', 'powerpoint'].includes(filters.type)
+      ? ['imported', 'linked_powerpoint'].includes(l.type)
+      : filters.type === 'native' ? !l.type || l.type === 'native' : l.type === filters.type);
+  }
   if (filters.grade && filters.grade !== 'all') {
     cached = cached.filter(l => Number(l.grade) === Number(filters.grade));
   }

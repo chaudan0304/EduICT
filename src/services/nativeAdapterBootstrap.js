@@ -32,6 +32,13 @@ function createNativeAdapter(api) {
   return {
     getCapabilities: () => api.getCapabilities(),
 
+    async selectPresentationFile() {
+      if (typeof api.selectPresentationFile !== 'function') throw new Error('Cần cập nhật EduICT Desktop để liên kết PowerPoint.');
+      const res = await api.selectPresentationFile();
+      if (!res || res.ok === false) throw nativeError(res);
+      return res.file || null;
+    },
+
     // Trả về mô tả file {name,size,type,data}; FileDialogService chuyển thành File như bản web.
     async openFile(options = {}) {
       const res = await api.openFile({

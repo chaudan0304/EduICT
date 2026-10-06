@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
+import { assertManagedPowerPoint } from './services/linkedPowerPoint.js';
 import { 
   createLesson, 
   updateLesson, 
@@ -759,6 +760,7 @@ export async function renderPptxMultiEngine(pptxPath, outputDir, options = {}) {
 // HÀM RETRY 1 SLIDE DUY NHẤT VỚI EXPONENTIAL BACKOFF (1s -> 3s -> 7s, tối đa 3 lần)
 export async function retrySingleSlideRender(lessonId, slideId, slideNumber) {
   const lesson = getLessonById(lessonId);
+  assertManagedPowerPoint(lesson);
   if (!lesson) {
     throw new Error(`Không tìm thấy bài học ${lessonId}`);
   }
@@ -1573,6 +1575,7 @@ export const pptxBackgroundQueue = new PptxBackgroundQueue();
 // Đảm bảo bài học có thumbnail xem trước (Requirement 2)
 export async function ensureLessonThumbnail(lessonId) {
   const lesson = getLessonById(lessonId);
+  assertManagedPowerPoint(lesson);
   if (!lesson) {
     throw new Error(`Không tìm thấy bài học ${lessonId}`);
   }

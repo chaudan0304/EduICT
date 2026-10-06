@@ -8,7 +8,7 @@ import StudentParticipationGrid from './StudentParticipationGrid';
 import SessionControlBar from './SessionControlBar';
 import QuickToolModal from './QuickToolModal';
 import SessionSummaryModal from './SessionSummaryModal';
-import PresentationView from '../LessonPresentation/PresentationView';
+import PresentationView from '../LessonPresentation/LessonPresentation';
 import { fetchLessonDetailApi, fetchLessonsApi } from '../LessonPresentation/lessonStorage';
 import { 
   updateSessionApi, 

@@ -35,10 +35,10 @@ Nhánh: `codex/ui-polish`. Chi tiết nghiệm thu, phụ thuộc và kiểm tra
 
 Ưu tiên mới: [PowerPoint liên kết file](../docs/powerpoint-linked-file-spec.md).
 
-- [ ] LP1. Chốt loại liên kết và hợp đồng dữ liệu linked/managed.
-- [ ] LP2. Chọn/lưu tham chiếu, không đọc/upload/copy/render PPTX.
-- [ ] LP3. Thư viện và liên kết lại file nguồn.
-- [ ] LP4. Tiết học trình chiếu bằng PowerPoint Desktop và đóng đúng bài.
+- [x] LP1. Chốt file trên máy và hợp đồng dữ liệu `linked_powerpoint`/imported.
+- [x] LP2. Triển khai chọn/lưu tham chiếu, không đọc/upload/copy/render PPTX.
+- [x] LP3. Triển khai thư viện và liên kết lại file nguồn.
+- [x] LP4. Triển khai tiết học dùng PowerPoint Desktop và đóng đúng bài; nghiệm thu COM thật ở LP5.
 - [ ] LP5. Nghiệm thu hiệu ứng gốc, lưu/restart, thiếu file, xóa tham chiếu và backup.
 
 - [ ] D1. Thu gọn thư viện, bộ lọc và card bài giảng.

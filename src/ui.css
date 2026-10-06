@@ -127,3 +127,45 @@ h1, h2, h3 { font-family: var(--font-display); }
   .class-context-controls { gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+.linked-ppt-dialog {
+  width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 32px);
+  margin: auto; padding: 24px; overflow-y: auto; color: var(--text-main);
+  background: var(--surface-card); border: 1px solid var(--surface-border); border-radius: 20px;
+  box-shadow: 0 24px 80px #0f172a30;
+}
+.linked-ppt-dialog::backdrop { background: #0f172a88; backdrop-filter: blur(4px); }
+.linked-ppt-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.linked-ppt-heading h2 { font-size: 1.35rem; margin: 6px 0 0; }
+.linked-ppt-eyebrow { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; color: var(--primary); }
+.linked-ppt-source { padding: 20px; border: 1px solid #e2e8f0; border-radius: 14px; background: #f8fafc; display: grid; justify-items: start; gap: 12px; margin-bottom: 18px; }
+.linked-ppt-source > svg { color: #c2410c; }
+.linked-ppt-source p { font-size: .84rem; color: var(--text-muted); line-height: 1.6; margin: 0; }
+.linked-ppt-source h3 { margin: 0; overflow-wrap: anywhere; }
+.linked-ppt-path { font-size: .78rem; color: var(--text-muted); overflow-wrap: anywhere; line-height: 1.5; width: 100%; }
+.linked-ppt-field { display: grid; gap: 7px; margin: 14px 0; font-size: .85rem; font-weight: 600; }
+.linked-ppt-field :is(input, select, textarea) { width: 100%; min-width: 0; border: 1px solid var(--surface-border); border-radius: 8px; background: var(--surface-card); color: var(--text-main); padding: 10px 12px; font: inherit; }
+.linked-ppt-field :is(input, select, textarea):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.linked-ppt-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.linked-ppt-help { font-size: .78rem; line-height: 1.65; color: var(--text-muted); }
+.linked-ppt-error { padding: 12px; border-radius: 8px; background: #fff1f2; color: #9f1239; font-size: .84rem; line-height: 1.6; }
+.linked-ppt-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.linked-ppt-card { overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--surface-border); border-radius: 16px; background: var(--surface-card); }
+.linked-ppt-card-icon { min-height: 100px; padding: 24px; background: #fff7ed; color: #c2410c; display: flex; align-items: center; gap: 14px; }
+.linked-ppt-card-icon span { font-size: .75rem; font-weight: 700; letter-spacing: .08em; }
+.linked-ppt-card-body { padding: 20px; flex: 1; }
+.linked-ppt-card-body h3 { font-size: 1.08rem; margin: 12px 0; overflow-wrap: anywhere; }
+.linked-ppt-card-body p { font-size: .8rem; color: var(--text-muted); margin: 0 0 12px; }
+.linked-ppt-card-footer { padding: 16px 20px; border-top: 1px solid var(--surface-border); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.linked-ppt-companion { position: fixed; z-index: 9500; right: 16px; bottom: 16px; top: 96px; width: min(380px, calc(100vw - 32px)); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--surface-card); color: var(--text-main); border: 1px solid var(--surface-border); border-radius: 18px; box-shadow: 0 12px 48px #0f172a30; }
+.linked-ppt-companion .linked-ppt-heading, .linked-ppt-companion .linked-ppt-source { margin-bottom: 0; }
+.linked-ppt-companion > .btn { flex-shrink: 0; justify-content: center; }
+.linked-ppt-companion .linked-ppt-help { margin: 0; }
+.linked-ppt-controls { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.linked-ppt-controls span { font-size: .84rem; font-variant-numeric: tabular-nums; }
+.linked-ppt-notes { padding: 14px; border-radius: 10px; background: #fffbeb; color: #78350f; font-size: .84rem; }
+.linked-ppt-notes p { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .linked-ppt-dialog { padding: 18px; }
+  .linked-ppt-companion { top: 80px; }
+  .linked-ppt-card-footer { padding: 12px; }
+}

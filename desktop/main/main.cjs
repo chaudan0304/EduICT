@@ -20,6 +20,7 @@ const { startBackend } = require('./backendProcess.cjs');
 const { createIpcHandlers, registerIpc } = require('./ipc.cjs');
 const { isAllowedExternalUrl, isAllowedNavigation } = require('./security.cjs');
 const { createPowerPointBridge, createPowerShellRunner } = require('../native/powerpointBridge.cjs');
+const { createLinkedPresentations } = require('../native/linkedPresentations.cjs');
 const { runMigration } = require('../migration/legacyMigration.cjs');
 const { ensureUpdateBackup, restoreDatabaseFromBackup, writeVersionState } = require('../migration/updateGuard.cjs');
 
@@ -193,7 +194,9 @@ async function boot() {
     return;
   }
 
+  const linkedPresentations = createLinkedPresentations({ storePath: path.join(resolveSettingsDir(dataDir), 'linked-presentations.json') });
   const bridge = createPowerPointBridge({
+    linkedPresentations,
     runner: createPowerShellRunner({ logger }),
     uploadsDir: path.join(dataDir, 'uploads'),
     lockDir: path.join(dataDir, 'locks'), // cùng khóa COM với PPTX renderer (backend)
@@ -232,7 +235,7 @@ async function boot() {
     app.quit();
   });
 
-  const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, logger });
+  const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, linkedPresentations, logger });
   registerIpc({ ipcMain, handlers, backendOrigin: backend.origin, logger });
 
   // Từ chối mọi yêu cầu quyền trình duyệt trừ nhóm an toàn tối thiểu.

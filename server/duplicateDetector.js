@@ -1062,6 +1062,8 @@ export function checkDuplicateBatch({ files, existingLessons = [] }) {
  * @returns {Object} Báo cáo quét toàn diện và danh sách các cặp bài trùng lặp
  */
 export function scanLibraryDuplicates(lessons = [], classStats = null) {
+  // Linked files have no content fingerprint; do not report metadata similarity as file duplication.
+  if (Array.isArray(lessons)) lessons = lessons.filter(lesson => lesson.type !== 'linked_powerpoint');
   const totalClasses = (classStats && typeof classStats.totalClasses === 'number')
     ? classStats.totalClasses
     : 23; // Mặc định 23 lớp trong cơ sở dữ liệu EduICT

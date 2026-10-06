@@ -46,6 +46,7 @@ function createIpcHandlers({
   dialog,
   getWindow = () => null,
   bridge,
+  linkedPresentations,
   platform = process.platform,
   logger = noopLogger,
   fsImpl = fs,
@@ -118,6 +119,18 @@ function createIpcHandlers({
     return { ok: true, canceled: false, saved: true };
   }
 
+  async function selectPresentationFile() {
+    if (!linkedPresentations) return denied();
+    const result = await dialog.showOpenDialog(win(), {
+      title: 'Liên kết PowerPoint trên máy', properties: ['openFile'],
+      filters: [{ name: 'PowerPoint', extensions: ['pptx', 'ppt'] }],
+    });
+    if (result.canceled || !result.filePaths.length) return { ok: true, canceled: true, file: null };
+    const file = linkedPresentations.grant(result.filePaths[0]);
+    if (!file.ok) return denied(file.code);
+    return { ok: true, canceled: false, file: { path: file.path, name: file.name, size: file.size } };
+  }
+
   async function selectFolder(payload = {}) {
     const result = await dialog.showOpenDialog(win(), {
       title: clampText(payload.title, 120) || undefined,
@@ -164,6 +177,7 @@ function createIpcHandlers({
   return {
     'edumaster:getCapabilities': getCapabilities,
     'edumaster:openFile': openFile,
+    'edumaster:selectPresentationFile': selectPresentationFile,
     'edumaster:saveFile': saveFile,
     'edumaster:selectFolder': selectFolder,
     'edumaster:dialog': messageDialog,

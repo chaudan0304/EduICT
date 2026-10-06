@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import LessonLibrary from './LessonLibrary';
 import LessonEditor from './LessonEditor';
-import PresentationView from './PresentationView';
+import PresentationView from './LessonPresentation';
 
 export default function LessonManager({
   currentClass,

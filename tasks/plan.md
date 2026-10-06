@@ -2,7 +2,7 @@
 
 Ngày lập: 06/10/2026. Nhánh triển khai: `codex/ui-polish`.
 
-> **Yêu cầu PowerPoint cập nhật:** người dùng muốn trình chiếu file gốc với hiệu ứng, EduICT chỉ lưu liên kết và hỗ trợ tiết học. D1–D4 phải theo [đặc tả PowerPoint liên kết file](../docs/powerpoint-linked-file-spec.md); ưu tiên LP1–LP5 trước khi tiếp tục thay đổi luồng PowerPoint. Không triển khai mặc định sao chép PPTX/render ảnh cho bài mới theo hướng thiết kế cũ. Luồng runtime hiện chưa chuyển đổi.
+> **Yêu cầu PowerPoint cập nhật:** người dùng chọn file trên máy, muốn trình chiếu file gốc với hiệu ứng, EduICT chỉ lưu liên kết và hỗ trợ tiết học. D1–D4 theo [đặc tả PowerPoint liên kết file](../docs/powerpoint-linked-file-spec.md). LP1–LP4 đã triển khai trong mã nguồn; LP5 cần nghiệm thu trên Desktop + PowerPoint thật trước khi phát hành.
 
 ## 1. Mục tiêu và điểm xuất phát
 

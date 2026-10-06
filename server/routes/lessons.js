@@ -84,8 +84,9 @@ export async function tryHandleLessonsCrud(req, res, ctx) {
   if (pathname.match(/^\/api\/lessons\/[^/]+$/) && method === 'DELETE') {
     const lessonId = pathname.replace('/api/lessons/', '');
     try {
+      const lesson = getLessonById(lessonId);
       deleteLesson(lessonId);
-      deleteLessonPresentationsDir(lessonId);
+      if (lesson?.type !== 'linked_powerpoint') deleteLessonPresentationsDir(lessonId);
       sendJson(res, 200, { success: true, id: lessonId });
     } catch (err) {
       sendJson(res, err.statusCode || 500, { error: err.message });

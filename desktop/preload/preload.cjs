@@ -30,6 +30,7 @@ for (const method of BRIDGE_METHODS) {
 const desktop = {
   getCapabilities: () => ipcRenderer.invoke('edumaster:getCapabilities'),
   openFile: (options) => ipcRenderer.invoke('edumaster:openFile', options),
+  selectPresentationFile: () => ipcRenderer.invoke('edumaster:selectPresentationFile'),
   saveFile: (options) => ipcRenderer.invoke('edumaster:saveFile', options),
   selectFolder: (options) => ipcRenderer.invoke('edumaster:selectFolder', options),
   dialog: {

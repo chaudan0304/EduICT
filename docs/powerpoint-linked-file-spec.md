@@ -21,7 +21,7 @@ Yêu cầu này thay thế hướng thiết kế mặc định cho PowerPoint tr
 - **Đường dẫn file trên máy:** phù hợp với ứng dụng Windows + PowerPoint Desktop, làm phương án mặc định cho thiết kế hiện tại. USB/ổ đồng bộ được dùng khi file tồn tại trên máy.
 - **URL OneDrive/Google Drive:** cần xác định riêng cách mở trong PowerPoint Desktop, quyền truy cập và offline. Không tự coi link chia sẻ là đường dẫn file Windows hay cam kết cùng mức hỗ trợ hiệu ứng trên web.
 
-Đã hỏi người dùng loại liên kết muốn dùng. Chưa có lựa chọn được ghi nhận tại thời điểm lập tài liệu; luồng runtime chưa thay đổi.
+Người dùng đã chọn **file trên máy**. Luồng mới triển khai cho EduICT Desktop trên Windows, hỗ trợ `.pptx` và `.ppt`; URL cloud chưa thuộc phạm vi triển khai này.
 
 ## Lưu trữ và quyền đối với file
 
@@ -33,7 +33,7 @@ Yêu cầu này thay thế hướng thiết kế mặc định cho PowerPoint tr
 - Backup của EduICT giữ metadata/đường dẫn; file PowerPoint liên kết không nằm trong backup này. Chuyển máy cần mang file gốc theo và liên kết lại nếu đường dẫn thay đổi.
 - Các bài đã import trước đây vẫn mở được từ dữ liệu cũ. Không tự xóa PPTX/ảnh đang lưu; việc giải phóng dung lượng cũ cần một luồng chuyển đổi riêng, có kiểm tra file nguồn.
 
-## Hiện trạng đã kiểm tra trong mã
+## Hiện trạng trước thay đổi
 
 - `server/routes/pptx.js` nhận binary, gọi render preview và commit bản sao PPTX vào vùng ứng dụng.
 - `LessonLibrary.jsx` vẫn mở `PresentationView` với slide render cho các bài imported.
@@ -62,4 +62,23 @@ Yêu cầu này thay thế hướng thiết kế mặc định cho PowerPoint tr
 
 Tham khảo API PowerPoint: [Presentations.Open](https://learn.microsoft.com/en-us/office/vba/api/powerpoint.presentations.open), [SlideShowSettings.Run](https://learn.microsoft.com/en-us/office/vba/api/powerpoint.slideshowsettings.run).
 
-**Trạng thái:** đặc tả đã cập nhật; chưa triển khai runtime liên kết file.
+## Runtime đã triển khai
+
+- Dùng `lessons.type = 'linked_powerpoint'` để phân biệt tham chiếu với bài imported do ứng dụng quản lý; không cần đổi schema SQLite. Bài linked không có slide content, thumbnail, hash nội dung hay file đính kèm.
+- IPC `selectPresentationFile` mở hộp thoại PowerPoint và chỉ trả `{path, name, size}`. Quyền mở đúng file được lưu dưới dạng đường dẫn trong `settings/linked-presentations.json` và được kiểm tra lại qua realpath ở lần mở sau. Không cấp quyền cả thư mục và không expose API đọc path tùy ý.
+- API chỉ lưu metadata; thao tác lưu/xóa linked báo lỗi thật từ backend, không giả thành công bằng cache local. Lệnh tạo thumbnail/render/ghi slide bị chặn cho linked. Quét trùng nội dung bỏ qua linked vì không đọc nội dung file.
+- Thư viện dùng card riêng, có sửa thông tin/chọn lại file/xóa liên kết. Bộ lọc PowerPoint gồm imported cũ và linked mới. Tiết học vẫn gắn bài theo ID; chọn lại đường dẫn cập nhật cùng bản ghi.
+- Library và SessionDashboard cùng dispatch bài linked vào bảng điều khiển PowerPoint gốc. Bảng có mở slideshow, trước/tiếp, dừng, ghi chú và ẩn để quay về công cụ tiết học.
+- Bridge nhắm đúng đường dẫn đã mở cho status/control/close; không điều khiển bài bất kỳ đang active. Bài mở sẵn trước EduICT không bị đóng bởi nút dừng. Bài EduICT mở được mở read-only; lệnh không ghi lại file gốc.
+- `Next` dùng GetClickIndex/GetClickCount/GotoClick cho bước animation; sau bước cuối mới Next sang slide. Trigger theo đối tượng vẫn tương tác trực tiếp trong PowerPoint. Tham khảo: [GotoClick](https://learn.microsoft.com/en-us/office/vba/api/powerpoint.slideshowview.gotoclick), [GetClickCount](https://learn.microsoft.com/en-us/office/vba/api/powerpoint.slideshowview.getclickcount), [MsoClickState](https://learn.microsoft.com/en-us/office/vba/api/powerpoint.msoclickstate).
+- Backup hiện có chỉ sao chép SQLite và `uploads/presentations`, không đi theo đường dẫn linked để sao chép file ngoài ứng dụng. Khi restore sang máy khác cần chọn lại file để cấp quyền trên máy đó. Bài imported cũ tiếp tục giữ file/ảnh và hành vi preview cũ.
+
+## Phần đã kiểm tra và còn cần nghiệm thu
+
+- Build production thành công trên CSDL bản sao `scratch/ui-review/edumaster.sqlite`.
+- Lint không có lỗi; dự án vẫn có các warning tồn tại trước thay đổi.
+- Parser PowerShell và Node syntax checks thành công.
+- Đã quan sát hộp thoại liên kết trong trình duyệt và kiểm tra thông báo cần Desktop khi chọn file ở web.
+- Chưa chạy bộ test tự động cho đợt này; chưa chạy nghiệm thu PowerPoint COM/animation/trigger/media thật, lưu quyền qua restart, backup/restore và bản EXE đã cài. Không coi build hoặc quan sát web là bằng chứng cho các mục này.
+
+**Trạng thái:** LP1–LP4 đã triển khai trong mã nguồn; LP5 còn cần nghiệm thu trên EduICT Desktop + Microsoft PowerPoint.

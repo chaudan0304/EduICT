@@ -79,7 +79,13 @@ async function selectFolder(options = {}) {
   return null; // Web: không có khái niệm chọn thư mục native.
 }
 
-const FileDialogService = { openFile, saveFile, selectFolder };
+async function selectPresentationFile() {
+  const native = getNativeAdapter();
+  if (!native?.selectPresentationFile) throw new Error('Hãy mở EduICT Desktop để chọn file PowerPoint trên máy.');
+  return native.selectPresentationFile();
+}
+
+const FileDialogService = { openFile, saveFile, selectFolder, selectPresentationFile };
 
 export default FileDialogService;
-export { openFile, saveFile, selectFolder };
+export { openFile, saveFile, selectFolder, selectPresentationFile };

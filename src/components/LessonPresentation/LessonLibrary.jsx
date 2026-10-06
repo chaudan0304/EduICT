@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DialogService from '../../services/DialogService';
 import PageHeader from '../ui/PageHeader';
+import { deleteLinkedPowerPoint } from '../../services/LinkedPowerPointService';
 import {
   Search, 
   Plus, 
@@ -35,7 +36,8 @@ import {
 } from './lessonStorage';
 import { getTopicsByGrade } from '../../data/ppctMapping';
 import { detectGradeFromName } from '../../utils/storage';
-import ImportPptxModal from './ImportPptxModal';
+import LinkPowerPointModal from './LinkPowerPointModal';
+import LinkedPowerPointCard from './LinkedPowerPointCard';
 import EditImportedLessonModal from './EditImportedLessonModal';
 import DuplicateComparisonModal from './DuplicateComparisonModal';
 import ErrorBoundary from '../ErrorBoundary';
@@ -61,6 +63,7 @@ export default function LessonLibrary({
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'native' | 'imported'
   const [sortBy, setSortBy] = useState('lesson_order'); // 'lesson_order' | 'title_asc' | 'title_desc' | 'recent'
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [editingLinkedLesson, setEditingLinkedLesson] = useState(null);
   const [editingImportedLesson, setEditingImportedLesson] = useState(null);
   const [duplicateDetailModal, setDuplicateDetailModal] = useState(null); // { lesson, matchedLesson, ... }
   const [scanReport, setScanReport] = useState(null);
@@ -380,12 +383,16 @@ export default function LessonLibrary({
   // Xóa bài học
   const handleDeleteLesson = async (lesson, e) => {
     e.stopPropagation();
-    if (!DialogService.confirm(`Thầy/cô có chắc chắn muốn xóa bài học "${lesson.title}"?\nThao tác này sẽ xóa toàn bộ các slide con trong bài.`)) {
+    const message = lesson.type === 'linked_powerpoint'
+      ? `Xóa liên kết bài "${lesson.title}" khỏi thư viện?\nFile PowerPoint gốc vẫn được giữ trên máy.`
+      : `Thầy/cô có chắc chắn muốn xóa bài học "${lesson.title}"?\nThao tác này sẽ xóa toàn bộ các slide con trong bài.`;
+    if (!(await DialogService.confirmAsync(message))) {
       return;
     }
 
     try {
-      await deleteLessonApi(lesson.id);
+      if (lesson.type === 'linked_powerpoint') await deleteLinkedPowerPoint(lesson.id);
+      else await deleteLessonApi(lesson.id);
       setLessons(prev => prev.filter(l => l.id !== lesson.id));
     } catch (err) {
       DialogService.alert(`❌ Lỗi xóa: ${err.message}`);
@@ -453,7 +460,7 @@ export default function LessonLibrary({
           {isScanning ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
           Quét trùng{scanReport?.totalDuplicates > 0 ? ` (${scanReport.totalDuplicates})` : ''}
         </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsImportModalOpen(true)}><UploadCloud size={16} />Nhập PowerPoint</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsImportModalOpen(true)}><UploadCloud size={16} />Liên kết PowerPoint</button>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => onOpenEditor(null)}><Plus size={16} />Tạo bài học</button>
       </PageHeader>
 
@@ -677,6 +684,7 @@ export default function LessonLibrary({
       ) : (
         <div className="library-card-grid">
           {filteredLessons.map(lesson => {
+            if (lesson.type === 'linked_powerpoint') return <LinkedPowerPointCard key={lesson.id} lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setEditingLinkedLesson(lesson)} onDelete={e => handleDeleteLesson(lesson, e)} />;
             const gc = gradeColors[lesson.grade] || gradeColors[3];
             const slideCount = lesson.slide_count || lesson.slides_count || lesson.slides?.length || 0;
             const isImported = lesson.type === 'imported';
@@ -1357,10 +1365,11 @@ export default function LessonLibrary({
       )}
 
       {/* Modal Import PowerPoint */}
-      <ErrorBoundary title="Không thể hiển thị hộp thoại Import PowerPoint" onClose={() => setIsImportModalOpen(false)}>
-        <ImportPptxModal
-          isOpen={isImportModalOpen}
-          onClose={() => setIsImportModalOpen(false)}
+      <ErrorBoundary title="Không thể hiển thị hộp thoại liên kết PowerPoint" onClose={() => { setIsImportModalOpen(false); setEditingLinkedLesson(null); }}>
+        <LinkPowerPointModal
+          isOpen={isImportModalOpen || !!editingLinkedLesson}
+          lesson={editingLinkedLesson}
+          onClose={() => { setIsImportModalOpen(false); setEditingLinkedLesson(null); }}
           onImportSuccess={(newLessons) => {
             const toAdd = Array.isArray(newLessons) ? newLessons : [newLessons];
             if (toAdd.length === 0 || !toAdd[0]) return;
@@ -1378,6 +1387,8 @@ export default function LessonLibrary({
             // Tự động chuyển bộ lọc chủ đề về 'all' và xóa tìm kiếm để giáo viên thấy ngay bài vừa import
             setSelectedTopic('all');
             setSearchTerm('');
+            setTypeFilter('all');
+            setSimilarityFilter('all');
           }}
           defaultGrade={currentGrade}
         />

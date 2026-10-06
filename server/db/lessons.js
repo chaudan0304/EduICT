@@ -1,4 +1,5 @@
 import { getDatabase } from './connection.js';
+import { linkedPowerPointMetadata, assertManagedPowerPoint } from '../services/linkedPowerPoint.js';
 
 // ========================================================
 // LESSONS & SLIDES CRUD
@@ -118,7 +119,7 @@ export function getAllLessons(filters = {}) {
     if (filters.type === 'native') {
       conditions.push("(l.type = 'native' OR l.type IS NULL)");
     } else if (filters.type === 'imported' || filters.type === 'powerpoint') {
-      conditions.push("l.type = 'imported'");
+      conditions.push("l.type IN ('imported', 'linked_powerpoint')");
     } else {
       conditions.push('l.type = ?');
       params.push(filters.type);
@@ -224,6 +225,7 @@ export function getLessonByFileHash(fileHash) {
 
 // 3. Tạo bài học mới
 export function createLesson(lessonData) {
+  lessonData = linkedPowerPointMetadata(lessonData);
   const db = getDatabase();
   const lessonId = lessonData.id || `les_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
 
@@ -283,6 +285,7 @@ export function createLesson(lessonData) {
 // 4. Cập nhật bài học
 export function updateLesson(lessonId, lessonData) {
   const db = getDatabase();
+  lessonData = linkedPowerPointMetadata(lessonData, db.prepare('SELECT * FROM lessons WHERE id = ?;').get(lessonId));
   const stmt = db.prepare(`
     UPDATE lessons SET
       title = COALESCE(?, title),
@@ -404,6 +407,7 @@ export function duplicateLesson(lessonId) {
 // 7. Lưu toàn bộ danh sách slide của bài học (Transaction)
 export function saveLessonSlides(lessonId, slidesArray) {
   const db = getDatabase();
+  assertManagedPowerPoint(db.prepare('SELECT type FROM lessons WHERE id = ?;').get(lessonId));
   db.exec('BEGIN TRANSACTION;');
   try {
     db.prepare('DELETE FROM lesson_slides WHERE lesson_id = ?;').run(lessonId);

@@ -77,6 +77,7 @@ function createPowerPointBridge({
   platform = process.platform,
   runner,
   uploadsDir,
+  linkedPresentations,
   lockDir = null,
   lockOptions = {},
   logger = noopLogger,
@@ -84,6 +85,8 @@ function createPowerPointBridge({
   const presentationsRoot = uploadsDir ? path.join(uploadsDir, 'presentations') : null;
   let queue = Promise.resolve();
   let probeCache = null;
+  let activePath = null;
+  let openedByApp = false;
 
   // COM không an toàn khi chạy song song → tuần tự hóa mọi lời gọi bridge.
   function serialize(fn) {
@@ -98,12 +101,24 @@ function createPowerPointBridge({
     return serialize(async () => {
       try {
         // Phase 12: cùng khóa liên-tiến-trình với PPTX renderer (backend). Không có lockDir → chỉ hàng đợi in-process.
-        const invokeRunner = () => runner(action, params);
+        if (action !== 'Probe' && action !== 'Open' && !activePath) {
+          if (action === 'Close') return { ok: true, closed: true, closedCount: 0 };
+          if (action === 'Active') return { ok: true, presentation: null };
+          if (action === 'Status') return { ok: true, running: false, slideShowActive: false };
+          return failure('POWERPOINT_NOT_RUNNING');
+        }
+        if (action === 'Close' && !openedByApp) return { ok: true, closed: true, closedCount: 0 };
+        const invokeRunner = () => runner(action, action === 'Probe' || action === 'Open' ? params : { ...params, path: activePath });
         const res = lockDir && action !== 'Probe' // Probe chỉ đọc registry, không đụng COM
           ? await withPowerPointLock(lockDir, invokeRunner, { owner: 'bridge', ...lockOptions })
           : await invokeRunner();
         if (!res || typeof res !== 'object') return failure('POWERPOINT_CONTROL_FAILED');
         if (res.ok === false) return failure(res.code);
+        if (action === 'Open' && res.opened) {
+          openedByApp = activePath === params.path ? openedByApp || Boolean(res.openedByApp) : Boolean(res.openedByApp);
+          activePath = params.path;
+        }
+        if (action === 'Close') { activePath = null; openedByApp = false; }
         return res;
       } catch (err) {
         logger.error(`[powerpoint] ${action} thất bại: ${err && err.message}`);
@@ -125,7 +140,8 @@ function createPowerPointBridge({
   const bridge = {
     async openPowerPoint(filePath) {
       if (!presentationsRoot) return failure('INVALID_PRESENTATION_PATH');
-      const v = validatePresentationPath(filePath, { uploadsDir });
+      const linked = linkedPresentations?.validate(filePath);
+      const v = linked?.ok || linked?.code === 'PRESENTATION_NOT_FOUND' ? linked : validatePresentationPath(filePath, { uploadsDir });
       if (!v.ok) return failure(v.code, v.message);
       return call('Open', { path: v.path });
     },
