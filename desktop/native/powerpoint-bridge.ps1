@@ -9,7 +9,7 @@
 
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Probe', 'Open', 'Close', 'Status', 'Active', 'Next', 'Previous', 'GoTo', 'StartShow', 'ExitShow')]
+    [ValidateSet('Probe', 'Open', 'Close', 'Status', 'Active', 'Next', 'Previous', 'GoTo', 'StartShow', 'StartEmbeddedShow', 'ExitShow')]
     [string]$Action,
     [string]$PptxPath = '',
     [string]$AllowedRoot = '',
@@ -168,6 +168,34 @@ try {
             if (-not $inShow) { $null = $pres.SlideShowSettings.Run() }
             Write-Result @{ ok = $true; started = $true }
         }
+        'StartEmbeddedShow' {
+            if ($inShow) { $show.View.Exit() }
+            $settings = $pres.SlideShowSettings
+            $oldType = $settings.ShowType
+            $oldScrollbar = $settings.ShowScrollbar
+            $oldPresenter = $settings.ShowPresenterView
+            $oldSaved = $pres.Saved
+            $window = $null
+            try {
+                $settings.ShowType = 2 # ppShowTypeWindow
+                $settings.ShowScrollbar = 0
+                $settings.ShowPresenterView = 0
+                $window = $settings.Run()
+                $handle = [long]$window.HWND
+                if ($handle -lt 0) { $handle += 4294967296 }
+                if ($handle -eq 0) { throw 'No slideshow window handle' }
+                $embeddedResult = @{ ok = $true; started = $true; windowHandle = [string]$handle; name = [string]$pres.Name; slideCount = $count; currentSlide = [int]$window.View.CurrentShowPosition; aspectRatio = [double]$pres.PageSetup.SlideWidth / [double]$pres.PageSetup.SlideHeight }
+            } catch {
+                if ($null -ne $window) { try { $window.View.Exit() } catch { } }
+                throw
+            } finally {
+                $settings.ShowType = $oldType
+                $settings.ShowScrollbar = $oldScrollbar
+                $settings.ShowPresenterView = $oldPresenter
+                $pres.Saved = $oldSaved
+            }
+            Write-Result $embeddedResult
+        }
         'ExitShow' {
             if ($inShow) { $show.View.Exit() }
             Write-Result @{ ok = $true; exited = $true }
@@ -178,5 +206,9 @@ catch {
     [Console]::Error.WriteLine("[powerpoint-bridge] $Action failed: $($_.Exception.Message)")
     $default = 'POWERPOINT_CONTROL_FAILED'
     if ($Action -eq 'Open') { $default = 'POWERPOINT_START_FAILED' }
+    if ($Action -eq 'StartEmbeddedShow') {
+        $default = 'POWERPOINT_EMBED_FAILED'
+        if ($null -ne $window) { try { $window.View.Exit() } catch { } }
+    }
     Write-Fail (Get-ErrorCode $_ $default)
 }

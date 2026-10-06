@@ -77,6 +77,7 @@ function createNativeAdapter(api) {
 
     bridge: api.bridge,
     presentationWindow: typeof api.presentationWindow === 'function' ? options => api.presentationWindow(options) : undefined,
+    presentationHost: typeof api.presentationHost === 'function' ? options => api.presentationHost(options) : undefined,
     onNavigate: typeof api.onNavigate === 'function' ? callback => api.onNavigate(callback) : undefined,
   };
 }

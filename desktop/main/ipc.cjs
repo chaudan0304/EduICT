@@ -48,6 +48,7 @@ function createIpcHandlers({
   bridge,
   linkedPresentations,
   presentationWindow,
+  presentationHost,
   platform = process.platform,
   logger = noopLogger,
   fsImpl = fs,
@@ -167,6 +168,7 @@ function createIpcHandlers({
     if (typeof method !== 'string' || !BRIDGE_METHODS.includes(method)) return denied();
     if (method === 'openPowerPoint' && typeof arg !== 'string') return denied('INVALID_PRESENTATION_PATH');
     if (method === 'goToSlide' && !Number.isInteger(arg)) return denied('INVALID_SLIDE_INDEX');
+    if (presentationHost?.isActive() && ['openPowerPoint', 'closePowerPoint', 'startSlideShow', 'exitSlideShow'].includes(method)) return denied();
     try {
       const result = await bridge[method](arg);
       if (result?.ok !== false && presentationWindow) {
@@ -183,6 +185,7 @@ function createIpcHandlers({
 
   async function presentationAction(payload = {}) {
     if (!presentationWindow) return denied();
+    if (presentationHost?.isActive()) return denied();
     if (payload.action === 'stop') {
       const exit = await bridge.exitSlideShow();
       if (exit?.ok === false) return exit;
@@ -198,6 +201,13 @@ function createIpcHandlers({
     return presentationWindow.action(payload);
   }
 
+  async function embeddedPresentation(payload = {}, event) {
+    if (!presentationHost) return denied();
+    if (event?.sender !== getWindow()?.webContents) return denied();
+    if (payload.action === 'start') presentationWindow?.dispose();
+    return presentationHost.action(payload, event);
+  }
+
   return {
     'edumaster:getCapabilities': getCapabilities,
     'edumaster:openFile': openFile,
@@ -207,6 +217,7 @@ function createIpcHandlers({
     'edumaster:dialog': messageDialog,
     'edumaster:bridge': bridgeCall,
     'edumaster:presentationWindow': presentationAction,
+    'edumaster:presentationHost': embeddedPresentation,
   };
 }
 
@@ -219,7 +230,7 @@ function registerIpc({ ipcMain, handlers, backendOrigin, logger = noopLogger }) 
         return denied();
       }
       try {
-        return await handler(payload);
+        return await handler(payload, event);
       } catch (err) {
         logger.error(`[ipc] ${channel} lỗi: ${err && err.message}`);
         return { ok: false, code: 'DESKTOP_PERMISSION_DENIED', message: ERROR_CODES.DESKTOP_PERMISSION_DENIED };

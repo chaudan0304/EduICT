@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -23,6 +23,7 @@ import {
 import SlideRenderer from './SlideRenderer';
 import TeacherNotesDrawer from './TeacherNotesDrawer';
 import OpenPowerPointButton from './OpenPowerPointButton';
+import NativePowerPointSurface from './NativePowerPointSurface';
 import LuckyWheel from '../LuckyWheel';
 import DuckRace from '../DuckRace';
 import { soundEffects } from '../../utils/audio';
@@ -48,9 +49,24 @@ export default function PresentationView({
   soundEnabled = true
 }) {
   const [activeLesson, setActiveLesson] = useState(initialLesson);
+  const isNativePowerPoint = activeLesson?.type === 'linked_powerpoint';
+  const nativeSurfaceRef = useRef(null);
+  const [nativeStatus, setNativeStatus] = useState({ active: false, busy: false });
+  const openTool = async (setter) => {
+    try {
+      const result = isNativePowerPoint ? await nativeSurfaceRef.current?.hide() : null;
+      if (result?.ok === false) throw new Error(result.message || 'Chưa thể ẩn vùng PowerPoint.');
+      setter(true);
+    } catch (err) { DialogService.alert(err.message); }
+  };
+  const closePresentation = useCallback(async () => {
+    try { if (isNativePowerPoint) await nativeSurfaceRef.current?.stop(); }
+    catch (err) { DialogService.alert(err.message); }
+    finally { onClose?.(); }
+  }, [isNativePowerPoint, onClose]);
   const [isLoading, setIsLoading] = useState(() => {
     if (lessonId && !initialLesson) return true;
-    if (initialLesson && (!initialLesson.slides || (initialLesson.slides_count > 0 && initialLesson.slides.length === 0))) return true;
+    if (initialLesson && initialLesson.type !== 'linked_powerpoint' && (!initialLesson.slides || (initialLesson.slides_count > 0 && initialLesson.slides.length === 0))) return true;
     return false;
   });
   const [loadError, setLoadError] = useState(null);
@@ -70,6 +86,12 @@ export default function PresentationView({
   useEffect(() => {
     let ignore = false;
     const targetId = lessonId || initialLesson?.id;
+
+    if (initialLesson?.type === 'linked_powerpoint') {
+      setActiveLesson(initialLesson);
+      setIsLoading(false);
+      return;
+    }
 
     if (initialLesson?.slides && initialLesson.slides.length > 0) {
       setActiveLesson(initialLesson);
@@ -108,7 +130,7 @@ export default function PresentationView({
     };
   }, [lessonId, initialLesson]);
 
-  const slides = activeLesson?.slides || [];
+  const slides = useMemo(() => activeLesson?.slides || [], [activeLesson?.slides]);
   const [currentIndex, setCurrentIndex] = useState(() => {
     if (initialSlideIndex >= 0 && initialSlideIndex < slides.length) {
       return initialSlideIndex;
@@ -118,12 +140,17 @@ export default function PresentationView({
 
   // Đồng bộ currentIndex khi slides load xong
   useEffect(() => {
+    if (isNativePowerPoint) return;
     if (initialSlideIndex >= 0 && initialSlideIndex < slides.length) {
       setCurrentIndex(initialSlideIndex);
     } else {
       setCurrentIndex(0);
     }
-  }, [slides.length, initialSlideIndex]);
+  }, [slides.length, initialSlideIndex, isNativePowerPoint]);
+
+  useEffect(() => {
+    if (isNativePowerPoint && nativeStatus.currentSlide > 0) setCurrentIndex(nativeStatus.currentSlide - 1);
+  }, [isNativePowerPoint, nativeStatus.currentSlide]);
 
   // Preload thông minh (Smart Preload): Slide trước (currentIndex - 1) và Slide sau (currentIndex + 1)
   useEffect(() => {
@@ -181,6 +208,7 @@ export default function PresentationView({
 
   // Kéo thả thanh gọi học sinh tự do trên màn hình
   const handleDragMouseDown = (e) => {
+    if (isNativePowerPoint) return;
     if (e.button !== 0) return;
     const currentEl = e.currentTarget.closest('.docked-caller-widget');
     const rect = currentEl ? currentEl.getBoundingClientRect() : { left: window.innerWidth - 480, top: 16 };
@@ -213,6 +241,7 @@ export default function PresentationView({
   };
 
   const handleDragTouchStart = (e) => {
+    if (isNativePowerPoint) return;
     const touch = e.touches[0];
     if (!touch) return;
     const currentEl = e.currentTarget.closest('.docked-caller-widget');
@@ -280,33 +309,39 @@ export default function PresentationView({
   };
 
   // Mở lại bảng gọi học sinh đầy đủ
-  const handleRestoreCallerModal = () => {
+  const handleRestoreCallerModal = async () => {
     if (dockedCaller?.toolType === 'duck') {
-      setShowDuckRaceModal(true);
+      await openTool(setShowDuckRaceModal);
     } else {
-      setShowWheelModal(true);
+      await openTool(setShowWheelModal);
     }
   };
 
-  const currentSlide = slides[currentIndex] || slides[0];
-  const totalSlides = slides.length;
+  const currentSlide = isNativePowerPoint ? { teacher_notes: activeLesson?.teacher_notes } : slides[currentIndex] || slides[0];
+  const totalSlides = isNativePowerPoint ? nativeStatus.slideCount || 0 : slides.length;
+  const nativeVisible = !(showStarModal || showWheelModal || showDuckRaceModal || showQuizModal || activeQuizSession || isQuizResultOpen || isTimetableOpen || isNotesOpen);
+  const prevDisabled = isNativePowerPoint ? !nativeStatus.active || nativeStatus.busy : currentIndex === 0;
+  const nextDisabled = isNativePowerPoint ? !nativeStatus.active || nativeStatus.busy : currentIndex === totalSlides - 1;
 
   // Điều hướng Slide
   const handleNext = useCallback(() => {
+    if (isNativePowerPoint) { nativeSurfaceRef.current?.next(); return; }
     if (currentIndex < totalSlides - 1) {
       setCurrentIndex(prev => prev + 1);
       if (soundEnabled) soundEffects.playClick();
     }
-  }, [currentIndex, totalSlides, soundEnabled]);
+  }, [currentIndex, totalSlides, soundEnabled, isNativePowerPoint]);
 
   const handlePrev = useCallback(() => {
+    if (isNativePowerPoint) { nativeSurfaceRef.current?.previous(); return; }
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
       if (soundEnabled) soundEffects.playClick();
     }
-  }, [currentIndex, soundEnabled]);
+  }, [currentIndex, soundEnabled, isNativePowerPoint]);
 
   const handleGoToSlide = (idx) => {
+    if (isNativePowerPoint) { nativeSurfaceRef.current?.goTo(idx); return; }
     if (idx >= 0 && idx < totalSlides) {
       setCurrentIndex(idx);
       if (soundEnabled) soundEffects.playClick();
@@ -326,7 +361,8 @@ export default function PresentationView({
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Nếu đang mở modal thì không bắt phím điều hướng slide
-      if (showStarModal || showWheelModal) return;
+      if (showStarModal || showWheelModal || showDuckRaceModal || showQuizModal || activeQuizSession || isQuizResultOpen || isTimetableOpen) return;
+      if (e.target instanceof HTMLElement && (e.target.matches('input, textarea, select') || e.target.isContentEditable)) return;
 
       switch (e.key) {
         case 'ArrowRight':
@@ -345,16 +381,16 @@ export default function PresentationView({
           if (isNotesOpen) {
             setIsNotesOpen(false);
           } else {
-            onClose();
+            closePresentation();
           }
           break;
         case 'Home':
           e.preventDefault();
-          setCurrentIndex(0);
+          if (isNativePowerPoint) nativeSurfaceRef.current?.goTo(0); else setCurrentIndex(0);
           break;
         case 'End':
           e.preventDefault();
-          setCurrentIndex(totalSlides - 1);
+          if (isNativePowerPoint) nativeSurfaceRef.current?.goTo(totalSlides - 1); else setCurrentIndex(totalSlides - 1);
           break;
         case 'F11':
           e.preventDefault();
@@ -367,10 +403,11 @@ export default function PresentationView({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev, onClose, totalSlides, isNotesOpen, showStarModal, showWheelModal]);
+  }, [handleNext, handlePrev, closePresentation, totalSlides, isNotesOpen, showStarModal, showWheelModal, showDuckRaceModal, showQuizModal, activeQuizSession, isQuizResultOpen, isTimetableOpen, isNativePowerPoint]);
 
   // Tự động ẩn thanh công cụ khi không rê chuột (Auto-hide dock)
   useEffect(() => {
+    if (isNativePowerPoint) { setIsControlsVisible(true); return; }
     let timeoutId = null;
     const handleMouseMove = () => {
       setIsControlsVisible(true);
@@ -385,7 +422,7 @@ export default function PresentationView({
       window.removeEventListener('mousemove', handleMouseMove);
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [isNativePowerPoint]);
 
   // Xử lý cộng sao nhanh cho học sinh — ⭐ qua sổ cái server, merit giữ riêng
   const handleAwardStarToStudent = async (studentId, starCount = 1) => {
@@ -552,7 +589,7 @@ export default function PresentationView({
   }
 
   // 3. Màn hình Bài Học Chưa Có Slide (Yêu cầu đặc tả của người dùng)
-  if (slides.length === 0) {
+  if (slides.length === 0 && !isNativePowerPoint) {
     return (
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -615,13 +652,13 @@ export default function PresentationView({
   }
 
   return (
-    <div style={{
+    <div className={isNativePowerPoint ? 'presentation-native' : undefined} style={{
       position: 'fixed',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      background: 'var(--surface-ground)',
+      background: isNativePowerPoint ? 'var(--bg-main)' : 'var(--surface-ground)',
       color: 'var(--text-main)',
       zIndex: 1000,
       display: 'flex',
@@ -630,7 +667,7 @@ export default function PresentationView({
       overflow: 'hidden'
     }}>
       {/* 1. Header Nhẹ Nhàng: Tiêu đề bài & Thông số góc trên */}
-      <div style={{
+      <div className={isNativePowerPoint ? 'presentation-native-header' : undefined} style={{
         position: 'absolute',
         top: '1rem',
         left: '1.5rem',
@@ -682,7 +719,7 @@ export default function PresentationView({
           {livePeriodStatus.isTeachingNow ? (
             <button
               type="button"
-              onClick={() => setIsTimetableOpen(true)}
+              onClick={() => openTool(setIsTimetableOpen)}
               style={{
                 background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(5, 150, 105, 0.08))',
                 border: '1.5px solid #10b981',
@@ -706,7 +743,7 @@ export default function PresentationView({
           ) : livePeriodStatus.status === 'RECESS' ? (
             <button
               type="button"
-              onClick={() => setIsTimetableOpen(true)}
+              onClick={() => openTool(setIsTimetableOpen)}
               style={{
                 background: 'rgba(245, 158, 11, 0.15)',
                 border: '1.5px solid #f59e0b',
@@ -728,7 +765,7 @@ export default function PresentationView({
           ) : sessionTimerRemainingSec !== null ? (
             <button
               type="button"
-              onClick={() => setIsTimetableOpen(true)}
+              onClick={() => openTool(setIsTimetableOpen)}
               style={{
                 background: 'rgba(2, 132, 199, 0.1)',
                 border: '1px solid rgba(2, 132, 199, 0.3)',
@@ -751,7 +788,7 @@ export default function PresentationView({
           ) : (
             <button
               type="button"
-              onClick={() => setIsTimetableOpen(true)}
+              onClick={() => openTool(setIsTimetableOpen)}
               style={{
                 background: 'var(--surface-secondary)',
                 border: '1px solid var(--surface-border)',
@@ -771,12 +808,12 @@ export default function PresentationView({
               <span>Lịch giảng dạy</span>
             </button>
           )}
-          <OpenPowerPointButton sourceFilePath={activeLesson?.source_file_path} />
+          {!isNativePowerPoint && <OpenPowerPointButton sourceFilePath={activeLesson?.source_file_path} />}
         </div>
 
         {/* Nút thoát góc trên */}
         <button
-          onClick={onClose}
+          onClick={closePresentation}
           className="btn btn-icon"
           style={{
             background: 'var(--surface-card)',
@@ -801,13 +838,14 @@ export default function PresentationView({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: isImported ? 0 : '2rem 1rem 6rem 1rem',
+            padding: isNativePowerPoint ? '5.5rem 1rem 7rem' : isImported ? 0 : '2rem 1rem 6rem 1rem',
             boxSizing: 'border-box',
             overflow: 'hidden',
             background: isImported ? '#090d16' : 'transparent'
           }}>
             <div style={{
-              width: '100%',
+              width: isNativePowerPoint && dockedCaller ? 'calc(100% - 360px)' : '100%',
+              marginRight: isNativePowerPoint && dockedCaller ? 360 : 0,
               maxWidth: isImported ? '100%' : '1380px',
               height: '100%',
               maxHeight: isImported ? '100%' : '88vh',
@@ -820,7 +858,7 @@ export default function PresentationView({
               flexDirection: 'column',
               position: 'relative'
             }}>
-              <SlideRenderer 
+              {isNativePowerPoint ? <NativePowerPointSurface ref={nativeSurfaceRef} filePath={activeLesson.source_file_path} initialSlideIndex={initialSlideIndex} visible={nativeVisible} onStatusChange={setNativeStatus} /> : <SlideRenderer
                 slide={currentSlide} 
                 isProjector={true} 
                 isPresentation={true}
@@ -841,14 +879,14 @@ export default function PresentationView({
                     };
                   });
                 }}
-              />
+              />}
             </div>
           </main>
         );
       })()}
 
       {/* 3. Thanh Điều Khiển Cố Định Dưới (Floating Dock) */}
-      <div style={{
+      <div className={isNativePowerPoint ? 'presentation-native-dock' : undefined} style={{
         position: 'absolute',
         bottom: '1.25rem',
         left: '50%',
@@ -873,11 +911,11 @@ export default function PresentationView({
           {/* Nút lùi */}
           <button
             onClick={handlePrev}
-            disabled={currentIndex === 0}
+            disabled={prevDisabled}
             className="btn btn-icon"
             style={{
-              background: currentIndex === 0 ? 'transparent' : 'rgba(255, 255, 255, 0.12)',
-              color: currentIndex === 0 ? 'rgba(255, 255, 255, 0.3)' : '#fff',
+              background: prevDisabled ? 'transparent' : 'rgba(255, 255, 255, 0.12)',
+              color: prevDisabled ? 'rgba(255, 255, 255, 0.3)' : '#fff',
               width: 38,
               height: 38,
               borderRadius: '50%'
@@ -901,13 +939,15 @@ export default function PresentationView({
             gap: '0.35rem',
             boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)'
           }}>
-            <span>{String(currentIndex + 1).padStart(2, '0')}</span>
+            <span>{totalSlides ? String(currentIndex + 1).padStart(2, '0') : '—'}</span>
             <span style={{ opacity: 0.6 }}>/</span>
-            <span>{String(totalSlides).padStart(2, '0')}</span>
+            <span>{totalSlides ? String(totalSlides).padStart(2, '0') : '—'}</span>
           </div>
 
           {/* Chọn nhanh slide */}
           <select
+            aria-label="Chọn slide"
+            disabled={isNativePowerPoint && (!nativeStatus.active || nativeStatus.busy)}
             value={currentIndex}
             onChange={(e) => handleGoToSlide(Number(e.target.value))}
             style={{
@@ -921,7 +961,7 @@ export default function PresentationView({
               padding: '0 0.25rem'
             }}
           >
-            {slides.map((s, idx) => (
+            {(isNativePowerPoint ? Array.from({ length: totalSlides }, (_, idx) => ({ id: idx, title: `Slide ${idx + 1}` })) : slides).map((s, idx) => (
               <option key={s.id || idx} value={idx} style={{ background: '#1e293b', color: '#fff' }}>
                 Slide {String(idx + 1).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}: {s.title ? s.title.slice(0, 25) : s.type}
               </option>
@@ -931,11 +971,11 @@ export default function PresentationView({
           {/* Nút tiến */}
           <button
             onClick={handleNext}
-            disabled={currentIndex === totalSlides - 1}
+            disabled={nextDisabled}
             className="btn btn-icon"
             style={{
-              background: currentIndex === totalSlides - 1 ? 'transparent' : 'rgba(255, 255, 255, 0.12)',
-              color: currentIndex === totalSlides - 1 ? 'rgba(255, 255, 255, 0.3)' : '#fff',
+              background: nextDisabled ? 'transparent' : 'rgba(255, 255, 255, 0.12)',
+              color: nextDisabled ? 'rgba(255, 255, 255, 0.3)' : '#fff',
               width: 38,
               height: 38,
               borderRadius: '50%'
@@ -950,7 +990,7 @@ export default function PresentationView({
           {/* Công cụ sư phạm: Thưởng sao */}
           {currentClass && onUpdateStudents && (
             <button
-              onClick={() => setShowStarModal(true)}
+              onClick={() => openTool(setShowStarModal)}
               className="btn"
               style={{
                 background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -973,7 +1013,7 @@ export default function PresentationView({
           {/* Công cụ sư phạm: Vòng quay bốc thăm */}
           {currentClass && (
             <button
-              onClick={() => setShowWheelModal(true)}
+              onClick={() => openTool(setShowWheelModal)}
               className="btn"
               style={{
                 background: 'rgba(255, 255, 255, 0.12)',
@@ -996,7 +1036,7 @@ export default function PresentationView({
           {/* Công cụ sư phạm: Đua vịt gọi trả bài */}
           {currentClass && (
             <button
-              onClick={() => setShowDuckRaceModal(true)}
+              onClick={() => openTool(setShowDuckRaceModal)}
               className="btn"
               style={{
                 background: 'rgba(245, 158, 11, 0.22)',
@@ -1019,7 +1059,7 @@ export default function PresentationView({
 
           {/* Quick Quiz củng cố */}
           <button
-            onClick={() => setShowQuizModal(true)}
+            onClick={() => openTool(setShowQuizModal)}
             className="btn"
             style={{
               background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 100%)',
@@ -1040,7 +1080,7 @@ export default function PresentationView({
 
           {/* Ghi chú sư phạm (Teacher Notes) */}
           <button
-            onClick={() => setIsNotesOpen(prev => !prev)}
+            onClick={() => isNotesOpen ? setIsNotesOpen(false) : openTool(setIsNotesOpen)}
             className="btn"
             style={{
               background: isNotesOpen ? '#0284c7' : 'rgba(255, 255, 255, 0.12)',
@@ -1182,21 +1222,23 @@ export default function PresentationView({
           className="docked-caller-widget"
           style={{
             position: 'fixed',
-            top: dockedPosition.y !== null ? dockedPosition.y : '1rem',
-            left: dockedPosition.x !== null ? dockedPosition.x : 'auto',
-            right: dockedPosition.x !== null ? 'auto' : '4.75rem',
+            top: isNativePowerPoint ? '6.5rem' : dockedPosition.y !== null ? dockedPosition.y : '1rem',
+            left: isNativePowerPoint ? 'auto' : dockedPosition.x !== null ? dockedPosition.x : 'auto',
+            right: isNativePowerPoint ? '1.5rem' : dockedPosition.x !== null ? 'auto' : '4.75rem',
+            width: isNativePowerPoint ? 340 : undefined,
+            flexWrap: isNativePowerPoint ? 'wrap' : undefined,
             zIndex: 1100,
             background: 'rgba(15, 23, 42, 0.92)',
             backdropFilter: 'blur(16px)',
             border: '1.5px solid #f59e0b',
-            borderRadius: '999px',
+            borderRadius: isNativePowerPoint ? '18px' : '999px',
             padding: isDockedCollapsed ? '0.2rem 0.6rem 0.2rem 0.35rem' : '0.2rem 0.65rem 0.2rem 0.35rem',
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4), 0 0 14px rgba(245, 158, 11, 0.2)',
             display: 'flex',
             alignItems: 'center',
             gap: '0.45rem',
             userSelect: 'none',
-            height: 38,
+            height: isNativePowerPoint ? 'auto' : 38,
             boxSizing: 'border-box',
             animation: 'fadeIn 0.2s ease'
           }}
@@ -1206,14 +1248,14 @@ export default function PresentationView({
             onMouseDown={handleDragMouseDown}
             onTouchStart={handleDragTouchStart}
             style={{
-              cursor: 'grab',
+              cursor: isNativePowerPoint ? 'default' : 'grab',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'rgba(255, 255, 255, 0.4)',
               padding: '0 0.15rem'
             }}
-            title="Nhấp & kéo thả để di chuyển vị trí trên màn hình"
+            title={isNativePowerPoint ? 'Thẻ học sinh cạnh khung slide' : 'Nhấp & kéo thả để di chuyển vị trí trên màn hình'}
           >
             <GripVertical size={16} />
           </div>

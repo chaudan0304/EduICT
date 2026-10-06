@@ -1,5 +1,9 @@
 # PowerPoint liên kết file — yêu cầu cập nhật 06/10/2026
 
+## Cập nhật giao diện Desktop 1.2.0
+
+Người dùng đã xác nhận slide phải nằm trong khung EduICT, với các công cụ giống bản web. Bài liên kết dùng `PresentationView`; cửa sổ PowerPoint gốc được neo vào vùng slide, tạm ẩn khi mở modal và cập nhật theo cửa sổ EduICT. Chi tiết: [PowerPoint trong khung ứng dụng](powerpoint-in-app-spec.md). Bản 1.2.0 có gói chạy trực tiếp; khả năng tương thích Office/DPI/hiệu ứng còn cần nghiệm thu thực tế.
+
 ## Mục tiêu do người dùng xác định
 
 Giáo viên chọn bài PowerPoint và trình chiếu với hiệu ứng gốc. EduICT hỗ trợ quản lý tiết học, lớp, đồng hồ, hoạt động và thi đua. EduICT chỉ lưu tham chiếu tới bài PowerPoint, không sao chép nội dung bài vào thư mục ứng dụng và không tạo một bộ ảnh slide để trình chiếu.

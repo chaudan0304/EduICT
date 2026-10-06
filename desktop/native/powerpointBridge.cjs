@@ -15,7 +15,7 @@ const { withPowerPointLock } = require('../../server/services/powerpointLock.cjs
 
 // powershell.exe không đọc được file trong app.asar → bản đóng gói dùng app.asar.unpacked (asarUnpack).
 const DEFAULT_SCRIPT = path.join(__dirname, 'powerpoint-bridge.ps1').replace(/([\\/])app\.asar(?=[\\/])/i, '$1app.asar.unpacked');
-const ACTION_TIMEOUT_MS = { Open: 60000, default: 20000 };
+const ACTION_TIMEOUT_MS = { Open: 60000, StartEmbeddedShow: 30000, default: 20000 };
 
 function failure(code, message) {
   const known = ERROR_CODES[code] ? code : 'POWERPOINT_CONTROL_FAILED';
@@ -107,7 +107,10 @@ function createPowerPointBridge({
           if (action === 'Status') return { ok: true, running: false, slideShowActive: false };
           return failure('POWERPOINT_NOT_RUNNING');
         }
-        if (action === 'Close' && !openedByApp) return { ok: true, closed: true, closedCount: 0 };
+        if (action === 'Close' && !openedByApp) {
+          activePath = null;
+          return { ok: true, closed: true, closedCount: 0 };
+        }
         const invokeRunner = () => runner(action, action === 'Probe' || action === 'Open' ? params : { ...params, path: activePath });
         const res = lockDir && action !== 'Probe' // Probe chỉ đọc registry, không đụng COM
           ? await withPowerPointLock(lockDir, invokeRunner, { owner: 'bridge', ...lockOptions })
@@ -169,7 +172,8 @@ function createPowerPointBridge({
   for (const name of BRIDGE_METHODS) {
     if (typeof bridge[name] !== 'function') throw new Error(`Bridge thiếu phương thức contract: ${name}`);
   }
-  return Object.freeze({ ...bridge, probe });
+  // Internal only: preload still exposes exactly the nine public bridge methods.
+  return Object.freeze({ ...bridge, probe, startWindowedSlideShow: () => call('StartEmbeddedShow') });
 }
 
 module.exports = { createPowerPointBridge, createPowerShellRunner, failure, DEFAULT_SCRIPT };

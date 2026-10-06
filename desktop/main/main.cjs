@@ -19,6 +19,7 @@ const { createLogger } = require('./logger.cjs');
 const { startBackend } = require('./backendProcess.cjs');
 const { createIpcHandlers, registerIpc } = require('./ipc.cjs');
 const { createPresentationWindow } = require('./presentationWindow.cjs');
+const { createPresentationHost } = require('./presentationHost.cjs');
 const { isAllowedExternalUrl, isAllowedNavigation } = require('./security.cjs');
 const { createPowerPointBridge, createPowerShellRunner } = require('../native/powerpointBridge.cjs');
 const { createLinkedPresentations } = require('../native/linkedPresentations.cjs');
@@ -52,6 +53,7 @@ app.on('render-process-gone', (_event, _wc, details) => {
 let backend = null;
 let mainWindow = null;
 let presentationWindow = null;
+let presentationHost = null;
 let quitting = false;
 let dataDirPath = '';
 let exitCode = 0;
@@ -90,6 +92,7 @@ function createMainWindow(origin) {
   mainWindow.on('closed', () => {
     mainWindow = null;
     presentationWindow?.dispose();
+    presentationHost?.dispose().catch(err => logger?.warn(`[presentation-host] dispose: ${err.message}`));
   });
 
   mainWindow.loadURL(origin);
@@ -239,7 +242,8 @@ async function boot() {
   });
 
   presentationWindow = createPresentationWindow({ BrowserWindow, screen, getWindow: () => mainWindow, origin: backend.origin });
-  const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, linkedPresentations, presentationWindow, logger });
+  presentationHost = createPresentationHost({ getWindow: () => mainWindow, screen, bridge, logger });
+  const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, linkedPresentations, presentationWindow, presentationHost, logger });
   registerIpc({ ipcMain, handlers, backendOrigin: backend.origin, logger });
 
   // Từ chối mọi yêu cầu quyền trình duyệt trừ nhóm an toàn tối thiểu.
@@ -266,6 +270,7 @@ app.on('before-quit', (event) => {
     try {
       sendLifecycle('beforeExit');
       sendLifecycle('shutdown');
+      if (presentationHost) await presentationHost.dispose();
       if (backend) {
         const res = await backend.stop();
         logger?.info(`[desktop] backend đã dừng (graceful=${res.graceful}, code=${res.code}).`);

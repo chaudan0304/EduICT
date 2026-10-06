@@ -40,6 +40,7 @@ const desktop = {
   },
   bridge,
   presentationWindow: (options) => ipcRenderer.invoke('edumaster:presentationWindow', options),
+  presentationHost: (options) => ipcRenderer.invoke('edumaster:presentationHost', options),
   onNavigate: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const handler = (_event, tab) => { if (['timer', 'goodscores', 'luckywheel'].includes(tab)) callback(tab); };

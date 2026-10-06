@@ -1,9 +1,2 @@
-import React from 'react';
-import PresentationView from './PresentationView';
-import LinkedPowerPointPresentation from './LinkedPowerPointPresentation';
-
-export default function LessonPresentation(props) {
-  return props.lesson?.type === 'linked_powerpoint'
-    ? <LinkedPowerPointPresentation {...props} />
-    : <PresentationView {...props} />;
-}
+// Web and Desktop share the same teaching tools; PresentationView selects the slide engine.
+export { default } from './PresentationView';
