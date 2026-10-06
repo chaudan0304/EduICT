@@ -318,6 +318,8 @@ export function updateLesson(lessonId, lessonData) {
       rendered_slides = COALESCE(?, rendered_slides),
       failed_slides = COALESCE(?, failed_slides),
       online_embed_url = COALESCE(?, online_embed_url),
+      onedrive_drive_id = CASE WHEN COALESCE(?, online_embed_url, '') != COALESCE(online_embed_url, '') THEN '' ELSE onedrive_drive_id END,
+      onedrive_item_id = CASE WHEN COALESCE(?, online_embed_url, '') != COALESCE(online_embed_url, '') THEN '' ELSE onedrive_item_id END,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?;
   `);
@@ -353,6 +355,8 @@ export function updateLesson(lessonId, lessonData) {
     lessonData.total_slides !== undefined ? Number(lessonData.total_slides) : (lessonData.totalSlides !== undefined ? Number(lessonData.totalSlides) : null),
     lessonData.rendered_slides !== undefined ? Number(lessonData.rendered_slides) : (lessonData.renderedSlides !== undefined ? Number(lessonData.renderedSlides) : null),
     lessonData.failed_slides !== undefined ? Number(lessonData.failed_slides) : (lessonData.failedSlides !== undefined ? Number(lessonData.failedSlides) : null),
+    lessonData.online_embed_url !== undefined ? lessonData.online_embed_url : null,
+    lessonData.online_embed_url !== undefined ? lessonData.online_embed_url : null,
     lessonData.online_embed_url !== undefined ? lessonData.online_embed_url : null,
     lessonId
   );

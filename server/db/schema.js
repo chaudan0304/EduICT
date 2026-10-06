@@ -163,6 +163,8 @@ export function initSchema(db) {
       source_file_name TEXT,
       source_file_path TEXT,
       online_embed_url TEXT DEFAULT '',
+      onedrive_drive_id TEXT DEFAULT '',
+      onedrive_item_id TEXT DEFAULT '',
       thumbnail_url TEXT,
       slide_count INTEGER DEFAULT 0,
       render_status TEXT DEFAULT 'ready',
@@ -205,6 +207,8 @@ export function initSchema(db) {
   try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_name TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_path TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN online_embed_url TEXT DEFAULT '';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN onedrive_drive_id TEXT DEFAULT '';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN onedrive_item_id TEXT DEFAULT '';`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN thumbnail_url TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN slide_count INTEGER DEFAULT 0;`); } catch (e) {}
   try { db.exec(`ALTER TABLE lessons ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch (e) {}

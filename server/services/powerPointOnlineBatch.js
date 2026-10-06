@@ -13,7 +13,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
  * Returns { lessons, created, updated, unchanged }. All writes commit together.
  * Stable new_id makes retrying a committed request safe after a lost response.
  */
-export function savePowerPointOnlineBatch(body) {
+export function savePowerPointOnlineBatch(body, { sourceRefs = new Map() } = {}) {
   if (!body || !Array.isArray(body.items) || !body.items.length || body.items.length > MAX_ONLINE_BATCH_ITEMS) {
     fail('Danh sách cần có từ 1 đến 200 bài.');
   }
@@ -45,7 +45,8 @@ export function savePowerPointOnlineBatch(body) {
 
   const db = getDatabase();
   const get = db.prepare('SELECT * FROM lessons WHERE id = ?');
-  const update = db.prepare('UPDATE lessons SET online_embed_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+  const update = db.prepare("UPDATE lessons SET online_embed_url = ?, onedrive_drive_id = '', onedrive_item_id = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+  const source = db.prepare('UPDATE lessons SET onedrive_drive_id = ?, onedrive_item_id = ? WHERE id = ?');
   const result = { lessons: [], created: 0, updated: 0, unchanged: 0 };
   db.exec('BEGIN IMMEDIATE;');
   try {
@@ -68,6 +69,8 @@ export function savePowerPointOnlineBatch(body) {
     for (const { item, action } of operations) {
       if (action === 'updated') update.run(item.url, item.id);
       if (action === 'created') createLesson({ id: item.id, type: 'powerpoint_online', title: item.title.trim(), grade: item.grade, online_embed_url: item.url });
+      const ref = sourceRefs.get(item.id);
+      if (ref) source.run(ref.driveId, ref.itemId, item.id);
       result[action]++;
       result.lessons.push(get.get(item.id));
     }
