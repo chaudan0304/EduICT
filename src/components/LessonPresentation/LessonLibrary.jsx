@@ -39,6 +39,7 @@ import { detectGradeFromName } from '../../utils/storage';
 import LinkPowerPointModal from './LinkPowerPointModal';
 import LinkedPowerPointCard from './LinkedPowerPointCard';
 import PowerPointOnlineModal from './PowerPointOnlineModal';
+import PowerPointOnlineBatchModal from './PowerPointOnlineBatchModal';
 import PowerPointOnlineCard from './PowerPointOnlineCard';
 import { hasOnlinePowerPoint } from '../../../shared/powerPointOnline.js';
 import EditImportedLessonModal from './EditImportedLessonModal';
@@ -68,6 +69,8 @@ export default function LessonLibrary({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingLinkedLesson, setEditingLinkedLesson] = useState(null);
   const [onlineModal, setOnlineModal] = useState(null);
+  const [onlineBatchOpen, setOnlineBatchOpen] = useState(false);
+  const [onlineBatchNotice, setOnlineBatchNotice] = useState('');
   const [editingImportedLesson, setEditingImportedLesson] = useState(null);
   const [duplicateDetailModal, setDuplicateDetailModal] = useState(null); // { lesson, matchedLesson, ... }
   const [scanReport, setScanReport] = useState(null);
@@ -467,9 +470,12 @@ export default function LessonLibrary({
           Quét trùng{scanReport?.totalDuplicates > 0 ? ` (${scanReport.totalDuplicates})` : ''}
         </button>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => setOnlineModal({ lesson: null })}><UploadCloud size={16} />PowerPoint Online</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => { setOnlineBatchNotice(''); setOnlineBatchOpen(true); }}><UploadCloud size={16} />Gắn Online hàng loạt</button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsImportModalOpen(true)}><FolderOpen size={16} />File trên máy</button>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => onOpenEditor(null)}><Plus size={16} />Tạo bài học</button>
       </PageHeader>
+
+      {onlineBatchNotice && <p role="status" className="online-batch-summary">{onlineBatchNotice}</p>}
 
       {/* Banner Tự Động Quét Bài Giảng Trùng Lặp (Phân loại 3 mức độ) */}
       {scanReport && scanReport.totalDuplicates > 0 && (
@@ -1377,6 +1383,13 @@ export default function LessonLibrary({
       {onlineModal && <PowerPointOnlineModal isOpen lesson={onlineModal.lesson} defaultGrade={currentGrade} onClose={() => setOnlineModal(null)} onSaved={saved => {
         setLessons(prev => prev.some(l => l.id === saved.id) ? prev.map(l => l.id === saved.id ? { ...l, ...saved } : l) : [saved, ...prev]);
         setSelectedTopic('all'); setSearchTerm(''); setTypeFilter('all'); setSimilarityFilter('all');
+      }} />}
+
+      {onlineBatchOpen && <PowerPointOnlineBatchModal defaultGrade={currentGrade} onClose={() => setOnlineBatchOpen(false)} onSaved={result => {
+        const saved = new Map(result.lessons.map(item => [item.id, item]));
+        setLessons(prev => [...result.lessons.filter(item => !prev.some(lesson => lesson.id === item.id)), ...prev.map(lesson => saved.has(lesson.id) ? { ...lesson, ...saved.get(lesson.id) } : lesson)]);
+        setSelectedTopic('all'); setSearchTerm(''); setTypeFilter('all'); setSimilarityFilter('all');
+        setOnlineBatchNotice(`Đã lưu ${result.lessons.length} liên kết: ${result.created} bài mới, ${result.updated} bài cập nhật, ${result.unchanged} bài giữ nguyên. Bài thuộc khối khác nằm trong thư viện khối tương ứng.`);
       }} />}
 
       {/* Modal Import PowerPoint */}

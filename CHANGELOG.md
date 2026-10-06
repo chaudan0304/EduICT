@@ -1,5 +1,15 @@
 # Lịch sử thay đổi
 
+## 1.4.0 — 06/10/2026
+
+### Thêm
+
+- Gắn PowerPoint Online hàng loạt: dán nhiều mã Embed hoặc nhập file TXT, xem và sửa danh sách trước khi lưu, tối đa 200 bài mỗi đợt.
+- Mỗi dòng có thể tạo bài Online mới hoặc gắn vào bài đã có, chọn khối và xác nhận thay liên kết cũ. Giữ lịch dạy, file gốc, slide và ghi chú của bài hiện tại.
+- API lưu cả đợt trong một giao dịch; kiểm tra link/bài trùng, bài đã thay đổi và chống tạo lại bài mới khi gửi lại sau mất phản hồi.
+
+Không tự tải file lên Microsoft. Người dùng tải nhiều file/cả thư mục lên OneDrive rồi lấy mã Embed riêng từng bài. Build và payload được kiểm tra; chưa chạy thử lưu hàng loạt hoặc trình chiếu với liên kết Microsoft thật.
+
 ## 1.3.0 — 06/10/2026
 
 ### Thêm
