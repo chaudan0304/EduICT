@@ -1,6 +1,8 @@
 # TÀI LIỆU THIẾT KẾ GIAO DIỆN & ĐẶC TẢ GIAO DIỆN NGƯỜI DÙNG (UI/UX DESIGN BLUEPRINT)
 ## DỰ ÁN: EDUMASTER (EduICT) — NỀN TẢNG DẠY HỌC & QUẢN LÝ TIN HỌC TIỂU HỌC
 
+> **Cập nhật 06/10/2026:** Khung ứng dụng, tokens/font, trang chủ và thư viện đang chuyển sang thiết kế mới trên `codex/ui-polish`. Đặc tả các vùng này bên dưới mô tả phiên bản trước; xem [báo cáo triển khai hiện tại](docs/ui-implementation-2026-10-06.md) và [checklist](tasks/todo.md) để xác định phần đã hoàn thành. Tài liệu chưa được nghiệm thu 1:1 cho toàn bộ dự án.
+
 > **MỤC TIÊU CỦA TÀI LIỆU NÀY**:
 > Tài liệu này là **Bản Thiết Kế Chi Tiết Tuyệt Đối (1:1 UI/UX Blueprint)** của toàn bộ dự án EduMaster.
 > Bất kỳ Trí tuệ Nhân tạo (AI) hoặc Lập trình viên nào khi đọc tài liệu này đều có thể tái tạo lại **chính xác 100%** toàn bộ giao diện, bố cục DOM, bảng màu, phông chữ, thành phần giao diện, hiệu ứng chuyển động và tương tác người dùng mà không cần mở mã nguồn gốc.

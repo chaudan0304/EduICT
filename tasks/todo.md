@@ -21,12 +21,12 @@ Nhánh: `codex/ui-polish`. Chi tiết nghiệm thu, phụ thuộc và kiểm tra
 - [ ] B2. Chuẩn hóa nút, nhãn và tiêu đề.
 - [ ] B3. Chuẩn hóa modal/drawer và focus.
 - [ ] B4. Sắp xếp sidebar/navbar và responsive.
-- [ ] B5. Thống nhất thanh chọn lớp.
+- [x] B5. Thống nhất thanh chọn lớp.
 - [ ] Checkpoint B: kiểm tra các tab, breakpoint và modal mẫu.
 
 ## C — Trang chủ và quản lý lớp
 
-- [ ] C1. Thiết kế lại trang chủ theo thao tác dạy học.
+- [x] C1. Thiết kế lại trang chủ theo thao tác dạy học.
 - [ ] C2. Sắp xếp quản lý lớp/học sinh.
 - [ ] C3. Chuẩn hóa quy trình nhập Excel.
 - [ ] Checkpoint C: kiểm tra chọn lớp, vào tiết học và nhập dữ liệu mẫu.
@@ -83,3 +83,5 @@ Nhánh: `codex/ui-polish`. Chi tiết nghiệm thu, phụ thuộc và kiểm tra
 ## Nhật ký thực hiện
 
 06/10/2026: hoàn thành tài liệu kế hoạch. Các nhiệm vụ triển khai A–H chưa bắt đầu.
+
+06/10/2026 — đợt đầu: đã triển khai khung điều hướng, tokens/font, PageHeader, trang chủ, ClassContextBar và bố cục thư viện. B1/B2/B4/D1 đang thực hiện, chưa đóng nghiệm thu toàn bộ. A2 đã có bản chạy Home/Library, còn mẫu sổ đánh giá. Chi tiết kiểm tra và giới hạn: [báo cáo triển khai](../docs/ui-implementation-2026-10-06.md).

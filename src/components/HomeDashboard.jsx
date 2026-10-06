@@ -64,8 +64,15 @@ export default function HomeDashboard({ classes = [], currentClass, onSelectClas
       </section>
       <section className="home-classes" aria-labelledby="home-classes-title">
         <div className="section-heading"><h2 id="home-classes-title">Danh sách lớp</h2><span>{filteredClasses.length} lớp</span></div>
-        <div className="segmented-control home-grade-filter" role="group" aria-label="Lọc lớp theo khối">
-          {['all', 1, 2, 3, 4, 5].map(number => <button key={number} type="button" aria-pressed={gradeFilter === number} onClick={() => setGradeFilter(number)}>{number === 'all' ? 'Tất cả' : `Khối ${number}`}</button>)}
+        <div className="home-grade-filter" role="group" aria-label="Lọc lớp theo khối">
+          {['all', 1, 2, 3, 4, 5].map(number => {
+            const gradeClasses = classes.filter(classroom => gradeOf(classroom) === number);
+            const stats = studentStats?.grades?.find(item => Number(item.grade) === number);
+            const count = number === 'all' ? totalStudents : stats?.studentCount ?? gradeClasses.reduce((sum, classroom) => sum + (classroom.students?.length || 0), 0);
+            return <button key={number} type="button" aria-pressed={gradeFilter === number} onClick={() => setGradeFilter(number)}>
+              <strong>{number === 'all' ? 'Tất cả' : `Khối ${number}`}</strong><span>{count} học sinh · {number === 'all' ? classes.length : stats?.classCount ?? gradeClasses.length} lớp</span>
+            </button>;
+          })}
         </div>
         {filteredClasses.length ? <div className="home-class-list">{filteredClasses.map(classroom => (
           <button key={classroom.id} type="button" className="home-class" aria-pressed={currentClass?.id === classroom.id} onClick={() => onSelectClass(classroom.id)}>

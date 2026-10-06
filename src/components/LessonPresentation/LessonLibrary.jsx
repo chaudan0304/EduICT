@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DialogService from '../../services/DialogService';
+import PageHeader from '../ui/PageHeader';
 import {
-  BookOpen,
   Search, 
   Plus, 
   Play, 
@@ -445,134 +445,17 @@ export default function LessonLibrary({
   };
 
   return (
-    <div style={{ maxWidth: 1440, margin: '0 auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* 1. Header Banner & Nút Thêm Mới */}
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(37, 99, 235, 0.05) 100%)',
-        border: '1px solid rgba(2, 132, 199, 0.25)',
-        borderRadius: 'var(--radius-xl)',
-        padding: '1.5rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1.25rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{
-            width: 54,
-            height: 54,
-            borderRadius: 'var(--radius-lg)',
-            background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 20px rgba(2, 132, 199, 0.35)'
-          }}>
-            <BookOpen size={28} />
-          </div>
-
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
-                Thư Viện Bài Học & Slide Giảng Dạy
-              </h1>
-              <span style={{
-                fontSize: '0.75rem',
-                background: '#10b981',
-                color: '#fff',
-                fontWeight: 700,
-                padding: '0.15rem 0.55rem',
-                borderRadius: '999px'
-              }}>
-                GDPT 2018
-              </span>
-            </div>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0 }}>
-              Soạn giáo án số, thiết kế bài trình chiếu tương tác và chiếu trực tiếp trong tiết học phòng máy.
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => onOpenEditor(null)}
-            className="btn btn-secondary"
-            style={{
-              padding: '0.75rem 1.25rem',
-              fontSize: '0.95rem',
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
-          >
-            <Plus size={20} />
-            <span>+ Tạo bài học</span>
-          </button>
-
-          <button
-            onClick={() => {
-              runAutoScan();
-              setIsScanModalOpen(true);
-            }}
-            className="btn btn-secondary"
-            disabled={isScanning}
-            style={{
-              padding: '0.75rem 1.25rem',
-              fontSize: '0.95rem',
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              position: 'relative'
-            }}
-            title="Tự động quét và phát hiện các bài giảng trùng lặp trong thư viện"
-          >
-            {isScanning ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Search size={18} color="#0284c7" />
-            )}
-            <span>🔍 Tự động quét</span>
-            {scanReport && scanReport.totalDuplicates > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: -6,
-                right: -6,
-                background: '#ef4444',
-                color: '#fff',
-                fontSize: '0.7rem',
-                fontWeight: 900,
-                padding: '0.1rem 0.45rem',
-                borderRadius: '999px',
-                boxShadow: '0 2px 6px rgba(239, 68, 68, 0.4)'
-              }}>
-                {scanReport.totalDuplicates}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="btn btn-primary"
-            style={{
-              padding: '0.75rem 1.4rem',
-              fontSize: '0.95rem',
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              boxShadow: '0 4px 14px rgba(168, 85, 247, 0.35)'
-            }}
-          >
-            <UploadCloud size={20} />
-            <span>📥 Import PowerPoint</span>
-          </button>
-        </div>
-      </div>
+    <div className="lesson-library">
+      <PageHeader eyebrow={`THƯ VIỆN · KHỐI ${currentGrade}`} title="Bài học & slide"
+        description="Soạn bài, quản lý PowerPoint và chuẩn bị nội dung trình chiếu.">
+        <button type="button" className="btn btn-outline btn-sm" disabled={isScanning}
+          onClick={() => { runAutoScan(); setIsScanModalOpen(true); }}>
+          {isScanning ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+          Quét trùng{scanReport?.totalDuplicates > 0 ? ` (${scanReport.totalDuplicates})` : ''}
+        </button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => setIsImportModalOpen(true)}><UploadCloud size={16} />Nhập PowerPoint</button>
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => onOpenEditor(null)}><Plus size={16} />Tạo bài học</button>
+      </PageHeader>
 
       {/* Banner Tự Động Quét Bài Giảng Trùng Lặp (Phân loại 3 mức độ) */}
       {scanReport && scanReport.totalDuplicates > 0 && (
@@ -653,25 +536,13 @@ export default function LessonLibrary({
         </div>
       )}
 
-      {/* 2. Thanh Công Cụ Lọc & Tìm Kiếm */}
-      <div style={{
-        background: 'var(--surface-card)',
-        border: '1px solid var(--surface-border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '1rem 1.25rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        {/* Lọc theo Chủ đề & Ô tìm kiếm */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+      <section className="library-filters" aria-label="Lọc và tìm bài học">
+        <div className="library-filter-fields">
           <select
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
             className="input-field"
-            style={{ minWidth: 220, fontSize: '0.875rem', fontWeight: 600 }}
+            aria-label="Chủ đề bài học"
           >
             <option value="all">📂 Tất Cả Chủ Đề (Khối {currentGrade})</option>
             {getTopicsByGrade(currentGrade).map(t => (
@@ -686,7 +557,7 @@ export default function LessonLibrary({
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="input-field"
-            style={{ minWidth: 160, fontSize: '0.875rem', fontWeight: 600 }}
+            aria-label="Loại bài học"
             title="Lọc theo loại bài giảng"
           >
             <option value="all">📋 Tất cả loại bài</option>
@@ -699,7 +570,7 @@ export default function LessonLibrary({
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             className="input-field"
-            style={{ minWidth: 185, fontSize: '0.875rem', fontWeight: 600 }}
+            aria-label="Sắp xếp bài học"
             title="Thứ tự sắp xếp bài giảng"
           >
             <option value="lesson_order">🔢 Thứ tự bài (Bài 1 → 10)</option>
@@ -708,32 +579,23 @@ export default function LessonLibrary({
             <option value="recent">🕒 Mới cập nhật gần đây</option>
           </select>
 
-          <div style={{ position: 'relative', width: 240 }}>
+          <div className="library-search">
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Tìm bài học, từ khóa..."
+              aria-label="Tìm bài học"
               className="input-field"
               style={{ paddingLeft: '2.25rem', width: '100%', fontSize: '0.875rem' }}
             />
           </div>
         </div>
 
-        {/* Bộ lọc trạng thái bài giảng (Trùng lặp) */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.4rem',
-          flexWrap: 'wrap',
-          width: '100%',
-          paddingTop: '0.65rem',
-          borderTop: '1px solid var(--surface-border)'
-        }}>
-          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-            Trạng thái bài:
-          </span>
+        <details className="library-advanced-filters">
+          <summary>Lọc theo mức độ trùng lặp{similarityFilter !== 'all' ? ' · Đang áp dụng' : ''}</summary>
+          <div className="library-similarity-options" role="group" aria-label="Mức độ trùng lặp">
           {[
             { id: 'all', label: 'Tất cả' },
             { id: 'unique', label: '✓ Bài mới', color: '#10b981' },
@@ -745,6 +607,8 @@ export default function LessonLibrary({
             return (
               <button
                 key={p.id}
+                type="button"
+                aria-pressed={isActive}
                 onClick={() => setSimilarityFilter(p.id)}
                 style={{
                   padding: '0.25rem 0.7rem',
@@ -777,8 +641,10 @@ export default function LessonLibrary({
               </button>
             );
           })}
-        </div>
-      </div>
+          </div>
+        </details>
+        <p className="library-result-count" role="status">{isLoading ? 'Đang tải bài học…' : `${filteredLessons.length} bài học phù hợp`}</p>
+      </section>
 
       {/* 3. Lưới Thẻ Bài Học (Lesson Cards Grid) */}
       {isLoading ? (
@@ -809,11 +675,7 @@ export default function LessonLibrary({
           </button>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-          gap: '1.25rem'
-        }}>
+        <div className="library-card-grid">
           {filteredLessons.map(lesson => {
             const gc = gradeColors[lesson.grade] || gradeColors[3];
             const slideCount = lesson.slide_count || lesson.slides_count || lesson.slides?.length || 0;
@@ -822,6 +684,7 @@ export default function LessonLibrary({
             return (
               <div
                 key={lesson.id}
+                className="library-card"
                 onClick={() => {
                   if (isImported) {
                     setEditingImportedLesson(lesson);
@@ -831,13 +694,13 @@ export default function LessonLibrary({
                 }}
                 style={{
                   background: 'var(--surface-card)',
-                  border: isImported ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid var(--surface-border)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: 'var(--radius-xl)',
                   padding: '1.25rem',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  boxShadow: isImported ? '0 4px 14px rgba(168, 85, 247, 0.08)' : 'var(--shadow-sm)',
+                  boxShadow: 'var(--shadow-sm)',
                   transition: 'transform 0.2s, box-shadow 0.2s',
                   cursor: 'pointer'
                 }}
@@ -1274,7 +1137,7 @@ export default function LessonLibrary({
                 </div>
 
                 {/* Phần dưới thẻ bài: Nút thao tác & Slide count */}
-                <div style={{
+                <div className="library-card-footer" style={{
                   borderTop: '1px solid var(--surface-border)',
                   paddingTop: '0.85rem',
                   display: 'flex',
@@ -1287,7 +1150,7 @@ export default function LessonLibrary({
                     <span>{slideCount} slides</span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', position: 'relative' }}>
+                  <div className="library-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', position: 'relative' }}>
                     {/* Nút Phụ 2: Thông tin / Sửa */}
                     {isImported ? (
                       <button
@@ -1373,7 +1236,7 @@ export default function LessonLibrary({
                           width: 30,
                           height: 30,
                           borderRadius: 'var(--radius-sm)',
-                          color: activeMenuLessonId === lesson.id ? 'var(--primary-color)' : 'var(--text-muted)',
+                          color: activeMenuLessonId === lesson.id ? 'var(--primary)' : 'var(--text-muted)',
                           background: activeMenuLessonId === lesson.id ? 'var(--surface-secondary)' : 'transparent',
                           border: '1px solid var(--surface-border)'
                         }}
