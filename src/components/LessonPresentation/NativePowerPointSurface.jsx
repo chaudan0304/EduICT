@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
-import { FileSliders, Play, Square, Loader2, AlertCircle } from 'lucide-react';
+import { FileSliders, Play, Loader2, AlertCircle } from 'lucide-react';
 import { hasNativePresentationHost, nativePresentationAction } from '../../services/NativePresentationService';
 import PresentationService from '../../services/PresentationService';
 import './NativePowerPointSurface.css';
@@ -10,6 +10,7 @@ const NativePowerPointSurface = forwardRef(function NativePowerPointSurface({ fi
   const mountedRef = useRef(false);
   const busyRef = useRef(false);
   const hiddenRef = useRef(false);
+  const lastLayoutRef = useRef('');
   const [status, setStatus] = useState({ active: false });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -19,11 +20,25 @@ const NativePowerPointSurface = forwardRef(function NativePowerPointSurface({ fi
     const rect = canvasRef.current?.getBoundingClientRect();
     return rect ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height } : null;
   }
+  function overlays() {
+    const root = canvasRef.current?.closest('.presentation-native');
+    return Array.from(root?.querySelectorAll('[data-native-overlay]') || []).slice(0, 12).flatMap(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (rect.width < 1 || rect.height < 1 || style.display === 'none' || style.visibility === 'hidden') return [];
+      const radius = Math.min(parseFloat(style.borderTopLeftRadius) || 0, rect.width / 2, rect.height / 2);
+      return [{ x: rect.left, y: rect.top, width: rect.width, height: rect.height, radius }];
+    });
+  }
   async function layout(show = visible && !hiddenRef.current) {
     const id = sessionRef.current;
     const rect = bounds();
     if (!id || !rect || rect.width < 1 || rect.height < 1) return;
-    const result = await nativePresentationAction('layout', { sessionId: id, bounds: rect, visible: show });
+    const payload = { sessionId: id, bounds: rect, overlays: overlays(), visible: show };
+    const signature = JSON.stringify(payload);
+    if (signature === lastLayoutRef.current) return { ok: true };
+    const result = await nativePresentationAction('layout', payload);
+    if (result?.ok !== false && sessionRef.current === id) lastLayoutRef.current = signature;
     if (result?.ok === false && mountedRef.current && sessionRef.current === id) setError(result.message || 'Chưa thể cập nhật khung PowerPoint.');
     return result;
   }
@@ -31,6 +46,7 @@ const NativePowerPointSurface = forwardRef(function NativePowerPointSurface({ fi
     const id = sessionRef.current;
     if (!id) return;
     sessionRef.current = null;
+    lastLayoutRef.current = '';
     const result = await nativePresentationAction('stop', { sessionId: id });
     if (mountedRef.current) {
       setStatus({ active: false });
@@ -52,7 +68,7 @@ const NativePowerPointSurface = forwardRef(function NativePowerPointSurface({ fi
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError('');
     try {
-      const result = await nativePresentationAction('start', { filePath, bounds: bounds(), visible });
+      const result = await nativePresentationAction('start', { filePath, bounds: bounds(), overlays: overlays(), visible });
       if (result?.ok === false) throw new Error(result.message || 'Không thể mở PowerPoint trong khung EduICT.');
       if (!mountedRef.current) { await nativePresentationAction('stop', { sessionId: result.sessionId }); return; }
       sessionRef.current = result.sessionId;
@@ -97,13 +113,22 @@ const NativePowerPointSurface = forwardRef(function NativePowerPointSurface({ fi
       frame = requestAnimationFrame(() => layout().catch(() => {}));
     };
     const observer = new ResizeObserver(update);
-    if (canvasRef.current) observer.observe(canvasRef.current);
+    const root = canvasRef.current?.closest('.presentation-native');
+    const observeOverlays = () => {
+      observer.disconnect();
+      if (canvasRef.current) observer.observe(canvasRef.current);
+      root?.querySelectorAll('[data-native-overlay]').forEach(element => observer.observe(element));
+      update();
+    };
+    const mutations = new MutationObserver(observeOverlays);
+    if (root) mutations.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+    observeOverlays();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
     document.addEventListener('fullscreenchange', update);
     update();
     return () => {
-      observer.disconnect(); cancelAnimationFrame(frame);
+      mutations.disconnect(); observer.disconnect(); cancelAnimationFrame(frame);
       window.removeEventListener('resize', update); window.removeEventListener('scroll', update, true);
       document.removeEventListener('fullscreenchange', update);
     };
@@ -132,10 +157,9 @@ const NativePowerPointSurface = forwardRef(function NativePowerPointSurface({ fi
   }, [status.active]);
 
   return <section className="native-ppt-surface" aria-label="PowerPoint gốc trong EduICT">
-    <div className="native-ppt-statusbar">
-      <span><FileSliders size={16} />{error ? <span role="alert" className="native-ppt-error" title={error}>{error}</span> : busy ? 'Đang kết nối PowerPoint…' : status.active ? 'PowerPoint gốc · Hiệu ứng từ file trên máy' : 'PowerPoint trên máy'}</span>
-      {status.active && <button className="btn btn-ghost" disabled={busy} onClick={() => control(stop)}><Square size={14} />Dừng</button>}
-    </div>
+    {(error || busy) && <div className="native-ppt-statusbar" data-native-overlay>
+      <span><FileSliders size={16} />{error ? <span role="alert" className="native-ppt-error" title={error}>{error}</span> : 'Đang kết nối PowerPoint…'}</span>
+    </div>}
     <div className="native-ppt-canvas" ref={canvasRef}>
       {(!status.active || !visible) && <div className="native-ppt-placeholder">
         {busy ? <Loader2 size={44} className="animate-spin" /> : !available ? <AlertCircle size={44} /> : <FileSliders size={48} />}

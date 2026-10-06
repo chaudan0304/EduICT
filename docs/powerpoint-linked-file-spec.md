@@ -1,8 +1,8 @@
 # PowerPoint liên kết file — yêu cầu cập nhật 06/10/2026
 
-## Cập nhật giao diện Desktop 1.2.0
+## Cập nhật giao diện Desktop 1.2.1
 
-Người dùng đã xác nhận slide phải nằm trong khung EduICT, với các công cụ giống bản web. Bài liên kết dùng `PresentationView`; cửa sổ PowerPoint gốc được neo vào vùng slide, tạm ẩn khi mở modal và cập nhật theo cửa sổ EduICT. Chi tiết: [PowerPoint trong khung ứng dụng](powerpoint-in-app-spec.md). Bản 1.2.0 có gói chạy trực tiếp; khả năng tương thích Office/DPI/hiệu ứng còn cần nghiệm thu thực tế.
+Người dùng đã xác nhận slide phải nằm trong khung EduICT, với các công cụ giống bản web. Theo ảnh cập nhật, slide phủ vùng trình chiếu; tiêu đề/lịch/nút thoát và dock nằm nổi trên slide, không chừa hàng/cột làm slide nhỏ lại. Bài liên kết dùng `PresentationView`; PowerPoint gốc được neo vào toàn vùng slide và clip theo hình các capsule UI. Slide tạm ẩn khi mở modal, vị trí/clip cập nhật theo cửa sổ EduICT. Chi tiết: [PowerPoint trong khung ứng dụng](powerpoint-in-app-spec.md). Bản 1.2.1 có bộ cài EXE; khả năng tương thích Office/DPI/hiệu ứng còn cần nghiệm thu thực tế.
 
 ## Mục tiêu do người dùng xác định
 

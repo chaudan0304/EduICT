@@ -1,14 +1,18 @@
-.native-ppt-surface { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; background: #090d16; color: #e2e8f0; }
-.native-ppt-statusbar { flex: 0 0 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; background: #142337; border-bottom: 1px solid #334155; font-size: 12px; }
+.native-ppt-surface { position: relative; width: 100%; height: 100%; min-height: 0; background: #090d16; color: #e2e8f0; }
+.native-ppt-statusbar { position: absolute; z-index: 5; top: 72px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 48px); padding: 9px 16px; background: #142337; border: 1px solid #334155; border-radius: 999px; font-size: 12px; }
 .native-ppt-statusbar > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .native-ppt-statusbar .btn { color: #e2e8f0; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
 .native-ppt-error { color: #fecaca; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.native-ppt-canvas { position: relative; flex: 1; min-height: 1px; width: 100%; overflow: hidden; }
+.native-ppt-canvas { position: absolute; inset: 0; min-height: 1px; overflow: hidden; }
 .native-ppt-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 24px; text-align: center; overflow: auto; }
 .native-ppt-placeholder > svg { flex-shrink: 0; color: #7dd3fc; }
 .native-ppt-placeholder h2 { font-family: var(--font-display); font-size: clamp(20px, 2.4vw, 30px); color: #f8fafc; margin: 0; }
 .native-ppt-placeholder p { margin: 0; max-width: 540px; color: #cbd5e1; font-size: 14px; line-height: 1.65; }
 .native-ppt-placeholder .native-ppt-path { font-size: 12px; max-width: min(540px, 90%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #94a3b8; }
 .presentation-native .presentation-native-dock { width: max-content; max-width: calc(100vw - 32px); }
-.presentation-native .presentation-native-dock > div { flex-wrap: wrap; justify-content: center; border-radius: 18px !important; gap: 8px !important; }
+.presentation-native .presentation-native-dock > div { flex-wrap: wrap; justify-content: center; gap: 8px !important; background: #263b40 !important; }
 .presentation-native-header > div { flex-wrap: wrap; min-width: 0; max-width: calc(100% - 52px); gap: 8px !important; }
+.presentation-native-header { --text-main: #172033; --text-muted: #475569; --surface-border: #e2e8f0; }
+.presentation-native-header [data-native-overlay] { background: #f8fafc !important; color: #172033; }
+.presentation-native [data-native-overlay]:focus-visible { outline-offset: -3px; }
+.presentation-native .docked-caller-widget { background: #172033 !important; animation: none !important; }

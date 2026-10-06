@@ -21,6 +21,9 @@ function createPresentationHost({ getWindow, screen, bridge, logger = noopLogger
   function validBounds(bounds) {
     return bounds && ['x', 'y', 'width', 'height'].every(key => Number.isFinite(bounds[key]) && Math.abs(bounds[key]) <= 16384) && bounds.width >= 1 && bounds.height >= 1;
   }
+  function validOverlays(overlays) {
+    return Array.isArray(overlays) && overlays.length <= 12 && overlays.every(rect => validBounds(rect) && Number.isFinite(rect.radius) && rect.radius >= 0 && rect.radius <= 8192);
+  }
   function metadata() {
     if (!session) return { active: false };
     return { active: true, sessionId: session.id, name: session.name, slideCount: session.slideCount, currentSlide: session.currentSlide, aspectRatio: session.aspectRatio };
@@ -41,7 +44,15 @@ function createPresentationHost({ getWindow, screen, bridge, logger = noopLogger
       height: Math.max(1, Math.round(Math.min(raw.height * zoom, content.height - y))),
     };
     const physical = screen.dipToScreenRect(main, rect);
-    return host.command('layout', { ...physical, visible: current.visible && main.isVisible() && !main.isMinimized() });
+    const overlays = current.overlays.map(overlay => {
+      const bounds = screen.dipToScreenRect(main, {
+        x: Math.round(content.x + overlay.x * zoom), y: Math.round(content.y + overlay.y * zoom),
+        width: Math.max(1, Math.round(overlay.width * zoom)), height: Math.max(1, Math.round(overlay.height * zoom)),
+      });
+      return { x: bounds.x - physical.x, y: bounds.y - physical.y, width: bounds.width, height: bounds.height,
+        radius: Math.floor(Math.min(overlay.radius * bounds.width / overlay.width, bounds.width / 2, bounds.height / 2)) };
+    });
+    return host.command('layout', { ...physical, overlays, visible: current.visible && main.isVisible() && !main.isMinimized() });
   }
   function scheduleLayout() {
     clearTimeout(layoutTimer);
@@ -84,7 +95,7 @@ function createPresentationHost({ getWindow, screen, bridge, logger = noopLogger
   }
 
   async function start(payload) {
-    if (typeof payload.filePath !== 'string' || !validBounds(payload.bounds) || typeof payload.visible !== 'boolean') return failure('Thông tin khung trình chiếu không hợp lệ.');
+    if (typeof payload.filePath !== 'string' || !validBounds(payload.bounds) || !validOverlays(payload.overlays || []) || typeof payload.visible !== 'boolean') return failure('Thông tin khung trình chiếu không hợp lệ.');
     const main = getWindow();
     if (!main || main.isDestroyed()) return failure();
     if (worker || session) await finish();
@@ -100,7 +111,7 @@ function createPresentationHost({ getWindow, screen, bridge, logger = noopLogger
       if (show?.ok === false) { await finish(); return show; }
       const attached = await worker.command('attach', { windowHandle: show.windowHandle });
       if (attached?.ok === false) { await finish(); return failure(); }
-      session = { id: randomUUID(), bounds: { ...payload.bounds }, visible: payload.visible, name: show.name,
+      session = { id: randomUUID(), bounds: { ...payload.bounds }, overlays: payload.overlays || [], visible: payload.visible, name: show.name,
         slideCount: show.slideCount, currentSlide: show.currentSlide, aspectRatio: show.aspectRatio };
       bindWindow(main);
       if (main.isMinimized()) main.restore();
@@ -130,8 +141,8 @@ function createPresentationHost({ getWindow, screen, bridge, logger = noopLogger
     if (payload.action === 'stop') return stop(payload.sessionId);
     if (!session || session.id !== payload.sessionId) return { ok: false, code: 'POWERPOINT_NOT_RUNNING', message: ERROR_CODES.POWERPOINT_NOT_RUNNING };
     if (payload.action === 'layout') {
-      if (!validBounds(payload.bounds) || typeof payload.visible !== 'boolean') return failure('Thông tin khung trình chiếu không hợp lệ.');
-      session.bounds = { ...payload.bounds }; session.visible = payload.visible;
+      if (!validBounds(payload.bounds) || !validOverlays(payload.overlays || []) || typeof payload.visible !== 'boolean') return failure('Thông tin khung trình chiếu không hợp lệ.');
+      session.bounds = { ...payload.bounds }; session.overlays = payload.overlays || []; session.visible = payload.visible;
       try { return await publishLayout(); } catch { return failure(); }
     }
     if (payload.action === 'status') return serial(async () => {

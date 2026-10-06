@@ -658,7 +658,7 @@ export default function PresentationView({
       left: 0,
       right: 0,
       bottom: 0,
-      background: isNativePowerPoint ? 'var(--bg-main)' : 'var(--surface-ground)',
+      background: isNativePowerPoint ? '#090d16' : 'var(--surface-ground)',
       color: 'var(--text-main)',
       zIndex: 1000,
       display: 'flex',
@@ -681,7 +681,7 @@ export default function PresentationView({
         pointerEvents: isControlsVisible ? 'auto' : 'none'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
+          <div data-native-overlay={isNativePowerPoint ? true : undefined} style={{
             background: 'var(--surface-card)',
             border: '1px solid var(--surface-border)',
             borderRadius: '999px',
@@ -696,7 +696,7 @@ export default function PresentationView({
             <span style={{ color: '#0284c7' }}>📖 {activeLesson?.title || 'Bài giảng'}</span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
             <span style={{ color: 'var(--text-muted)' }}>Khối {activeLesson?.grade || 3}</span>
-            {activeLesson?.type === 'imported' && (
+            {(activeLesson?.type === 'imported' || isNativePowerPoint) && (
               <span style={{
                 background: 'rgba(168, 85, 247, 0.15)',
                 color: '#a855f7',
@@ -718,6 +718,7 @@ export default function PresentationView({
           {/* Badge Thời gian Tiết học theo Thời gian thực & TKB */}
           {livePeriodStatus.isTeachingNow ? (
             <button
+              data-native-overlay={isNativePowerPoint ? true : undefined}
               type="button"
               onClick={() => openTool(setIsTimetableOpen)}
               style={{
@@ -742,6 +743,7 @@ export default function PresentationView({
             </button>
           ) : livePeriodStatus.status === 'RECESS' ? (
             <button
+              data-native-overlay={isNativePowerPoint ? true : undefined}
               type="button"
               onClick={() => openTool(setIsTimetableOpen)}
               style={{
@@ -764,6 +766,7 @@ export default function PresentationView({
             </button>
           ) : sessionTimerRemainingSec !== null ? (
             <button
+              data-native-overlay={isNativePowerPoint ? true : undefined}
               type="button"
               onClick={() => openTool(setIsTimetableOpen)}
               style={{
@@ -787,6 +790,7 @@ export default function PresentationView({
             </button>
           ) : (
             <button
+              data-native-overlay={isNativePowerPoint ? true : undefined}
               type="button"
               onClick={() => openTool(setIsTimetableOpen)}
               style={{
@@ -813,6 +817,7 @@ export default function PresentationView({
 
         {/* Nút thoát góc trên */}
         <button
+          data-native-overlay={isNativePowerPoint ? true : undefined}
           onClick={closePresentation}
           className="btn btn-icon"
           style={{
@@ -832,27 +837,27 @@ export default function PresentationView({
       {/* 2. Slide Canvas Chính (Fullscreen / 16:9 responsive) */}
       {(() => {
         const isImported = activeLesson?.type === 'imported' || currentSlide?.type === 'IMPORTED_SLIDE';
+        const edgeToEdge = isImported || isNativePowerPoint;
         return (
           <main style={{
             flex: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: isNativePowerPoint ? '5.5rem 1rem 7rem' : isImported ? 0 : '2rem 1rem 6rem 1rem',
+            padding: edgeToEdge ? 0 : '2rem 1rem 6rem 1rem',
             boxSizing: 'border-box',
             overflow: 'hidden',
-            background: isImported ? '#090d16' : 'transparent'
+            background: edgeToEdge ? '#090d16' : 'transparent'
           }}>
             <div style={{
-              width: isNativePowerPoint && dockedCaller ? 'calc(100% - 360px)' : '100%',
-              marginRight: isNativePowerPoint && dockedCaller ? 360 : 0,
-              maxWidth: isImported ? '100%' : '1380px',
+              width: '100%',
+              maxWidth: edgeToEdge ? '100%' : '1380px',
               height: '100%',
-              maxHeight: isImported ? '100%' : '88vh',
-              background: isImported ? '#090d16' : 'var(--surface-card)',
-              borderRadius: isImported ? 0 : 'var(--radius-2xl)',
-              border: isImported ? 'none' : '1px solid var(--surface-border)',
-              boxShadow: isImported ? 'none' : '0 20px 40px -15px rgba(0, 0, 0, 0.15)',
+              maxHeight: edgeToEdge ? '100%' : '88vh',
+              background: edgeToEdge ? '#090d16' : 'var(--surface-card)',
+              borderRadius: edgeToEdge ? 0 : 'var(--radius-2xl)',
+              border: edgeToEdge ? 'none' : '1px solid var(--surface-border)',
+              boxShadow: edgeToEdge ? 'none' : '0 20px 40px -15px rgba(0, 0, 0, 0.15)',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
@@ -896,7 +901,7 @@ export default function PresentationView({
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         pointerEvents: isControlsVisible ? 'auto' : 'none'
       }}>
-        <div style={{
+        <div data-native-overlay={isNativePowerPoint ? true : undefined} style={{
           background: 'rgba(15, 23, 42, 0.88)',
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -1220,6 +1225,7 @@ export default function PresentationView({
       {dockedCaller && (
         <div 
           className="docked-caller-widget"
+          data-native-overlay={isNativePowerPoint ? true : undefined}
           style={{
             position: 'fixed',
             top: isNativePowerPoint ? '6.5rem' : dockedPosition.y !== null ? dockedPosition.y : '1rem',

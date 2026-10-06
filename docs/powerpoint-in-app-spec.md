@@ -4,6 +4,8 @@
 
 Ngày 06/10/2026: người dùng muốn Desktop giống giao diện web, slide nằm ngay trong khung EduICT và các nút/công cụ vẫn nhìn thấy. Tiếp tục dùng file `.pptx`/`.ppt` trên máy, chỉ lưu đường dẫn và metadata. Hiệu ứng, transition, trigger và media do Microsoft PowerPoint phát từ file gốc.
 
+Cập nhật theo ảnh người dùng gửi: slide phải phủ vùng trình chiếu, tiêu đề/lịch/nút thoát nằm nổi phía trên và thanh công cụ dạng viên thuốc nằm nổi phía dưới. Không chừa hàng hoặc cột riêng làm slide nhỏ lại. Đây là yêu cầu cho bản 1.2.1, thay bố cục 1.2.0.
+
 Giả định: Windows có Microsoft PowerPoint; giao diện React, lớp và công cụ sư phạm hiện có được dùng chung. Không thêm dịch vụ đám mây, không upload slide và không thay bằng ảnh/PDF/video đã xuất.
 
 ## Thiết kế
@@ -13,7 +15,10 @@ Giả định: Windows có Microsoft PowerPoint; giao diện React, lớp và c�
 - Native host bỏ viền và neo cửa sổ slideshow vào hình chữ nhật của vùng slide. Cửa sổ được đặt owner là cửa sổ EduICT; không dùng SetParent qua hai process vì Microsoft ghi nhận vấn đề DPI với cách đó. Đây là cửa sổ PowerPoint thật, không phải nội dung PowerPoint trong DOM.
 - Một worker PowerShell cố định nhận lệnh JSON whitelist để gắn/di chuyển/ẩn/khôi phục đúng HWND slideshow do COM trả về. Main process giữ HWND, kiểm tra process PowerPoint và chủ cửa sổ; renderer chỉ nhận session ID và metadata.
 - Renderer gửi bounds của vùng slide; main xác thực, giới hạn trong content bounds và đổi DIP sang pixel màn hình theo API Electron. Main cập nhật khi cửa sổ di chuyển, resize, maximize/fullscreen hoặc đổi DPI.
-- Trước khi mở modal sư phạm, ẩn native slide; đóng modal hiện lại cùng vị trí trình chiếu. Thanh điều khiển giữ luôn hiện. Thẻ học sinh thu nhỏ có vùng riêng để không bị slide native che.
+- Vùng slide chiếm toàn viewport trình chiếu, không có padding trên/dưới, thanh trạng thái cố định hoặc cột học sinh làm giảm diện tích. Tiêu đề/lịch/nút thoát, dock và thẻ học sinh giữ dạng nổi trên slide.
+- Vì native window nằm trên DOM, renderer đo từng capsule tương tác; main xác thực tối đa 12 vùng và đổi sang pixel theo DPI. Worker dùng SetWindowRgn với RGN_DIFF để dành đúng các vùng bo góc đó cho UI EduICT bên dưới. Kích thước cửa sổ slide vẫn bằng toàn vùng trình chiếu; PowerPoint tự giữ tỷ lệ nội dung. Các capsule dùng nền đặc để vùng clip khớp hình dạng điều khiển; native window tiếp tục nhận click/trigger ở phần slide.
+- Vùng clip cập nhật theo resize hoặc thay đổi hình học UI, có cache để không tạo lại GDI region khi không đổi. Windows sở hữu region sau SetWindowRgn thành công; region tạm được giải phóng, region gốc được khôi phục khi detach. Nếu áp dụng region lỗi, ẩn native window để vẫn dùng được nút thoát.
+- Trước khi mở modal sư phạm, ẩn native slide; đóng modal hiện lại cùng vị trí trình chiếu. Thanh điều khiển giữ luôn hiện. Thẻ học sinh nổi trên slide, không làm slide thu nhỏ.
 - Esc/kết thúc show cập nhật trạng thái; thoát màn trình chiếu dừng/giải phóng phiên native. Chỉ đóng bài do EduICT mở, giữ bài đã mở sẵn và các bài khác.
 - Khi không có PowerPoint/native host, báo điều kiện rõ trong khung EduICT, không báo giả đã giữ hiệu ứng.
 
@@ -48,3 +53,4 @@ Không thêm/chạy test tự động vì người dùng chưa yêu cầu và h�
 - [Win32 owned windows](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features#owned-windows).
 - [SetParent và DPI](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setparent).
 - [Electron screen, DIP/pixel](https://www.electronjs.org/docs/latest/api/screen).
+- [SetWindowRgn](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowrgn), [CombineRgn](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-combinergn) và [CreateRoundRectRgn](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createroundrectrgn).

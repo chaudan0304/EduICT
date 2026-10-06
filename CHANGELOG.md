@@ -1,5 +1,15 @@
 # Lịch sử thay đổi
 
+## 1.2.1 — 06/10/2026
+
+### Sửa
+
+- Bố cục PowerPoint Desktop theo ảnh người dùng: slide phủ vùng trình chiếu; tiêu đề/lịch/nút thoát và thanh công cụ dạng viên thuốc nằm nổi trên slide.
+- Bỏ khoảng trống trên/dưới, thanh trạng thái chiếm chiều cao và cột học sinh khiến slide bị nhỏ ở bản 1.2.0. Thẻ học sinh nổi trên slide, không đổi kích thước khung.
+- Native window giữ toàn vùng slide; clip đúng các capsule điều khiển để UI hiện và nhận click. Cập nhật clip theo UI/resize/DPI và khôi phục region gốc khi dừng.
+
+Tiếp tục dùng PowerPoint gốc để phát hiệu ứng từ file liên kết. Native clipping, thao tác trên slide và DPI còn cần nghiệm thu thực tế với Microsoft PowerPoint.
+
 ## 1.2.0 — 06/10/2026
 
 ### Thay đổi
