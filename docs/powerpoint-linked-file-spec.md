@@ -82,3 +82,5 @@ Tham khảo API PowerPoint: [Presentations.Open](https://learn.microsoft.com/en-
 - Chưa chạy bộ test tự động cho đợt này; chưa chạy nghiệm thu PowerPoint COM/animation/trigger/media thật, lưu quyền qua restart, backup/restore và bản EXE đã cài. Không coi build hoặc quan sát web là bằng chứng cho các mục này.
 
 **Trạng thái:** LP1–LP4 đã triển khai trong mã nguồn; LP5 còn cần nghiệm thu trên EduICT Desktop + Microsoft PowerPoint.
+
+Bộ cài thử nghiệm **1.1.0** đã đóng gói ngày 06/10/2026. Kiểm tra nội dung/phiên bản và hướng dẫn cài thử: [Báo cáo bộ cài 1.1.0](desktop-build-1.1.0-2026-10-06.md).
