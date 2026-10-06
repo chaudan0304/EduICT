@@ -18,7 +18,12 @@ export function normalizePowerPointEmbed(input) {
   const pathname = url.pathname.toLowerCase();
   const oneDrive = host === 'onedrive.live.com' && pathname === '/embed' &&
     Boolean(url.searchParams.get('resid') || url.searchParams.get('id'));
-  const shortEmbed = host === '1drv.ms' && pathname.startsWith('/p/') && url.searchParams.get('em') === '2';
+  // Current OneDrive iframe links can encode embed mode in an I-prefixed token
+  // instead of an em=2 query. Accept that document path unchanged, including
+  // when the stored URL is validated again by the API or presentation viewer.
+  const modernEmbedPath = /^\/p\/c\/[a-fA-F0-9]{16}\/I[A-Za-z0-9_-]{20,}\/?$/.test(url.pathname);
+  const shortEmbed = host === '1drv.ms' && pathname.startsWith('/p/') &&
+    (url.searchParams.get('em') === '2' || modernEmbedPath);
   const sharePoint = /^[a-z0-9][a-z0-9-]*\.sharepoint\.com$/.test(host) &&
     /^\/_layouts\/15\/(doc|wopiframe)\.aspx$/.test(pathname) &&
     url.searchParams.get('action')?.toLowerCase() === 'embedview';

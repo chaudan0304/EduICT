@@ -1,5 +1,14 @@
 # Lịch sử thay đổi
 
+## 1.4.1 — 06/10/2026
+
+### Sửa
+
+- Bộ kiểm tra từ chối iframe PowerPoint Online dạng `1drv.ms/p/c/<CID>/I<token>` không có `em=2`, đúng dạng người dùng đã dán trong ảnh báo lỗi.
+- Dùng cùng nhận diện ở form một bài, danh sách hàng loạt, API và trình xem; giữ nguyên URL từ Microsoft, không bổ sung tham số hoặc đưa mã HTML vào trang.
+
+Build và payload được kiểm tra; chưa xác nhận quyền xem hoặc hiệu ứng của bài trên Microsoft.
+
 ## 1.4.0 — 06/10/2026
 
 ### Thêm

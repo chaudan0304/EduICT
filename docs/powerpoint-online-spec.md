@@ -12,6 +12,7 @@ Người dùng tải file lên OneDrive/SharePoint trong tài khoản của mìn
 - Bài đã nhập: thêm `online_embed_url` qua PUT bài hiện tại; giữ ID, file gốc, ảnh cũ và các liên kết tiết học. Khi có URL thì ưu tiên trình chiếu Online; xóa URL trở về chế độ hiện tại.
 - CRUD, nhân bản và backup phải giữ URL. Xóa bài Online không tác động đến file trên Microsoft.
 - Validator dùng chung API/browser: chỉ HTTPS, host/path Embed OneDrive hoặc SharePoint; lấy `src` từ iframe, không chèn HTML do người dùng dán. Không fetch URL từ server.
+- Nhận URL nhúng OneDrive dạng `https://1drv.ms/p/c/<16-hex>/I<token>` từ iframe, không bắt buộc `em=2`. Đây là dạng người dùng cung cấp trong ảnh lỗi ngày 06/10/2026. Giữ nguyên URL qua bước dán, lưu API, đọc lại và trình chiếu; không tự thêm tham số hoặc suy đoán redirect. URL sharing ngắn không thuộc dạng này vẫn cần mã Embed.
 
 ## Giao diện và giới hạn
 
