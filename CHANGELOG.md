@@ -1,5 +1,15 @@
 # Lịch sử thay đổi
 
+## 1.6.0 — 07/10/2026
+
+### Thêm
+
+- Thư viện có **Chọn nhiều bài**, ô chọn cho mọi loại bài, chọn tất cả bài đang hiển thị (tối đa 200) và xóa nhóm sau xác nhận tên/số bài.
+- Đổi khối hoặc bộ lọc bỏ chọn; trong chế độ chọn, thẻ bài không mở trình chiếu/chỉnh sửa khi bấm. Bài liên kết trên máy và Online chỉ bị gỡ khỏi EduICT, giữ file gốc.
+- API xóa nhóm yêu cầu xác nhận và lưu trong một giao dịch. Bài đang nhập/render phải hoàn tất trước khi xóa. Lỗi máy chủ không chuyển thành thành công ở local cache; báo riêng lỗi dọn thư mục sau khi đã xóa bài.
+
+Không thêm/chạy test và không xóa dữ liệu bài thật trong quá trình triển khai. Kiểm tra syntax/lint/build/payload được ghi trong báo cáo bộ cài.
+
 ## 1.5.0 — 06/10/2026
 
 ### Thêm

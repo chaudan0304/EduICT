@@ -1,0 +1,13 @@
+.library-selection-toolbar { padding: 1rem; border: 1px solid var(--surface-border); border-radius: var(--radius-lg); background: var(--surface-card); }
+.library-selection-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
+.library-selection-actions > span { font-size: .8125rem; color: var(--text-main); font-weight: 700; }
+.library-selection-toolbar p { font-size: .8125rem; color: var(--text-muted); margin: .75rem 0 0; }
+.library-selection-toolbar .library-selection-error, .library-delete-selected { color: var(--danger, #dc2626); }
+.library-selectable-card { min-width: 0; display: flex; flex-direction: column; border-radius: var(--radius-xl); }
+.library-selectable-card.is-selected { outline: 3px solid var(--primary); outline-offset: 2px; }
+.library-card-select { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; border: 1px solid var(--surface-border); border-radius: var(--radius-md); background: var(--surface-card); color: var(--text-main); cursor: pointer; font-size: .8125rem; font-weight: 600; margin-bottom: .5rem; }
+.library-card-select input { width: 1.125rem; height: 1.125rem; flex-shrink: 0; accent-color: var(--primary); }
+.library-card-select span { overflow-wrap: anywhere; }
+.library-card-select:focus-within { outline: 3px solid var(--primary); outline-offset: 2px; }
+.library-selectable-content { display: flex; flex: 1; min-width: 0; }
+.library-selectable-content > .library-card { width: 100%; }

@@ -91,17 +91,21 @@ export function removeDirectorySafe(dirPath) {
     if (fs.existsSync(dirPath)) {
       fs.rmSync(dirPath, { recursive: true, force: true });
     }
+    return true;
   } catch (err) {
     console.warn('Không thể xóa thư mục:', dirPath, err.message);
+    return false;
   }
 }
 
 // Xóa thư mục lưu trữ bài trình chiếu của một lesson
 export function deleteLessonPresentationsDir(lessonId) {
-  if (!lessonId) return;
-  const safeId = path.basename(lessonId);
-  const targetDir = path.join(PRESENTATIONS_DIR, safeId);
-  removeDirectorySafe(targetDir);
+  if (typeof lessonId !== 'string' || !lessonId || path.basename(lessonId) !== lessonId) return false;
+  const rootDir = path.resolve(PRESENTATIONS_DIR);
+  const targetDir = path.resolve(rootDir, lessonId);
+  const relative = path.relative(rootDir, targetDir);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return false;
+  return removeDirectorySafe(targetDir);
 }
 
 export const RENDER_STAGES = {

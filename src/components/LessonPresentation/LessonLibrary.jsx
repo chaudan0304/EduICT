@@ -48,6 +48,8 @@ import DuplicateComparisonModal from './DuplicateComparisonModal';
 import ErrorBoundary from '../ErrorBoundary';
 import AiLessonAnalysisModal from '../AI/AiLessonAnalysisModal';
 import AiQuestionGeneratorModal from '../AI/AiQuestionGeneratorModal';
+import useLibrarySelection from './useLibrarySelection';
+import { LibrarySelectionToolbar, LibrarySelectableCard } from './LibrarySelection';
 
 export default function LessonLibrary({
   onOpenEditor,
@@ -396,6 +398,16 @@ export default function LessonLibrary({
     return list;
   }, [lessons, currentGrade, selectedTopic, searchTerm, sortBy, similarityFilter, scanReport]);
 
+  const selection = useLibrarySelection(filteredLessons, JSON.stringify([currentGrade, selectedTopic, searchTerm, similarityFilter, typeFilter]), deletedIds => {
+    const deleted = new Set(deletedIds);
+    setLessons(prev => prev.filter(lesson => !deleted.has(lesson.id)));
+    setScanReport(null); setDuplicateDetailModal(null); setActiveMenuLessonId(null);
+  });
+
+  function selectableCard(lesson, content) {
+    return <LibrarySelectableCard key={lesson.id} lesson={lesson} selection={selection}>{content}</LibrarySelectableCard>;
+  }
+
   // Xóa bài học
   const handleDeleteLesson = async (lesson, e) => {
     e.stopPropagation();
@@ -677,6 +689,7 @@ export default function LessonLibrary({
       </section>
 
       {/* 3. Lưới Thẻ Bài Học (Lesson Cards Grid) */}
+      <LibrarySelectionToolbar selection={selection} visibleCount={filteredLessons.length} loading={isLoading} />
       {isLoading ? (
         <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
           Đang nạp thư viện bài học...
@@ -707,13 +720,13 @@ export default function LessonLibrary({
       ) : (
         <div className="library-card-grid">
           {filteredLessons.map(lesson => {
-            if (hasOnlinePowerPoint(lesson)) return <PowerPointOnlineCard key={lesson.id} lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />;
-            if (lesson.type === 'linked_powerpoint') return <LinkedPowerPointCard key={lesson.id} lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setEditingLinkedLesson(lesson)} onOnline={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />;
+            if (hasOnlinePowerPoint(lesson)) return selectableCard(lesson, <PowerPointOnlineCard lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />);
+            if (lesson.type === 'linked_powerpoint') return selectableCard(lesson, <LinkedPowerPointCard lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setEditingLinkedLesson(lesson)} onOnline={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />);
             const gc = gradeColors[lesson.grade] || gradeColors[3];
             const slideCount = lesson.slide_count || lesson.slides_count || lesson.slides?.length || 0;
             const isImported = lesson.type === 'imported';
 
-            return (
+            return selectableCard(lesson,
               <div
                 key={lesson.id}
                 className="library-card"

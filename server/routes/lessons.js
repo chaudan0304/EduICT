@@ -9,11 +9,22 @@ import {
   saveLessonSlides
 } from '../db.js';
 import { deleteLessonPresentationsDir } from '../pptxService.js';
+import { deleteLessonsBatch } from '../services/lessonBatchDelete.js';
 
 // 11.1 & 11.2 — collection routes on /api/lessons (must run BEFORE the pptx
 // group and the generic /api/lessons/:id CRUD to preserve original first-match order)
 export async function tryHandleLessonsCollection(req, res, ctx) {
   const { pathname, method, url } = ctx;
+
+  if (pathname === '/api/lessons/batch-delete' && method === 'POST') {
+    try {
+      sendJson(res, 200, deleteLessonsBatch(await parseJsonBody(req)));
+    } catch (err) {
+      const status = err instanceof SyntaxError ? 400 : (err.statusCode || 500);
+      sendJson(res, status, { error: status === 500 ? 'Không thể xóa các bài đã chọn. Chưa xóa bài nào trong đợt này.' : (err instanceof SyntaxError ? 'Dữ liệu JSON không hợp lệ.' : err.message) });
+    }
+    return true;
+  }
 
   // 11.1 GET /api/lessons (Danh sách bài học kèm bộ lọc)
   if (pathname === '/api/lessons' && method === 'GET') {
