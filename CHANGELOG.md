@@ -1,5 +1,15 @@
 # Lịch sử thay đổi
 
+## 1.7.1 — 07/10/2026
+
+### Sửa cộng sao khi trình chiếu
+
+- Helper trả JSON báo route đã xử lý để API cộng sao/đổi thưởng không rơi vào phần trả trang web và làm backend desktop tắt với ERR_HTTP_HEADERS_SENT. Server và Vite cũng dừng khi phản hồi đã được gửi.
+- Lưu sổ điểm tốt chỉ gửi thông tin lớp/nhật ký, không gửi danh sách học sinh cũ ghi đè số sao vừa tăng.
+- Bảng thưởng sao và thẻ học sinh thu nhỏ khóa nút khi đang xử lý, chờ cập nhật học sinh, dùng đúng ID lớp khi lưu. Bảng chọn nhận diện ID dạng chuỗi/số; thông báo lỗi dùng dialog desktop bất đồng bộ.
+
+Đã build và đối chiếu bộ cài/payload; chưa chạy lại thao tác cộng sao qua giao diện hoặc thêm/chạy test. Không tự cộng lại sao từ lần bấm trước khi app lỗi.
+
 ## 1.7.0 — 07/10/2026
 
 ### Sửa xuất và phục hồi toàn bộ dữ liệu
