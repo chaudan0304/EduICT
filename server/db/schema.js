@@ -2,6 +2,9 @@ import { seedInitialData, seedInitialLessons, seedInitialQuestions } from './see
 import { sortAllStudentsInDatabase } from './classes.js';
 
 export function initSchema(db) {
+  // An intentionally empty restored/deleted collection stays empty on restart.
+  // Seed examples only when creating a database for the first time.
+  const isNewDatabase = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='classes'").get();
   // Bật Foreign Keys & WAL mode
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec('PRAGMA journal_mode = WAL;');
@@ -446,26 +449,26 @@ export function initSchema(db) {
 
   // Kiểm tra nếu chưa có dữ liệu thì nạp dữ liệu mẫu 5 khối lớp
   const countRow = db.prepare('SELECT COUNT(*) as count FROM classes;').get();
-  if (countRow.count === 0) {
+  if (isNewDatabase && countRow.count === 0) {
     seedInitialData(db);
   }
 
   // Kiểm tra nếu chưa có bài học thì nạp bài học mẫu
   const countLessons = db.prepare('SELECT COUNT(*) as count FROM lessons;').get();
-  if (countLessons.count === 0) {
+  if (isNewDatabase && countLessons.count === 0) {
     seedInitialLessons(db);
   }
 
   // Kiểm tra nếu chưa có câu hỏi trong ngân hàng thì nạp câu hỏi mẫu
   const countQB = db.prepare('SELECT COUNT(*) as count FROM question_bank;').get();
-  if (countQB.count === 0) {
+  if (isNewDatabase && countQB.count === 0) {
     seedInitialQuestions(db);
   }
 
   // Đảm bảo toàn bộ học sinh trong cơ sở dữ liệu được sắp xếp theo thứ tự A-Z chuẩn tiếng Việt
   // Kiểm tra nếu chưa có phần thưởng thì nạp phần thưởng mặc định
   const countRewards = db.prepare('SELECT COUNT(*) as count FROM rewards;').get();
-  if (countRewards.count === 0) {
+  if (isNewDatabase && countRewards.count === 0) {
     db.prepare("INSERT INTO rewards (id, name, description, cost, icon, color) VALUES ('card_immunity', 'Thẻ Miễn Tử', 'Được miễn trừ 1 lần kiểm tra bài cũ bất chợt trong tháng.', 15, '🛡️', '#8b5cf6')").run();
     db.prepare("INSERT INTO rewards (id, name, description, cost, icon, color) VALUES ('card_helper', 'Thẻ Cứu Trợ Đồng Đội', 'Được quyền chỉ định 1 bạn trong lớp hỗ trợ khi gặp câu hỏi hóc búa.', 10, '🤝', '#06b6d4')").run();
     db.prepare("INSERT INTO rewards (id, name, description, cost, icon, color) VALUES ('card_seat', 'Thẻ Chọn Chỗ VIP', 'Quyền ưu tiên chọn vị trí ngồi mong muốn trong 1 tuần học.', 12, '💺', '#f59e0b')").run();

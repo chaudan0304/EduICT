@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import StorageService from '../services/StorageService';
 import apiClient from '../services/apiClient';
+import { downloadDatabaseFile, exportFullDatabaseExcel } from '../services/FullDataExportService';
 export {
   parseExcelWorkbook,
   exportAllClassesToExcel,
@@ -147,43 +148,14 @@ export function saveGlobalBrokenMachines(machines) {
   }
 }
 
-// Sao lưu toàn bộ dữ liệu 23 lớp học ra file JSON
-export function exportAllBackupData(classes, brokenMachines) {
-  const backupData = {
-    version: '2.0-primary-informatics',
-    exportDate: new Date().toISOString(),
-    totalClasses: classes.length,
-    classes: classes,
-    brokenMachines: brokenMachines || []
-  };
-
-  const jsonStr = JSON.stringify(backupData, null, 2);
-  const blob = new Blob([jsonStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `EduICT_Backup_TinHoc_${classes.length}Lop_${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+// All backups come from SQLite, across every school year.
+export async function exportAllBackupData() {
+  return downloadDatabaseFile('/api/backup/export-json', `EduICT_ToanBo_${new Date().toISOString().slice(0, 10)}.json`);
 }
 
-// Phục hồi dữ liệu từ file sao lưu JSON
-export function importAllBackupData(jsonString) {
-  try {
-    const data = JSON.parse(jsonString);
-    if (data && Array.isArray(data.classes)) {
-      saveClasses(data.classes);
-      if (Array.isArray(data.brokenMachines)) {
-        saveGlobalBrokenMachines(data.brokenMachines);
-      }
-      return { success: true, count: data.classes.length };
-    }
-    return { success: false, error: 'Định dạng file sao lưu không hợp lệ' };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+export async function importAllBackupData(jsonString) {
+  const data = JSON.parse(jsonString);
+  return apiClient.post('/api/backup/import-json', data, { timeout: 120000 });
 }
 
 // Tính điểm trung bình môn / xếp loại theo Thông tư 27
@@ -250,54 +222,9 @@ export function getSemesterRank(score, evalLevel = 'T') {
   return { label: 'Chưa Hoàn Thành (C) ⚠️', class: 'badge-weak' };
 }
 
-// Xuất Excel chuẩn Tiểu học (Theo Thông tư 27 & Mẫu vnEdu/SMAS)
-export function exportToExcel(students, className, grade = 3) {
-  const isPrimaryLow = (grade === 1 || grade === 2);
-
-  let data = [];
-  if (isPrimaryLow) {
-    data = students.map((s, idx) => ({
-      'STT': idx + 1,
-      'Mã HS': s.id,
-      'Họ và Tên': s.name,
-      'Ngày sinh': s.dob || '',
-      'Giới tính': s.gender || 'Nam',
-      'Máy Số': s.machineNumber || '',
-      'Kỹ năng Chuột (T/H/C)': s.skill_mouse || 'H',
-      'Bàn phím cơ bản (T/H/C)': s.skill_keyboard || 'H',
-      'Vẽ Paint / Tranh (T/H/C)': s.skill_paint || 'T',
-      'Số Sao (⭐)': s.stars || 0,
-      'Nhận Xét / Lời Khen': s.note || 'Thực hành chăm chỉ',
-    }));
-  } else {
-    data = students.map((s, idx) => {
-      const rankHk1 = getSemesterRank(s.score_hk1, s.eval_hk1 ?? s.eval_regular);
-      const rankYear = getSemesterRank(s.score_ck, s.eval_hk2 ?? s.eval_regular);
-      return {
-        'STT': idx + 1,
-        'Mã HS': s.id,
-        'Họ và Tên': s.name,
-        'Ngày sinh': s.dob || '',
-        'Giới tính': s.gender || 'Nam',
-        'Máy Số': s.machineNumber || '',
-        'ĐGTX Học Kỳ I (T/H/C)': s.eval_hk1 ?? s.eval_regular ?? 'T',
-        'Điểm Cuối HK1': s.score_hk1 ?? '',
-        'Mức Đạt HK1': rankHk1.label,
-        'ĐGTX Học Kỳ II (T/H/C)': s.eval_hk2 ?? s.eval_regular ?? 'T',
-        'Điểm Cuối Năm': s.score_ck ?? '',
-        'Mức Đạt Cả Năm': rankYear.label,
-        'Số Sao (⭐)': s.stars || 0,
-        'Nhận Xét vnEdu': s.note || 'Nắm vững kiến thức thực hành',
-      };
-    });
-  }
-
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, className || 'TinHocTieuHoc');
-
-  const fileName = `TinHoc_${className || 'Lop'}_Khoi${grade}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  XLSX.writeFile(workbook, fileName);
+// Keep the selected class first, while including all stored data in the workbook.
+export async function exportToExcel(_students, _className, _grade = 3, classId) {
+  return exportFullDatabaseExcel({ preferredClassId: classId });
 }
 
 // Nhập danh sách học sinh từ Excel (Tương thích file vnEdu / SMAS)
@@ -618,34 +545,16 @@ export async function saveTimetableToSqlite(grid) {
   }
 }
 
-// Tải file database SQLite nhị phân (.sqlite)
-export function downloadSqliteDatabaseFile() {
-  const a = document.createElement('a');
-  a.href = '/api/sql/download-db';
-  a.download = 'edumaster.sqlite';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+export async function downloadSqliteDatabaseFile() {
+  return downloadDatabaseFile('/api/sql/download-db', 'edumaster.sqlite');
 }
 
-// Tải file kịch bản SQL dạng văn bản (.sql) chứa CREATE TABLE và INSERT INTO
-export function downloadSqlScriptFile() {
-  const a = document.createElement('a');
-  a.href = '/api/sql/export-script';
-  a.download = `edumaster_backup_${new Date().toISOString().slice(0, 10)}.sql`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+export async function downloadSqlScriptFile() {
+  return downloadDatabaseFile('/api/sql/export-script', `EduICT_ToanBo_${new Date().toISOString().slice(0, 10)}.sql`);
 }
 
-// Nhập và chạy file kịch bản SQL trên máy chủ SQLite
 export async function importSqlScriptFile(sqlText) {
-  const res = await fetch('/api/sql/import-script', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sql: sqlText })
-  });
-  return res.json();
+  return apiClient.post('/api/sql/import-script', { sql: sqlText }, { timeout: 120000 });
 }
 
 // --- QUẢN LÝ NỘI QUY PHÒNG MÁY & TIÊU CHÍ CỘNG/TRỪ ĐIỂM ---

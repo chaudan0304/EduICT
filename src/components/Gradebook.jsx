@@ -347,11 +347,14 @@ export default function Gradebook({
 
           <button 
             className="btn btn-outline btn-sm"
-            onClick={() => exportToExcel(students, currentClass?.name, grade)}
-            title="Xuất bảng Excel chuẩn nộp trường"
+            title="Xuất toàn bộ dữ liệu; ưu tiên lớp đang chọn"
+            onClick={async () => {
+              try { await exportToExcel(students, currentClass?.name, grade, currentClass?.id); }
+              catch (err) { await DialogService.errorAsync(`Không thể xuất Excel: ${err.message}`); }
+            }}
           >
             <FileSpreadsheet size={16} color="#10b981" />
-            <span>Xuất Excel vnEdu/SMAS</span>
+            <span>Xuất Excel toàn bộ</span>
           </button>
           
           <button 

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import DialogService from '../services/DialogService';
 import AppLifecycleService from '../services/AppLifecycleService';
 import { 
   Tv, 
@@ -30,7 +31,6 @@ import {
 import { 
   exportAllBackupData, 
   importAllBackupData, 
-  getGlobalBrokenMachines, 
   detectGradeFromName, 
   downloadSqliteDatabaseFile, 
   downloadSqlScriptFile, 
@@ -77,6 +77,7 @@ export default function Navbar({
 }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [dataBusy, setDataBusy] = useState(false);
   const [showImportExcelModal, setShowImportExcelModal] = useState(false);
   const [showTransitionModal, setShowTransitionModal] = useState(false);
   const [showYearSettingsModal, setShowYearSettingsModal] = useState(false);
@@ -177,52 +178,36 @@ export default function Navbar({
     setShowAddModal(false);
   };
 
-  // Sao lưu dữ liệu
-  const handleExportBackup = () => {
-    const broken = getGlobalBrokenMachines();
-    exportAllBackupData(classes, broken);
+  const handleDataExport = async (action) => {
+    if (dataBusy) return;
+    setDataBusy(true);
+    try { await action(); }
+    catch (err) { await DialogService.errorAsync(`Không thể xuất dữ liệu: ${err.message}`); }
+    finally { setDataBusy(false); }
   };
+  const handleExportBackup = () => handleDataExport(exportAllBackupData);
 
-  // Phục hồi dữ liệu từ file JSON
-  const handleImportBackupFile = (e) => {
+  const handleDataImport = async (e, kind) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = importAllBackupData(event.target.result);
-      if (result.success) {
-        alert(`✅ Đã phục hồi thành công dữ liệu ${result.count} lớp học!`);
-        AppLifecycleService.reloadApplication();
-      } else {
-        alert(`❌ Lỗi phục hồi: ${result.error}`);
-      }
-    };
-    reader.readAsText(file);
     e.target.value = '';
+    if (!file || dataBusy) return;
+    setDataBusy(true);
+    try {
+      const text = await file.text();
+      const legacy = kind === 'JSON' && JSON.parse(text)?.format !== 'eduict-full-database';
+      const confirmed = await DialogService.confirmAsync(legacy
+        ? 'Nhập JSON cũ vào SQLite? Các lớp trong file sẽ được cập nhật. Ứng dụng tạo bản sao lưu an toàn trước khi nhập.'
+        : `Phục hồi ${kind} sẽ thay thế dữ liệu tương ứng trong cơ sở dữ liệu hiện tại. Ứng dụng tạo bản sao lưu an toàn trước khi nhập. Tiếp tục?`);
+      if (!confirmed) return;
+      const result = kind === 'JSON' ? await importAllBackupData(text) : await importSqlScriptFile(text);
+      if (!result?.success) throw new Error(result?.error || 'Phục hồi không thành công.');
+      await DialogService.alertAsync(`Đã phục hồi dữ liệu vào SQLite. Bản sao an toàn: ${result.safetyBackupId}`);
+      AppLifecycleService.reloadApplication();
+    } catch (err) { await DialogService.errorAsync(`Lỗi phục hồi: ${err.message}`); }
+    finally { setDataBusy(false); }
   };
-
-  // Nhập & Thực thi kịch bản SQL (.sql)
-  const handleImportSqlScript = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const sqlText = event.target.result;
-        const res = await importSqlScriptFile(sqlText);
-        if (res.success) {
-          alert('✅ Đã nạp và thực thi kịch bản SQL vào cơ sở dữ liệu SQLite thành công!');
-          AppLifecycleService.reloadApplication();
-        } else {
-          alert(`❌ Lỗi thực thi SQL: ${res.error}`);
-        }
-      } catch (err) {
-        alert(`❌ Không thể kết nối tới máy chủ SQLite: ${err.message}`);
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
+  const handleImportBackupFile = e => handleDataImport(e, 'JSON');
+  const handleImportSqlScript = e => handleDataImport(e, 'SQL');
 
   const currentGradeNum = currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
 
@@ -942,14 +927,15 @@ export default function Navbar({
               <button
                 type="button"
                 className="btn btn-sm btn-outline"
-                onClick={() => exportAllClassesToExcel(classes)}
+                disabled={dataBusy}
+                onClick={() => handleDataExport(exportAllClassesToExcel)}
                 style={{
                   fontSize: '0.8125rem',
                   borderColor: '#10b981',
                   color: '#059669',
                   background: 'rgba(16, 185, 129, 0.06)'
                 }}
-                title="Xuất toàn bộ các lớp học vào 1 file Excel (mỗi lớp 1 sheet riêng biệt)"
+                title="Xuất toàn bộ dữ liệu mọi năm học, điểm, sổ điểm tốt và các bảng dữ liệu"
               >
                 <Download size={15} />
                 <span>📤 Xuất Excel</span>
@@ -1542,13 +1528,14 @@ export default function Navbar({
                         Tải File Database SQLite (.sqlite)
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                        File CSDL nhị phân gốc <code>edumaster.sqlite</code>. Mở được bằng DB Browser for SQLite hoặc VS Code SQLite Viewer.
+                        Bản sao toàn bộ dữ liệu đã lưu, gồm điểm, sao và mọi năm học. Dữ liệu mới trong WAL cũng được giữ.
                       </div>
                     </div>
                     <button 
                       type="button"
                       className="btn btn-primary btn-sm"
-                      onClick={downloadSqliteDatabaseFile}
+                      disabled={dataBusy}
+                      onClick={() => handleDataExport(downloadSqliteDatabaseFile)}
                       style={{ whiteSpace: 'nowrap' }}
                       title="Tải trực tiếp file edumaster.sqlite về máy tính"
                     >
@@ -1579,7 +1566,8 @@ export default function Navbar({
                     <button 
                       type="button"
                       className="btn btn-outline btn-sm"
-                      onClick={downloadSqlScriptFile}
+                      disabled={dataBusy}
+                      onClick={() => handleDataExport(downloadSqlScriptFile)}
                       style={{ whiteSpace: 'nowrap' }}
                       title="Xuất kịch bản mã SQL đầy đủ"
                     >
@@ -1614,6 +1602,7 @@ export default function Navbar({
                         type="file" 
                         accept=".sql" 
                         style={{ display: 'none' }} 
+                        disabled={dataBusy}
                         onChange={handleImportSqlScript}
                       />
                     </label>
@@ -1631,13 +1620,14 @@ export default function Navbar({
                   color: 'var(--text-muted)',
                   marginBottom: '0.6rem' 
                 }}>
-                  📦 Sao Lưu Dự Phòng Nhanh (File JSON Web)
+                  📦 Sao lưu toàn bộ dữ liệu (JSON)
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <button 
                     type="button"
                     className="btn btn-outline btn-sm"
+                    disabled={dataBusy}
                     onClick={handleExportBackup}
                     style={{ flex: 1, minWidth: 200, justifyContent: 'center' }}
                   >
@@ -1650,6 +1640,7 @@ export default function Navbar({
                       type="file" 
                       accept=".json" 
                       style={{ display: 'none' }} 
+                      disabled={dataBusy}
                       onChange={handleImportBackupFile}
                     />
                   </label>

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import { compareVietnameseNames, sortStudentsVietnamese } from './vietnameseSort.js';
+import { exportFullDatabaseExcel } from '../services/FullDataExportService';
+import { compareVietnameseNames } from './vietnameseSort.js';
 
 // Danh sách các từ khóa tên Sheet mang tính hướng dẫn/hệ thống cần bỏ qua
 const IGNORED_SHEET_NAMES = [
@@ -294,7 +295,7 @@ export function parseExcelWorkbook(file, existingClasses = []) {
           const lowerName = trimmedSheetName.toLowerCase();
 
           // Bỏ qua sheet hướng dẫn hoặc ghi chú
-          if (IGNORED_SHEET_NAMES.some(ign => lowerName === ign || lowerName.includes('huong_dan') || lowerName.includes('hướng dẫn'))) {
+          if (lowerName.startsWith('db_') || ['so_diem_tot', 'backup_json', 'du_lieu_dai'].includes(lowerName) || IGNORED_SHEET_NAMES.some(ign => lowerName === ign || lowerName.includes('huong_dan') || lowerName.includes('hướng dẫn'))) {
             continue;
           }
 
@@ -495,82 +496,8 @@ export function parseExcelWorkbook(file, existingClasses = []) {
 /**
  * Xuất toàn bộ danh sách các lớp ra 1 file Excel (1 Workbook = Nhiều Sheet = Nhiều Lớp)
  */
-export function exportAllClassesToExcel(classes) {
-  if (!classes || classes.length === 0) {
-    alert('Chưa có dữ liệu lớp học để xuất Excel!');
-    return;
-  }
-
-  const workbook = XLSX.utils.book_new();
-
-  for (const c of classes) {
-    const isPrimaryLow = (c.grade === 1 || c.grade === 2);
-    const students = sortStudentsVietnamese(c.students || []);
-
-    // Chuẩn bị tên sheet (tối đa 31 ký tự, loại bỏ ký tự cấm: \ / ? * [ ])
-    let sheetName = (c.name || 'Lop')
-      .replace(/^lớp\s+/i, '')
-      .replace(/[\\/?*[\]:]/g, '')
-      .trim()
-      .slice(0, 31);
-
-    if (!sheetName) sheetName = `Lop_${c.id}`;
-
-    let data = [];
-    if (isPrimaryLow) {
-      data = students.map((s, idx) => ({
-        'STT': idx + 1,
-        'Mã HS': s.id || `HS${String(idx + 1).padStart(3, '0')}`,
-        'Họ và Tên': s.name || '',
-        'Ngày sinh': s.dob || '',
-        'Giới tính': s.gender || 'Nam',
-        'Máy Số': s.machineNumber || '',
-        'Kỹ năng Chuột (T/H/C)': s.skill_mouse || 'T',
-        'Bàn phím cơ bản (T/H/C)': s.skill_keyboard || 'H',
-        'Vẽ Paint / Tranh (T/H/C)': s.skill_paint || 'T',
-        'ĐGTX Học Kỳ I (T/H/C)': s.eval_hk1 ?? s.eval_regular ?? 'T',
-        'ĐGTX Học Kỳ II (T/H/C)': s.eval_hk2 ?? s.eval_regular ?? 'T',
-        'Điểm Cuối HK1': s.score_hk1 ?? '',
-        'Điểm Cuối Năm': s.score_ck ?? '',
-        'Số Sao (⭐)': s.stars || 0,
-        'Nhận Xét / Lời Khen': s.note || ''
-      }));
-    } else {
-      data = students.map((s, idx) => ({
-        'STT': idx + 1,
-        'Mã HS': s.id || `HS${String(idx + 1).padStart(3, '0')}`,
-        'Họ và Tên': s.name || '',
-        'Ngày sinh': s.dob || '',
-        'Giới tính': s.gender || 'Nam',
-        'Máy Số': s.machineNumber || '',
-        'ĐGTX Học Kỳ I (T/H/C)': s.eval_hk1 ?? s.eval_regular ?? 'T',
-        'ĐGTX Học Kỳ II (T/H/C)': s.eval_hk2 ?? s.eval_regular ?? 'T',
-        'Điểm Cuối HK1': s.score_hk1 ?? '',
-        'Điểm Cuối Năm': s.score_ck ?? '',
-        'Số Sao (⭐)': s.stars || 0,
-        'Nhận Xét vnEdu': s.note || ''
-      }));
-    }
-
-    // Nếu lớp chưa có học sinh nào, tạo ít nhất 1 dòng tiêu đề
-    if (data.length === 0) {
-      data = [{
-        'STT': 1,
-        'Mã HS': 'HS001',
-        'Họ và Tên': 'Học sinh mẫu',
-        'Ngày sinh': '01/01/2019',
-        'Giới tính': 'Nam',
-        'Máy Số': 1,
-        'Ghi Chú': 'Mẫu danh sách lớp'
-      }];
-    }
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  }
-
-  const fileName = `EduICT_DanhSach_${classes.length}LopHoc_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  XLSX.writeFile(workbook, fileName);
+export async function exportAllClassesToExcel() {
+  return exportFullDatabaseExcel();
 }
 
 /**

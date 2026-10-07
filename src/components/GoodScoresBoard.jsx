@@ -34,7 +34,7 @@ import {
   ArrowUp,
   ArrowDown
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { exportFullDatabaseExcel } from '../services/FullDataExportService';
 import { soundEffects } from '../utils/audio';
 import { 
   getClassroomRules, 
@@ -573,39 +573,10 @@ export default function GoodScoresBoard({
     }
   };
 
-  // Xuất file Excel
-  const handleExportExcel = () => {
-    const data = (meritRecords || []).map((r, idx) => {
-      const targetStudent = students.find(s => String(s.id).trim() === String(r.studentId).trim());
-      return {
-        'STT': idx + 1,
-        'Ngày': r.date || (r.timestamp ? r.timestamp.slice(0, 10) : ''),
-        'Mã HS': r.studentId || '',
-        'Họ và Tên': r.studentName || targetStudent?.name || 'Học sinh',
-        'Loại': r.type === 'positive' ? 'Điểm tốt / Khen thưởng (+)' : 'Điểm trừ / Nhắc nhở (-)',
-        'Nội Quy / Lý Do': r.title || 'Khen thưởng / nhắc nhở',
-        'Số Sao Thay Đổi': r.type === 'positive' ? `+${r.points || 1}` : `-${r.points || 1}`,
-        'Ghi Chú': r.note || ''
-      };
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'DiemTot_DiemTru');
-
-    worksheet['!cols'] = [
-      { wch: 6 },
-      { wch: 14 },
-      { wch: 12 },
-      { wch: 24 },
-      { wch: 24 },
-      { wch: 36 },
-      { wch: 18 },
-      { wch: 35 },
-    ];
-
-    const fileName = `SoDiemTot_NoiQuy_${currentClass?.name || 'Lop'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+  // Export all stored scores and logs, with the current class first.
+  const handleExportExcel = async () => {
+    try { await exportFullDatabaseExcel({ preferredClassId: currentClass?.id }); }
+    catch (err) { await DialogService.errorAsync(`Không thể xuất Excel: ${err.message}`); }
   };
 
   // Lọc nhật ký
@@ -847,7 +818,7 @@ export default function GoodScoresBoard({
             <button 
               className="btn btn-secondary btn-sm"
               onClick={handleExportExcel}
-              title="Xuất dữ liệu ra file Excel"
+              title="Xuất toàn bộ dữ liệu, gồm điểm và nhật ký của mọi lớp/năm học"
             >
               <FileSpreadsheet size={16} color="#10b981" />
               <span>Xuất Excel</span>

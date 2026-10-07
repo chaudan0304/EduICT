@@ -1,5 +1,17 @@
 # Lịch sử thay đổi
 
+## 1.7.0 — 07/10/2026
+
+### Sửa xuất và phục hồi toàn bộ dữ liệu
+
+- SQL và JSON đọc schema/mọi bảng/mọi cột trong cùng một snapshot, gồm điểm HK1/cuối năm, sao, classes.good_scores, lịch sử tiết học/quiz/đổi thưởng, năm học và cài đặt. Không bị giới hạn bởi lớp/năm học đang xem.
+- SQLite tải từ VACUUM INTO, giữ dữ liệu đã commit trong WAL thay vì sao chép riêng file chính đang mở.
+- Mọi nút xuất Excel lấy toàn bộ SQLite: bảng điểm từng lớp, SO_DIEM_TOT, các bảng DB_* và BACKUP_JSON. Văn bản quá dài được chia phần thay vì cắt mất; không thêm học sinh mẫu vào lớp rỗng.
+- JSON phục hồi vào SQLite thay vì chỉ cache trình duyệt. SQL/JSON tạo bản sao an toàn trước khi nhập; bản toàn bộ mới phục hồi trong giao dịch, kiểm tra khóa ngoại. JSON cũ được ghép vào dữ liệu hiện tại.
+- Lưu/sắp xếp học sinh bằng UPSERT và cập nhật rowid, không xóa rồi chèn lại học sinh đang có, giữ các lịch sử liên quan. Dữ liệu mẫu chỉ được tạo cho cơ sở dữ liệu mới, tránh thêm lại bài vào thư viện đã xóa sạch hoặc bản phục hồi rỗng.
+
+Bản xuất dữ liệu giữ thông tin/liên kết slide, không đóng gói file nguồn ngoài EduICT. Chưa chạy thử xuất/nhập hoặc phục hồi trên dữ liệu thật; kiểm tra syntax/lint/build và payload bộ cài được ghi trong báo cáo 1.7.0. File cũ đã thiếu dữ liệu không tự khôi phục phần đã mất; cần xuất lại từ ứng dụng cập nhật.
+
 ## 1.6.0 — 07/10/2026
 
 ### Thêm

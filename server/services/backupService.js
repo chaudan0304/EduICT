@@ -69,7 +69,7 @@ export async function createBackup() {
   try {
     fs.mkdirSync(tmpDir, { recursive: true });
     const dbBackupPath = path.join(tmpDir, 'database.sqlite');
-    db.exec(`VACUUM INTO '${dbBackupPath}'`);
+    db.exec(`VACUUM INTO '${dbBackupPath.replaceAll("'", "''")}'`);
 
     const schoolYearRow = db.prepare("SELECT value FROM app_settings WHERE key = 'school_year'").get();
     const schoolYear = schoolYearRow ? schoolYearRow.value : '2025 - 2026';

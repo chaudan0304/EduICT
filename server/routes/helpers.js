@@ -15,7 +15,7 @@ export function parseRequestBodyBuffer(req) {
 
 const MAX_JSON_BODY_BYTES = 10 * 1024 * 1024;
 
-export function parseJsonBody(req) {
+export function parseJsonBody(req, { maxBytes = MAX_JSON_BODY_BYTES } = {}) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let bodyBytes = 0;
@@ -24,9 +24,9 @@ export function parseJsonBody(req) {
     req.on('data', chunk => {
       if (settled) return;
       bodyBytes += chunk.length;
-      if (bodyBytes > MAX_JSON_BODY_BYTES) {
+      if (bodyBytes > maxBytes) {
         settled = true;
-        const error = new Error('Nội dung yêu cầu vượt quá giới hạn 10 MB.');
+        const error = new Error(`Nội dung yêu cầu vượt quá giới hạn ${Math.floor(maxBytes / 1024 / 1024)} MB.`);
         error.statusCode = 413;
         reject(error);
         // Drain remaining bytes so the server can return the error response cleanly.

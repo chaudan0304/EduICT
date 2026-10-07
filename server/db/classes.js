@@ -51,14 +51,8 @@ export function sortAllStudentsInDatabase(customDb = null, inTransaction = false
     ? db.prepare(`SELECT id, name FROM classes WHERE id IN (${targetClassIds.map(() => '?').join(',')});`).all(...targetClassIds)
     : db.prepare('SELECT id, name FROM classes;').all();
 
-  const getStudentsStmt = db.prepare('SELECT * FROM students WHERE class_id = ?;');
-  const deleteStmt = db.prepare('DELETE FROM students WHERE class_id = ?;');
-  const insertStmt = db.prepare(`
-    INSERT INTO students (
-      id, class_id, name, dob, gender, machine_number, stars, attendance,
-      skill_mouse, skill_keyboard, skill_paint, eval_regular, eval_hk1, eval_hk2, score_hk1, score_ck, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-  `);
+  const getStudentsStmt = db.prepare('SELECT rowid AS storage_rowid, * FROM students WHERE class_id = ? ORDER BY rowid;');
+  const moveStmt = db.prepare('UPDATE students SET rowid = ? WHERE id = ? AND class_id = ?;');
 
   if (!inTransaction) {
     db.exec('BEGIN TRANSACTION;');
@@ -82,28 +76,12 @@ export function sortAllStudentsInDatabase(customDb = null, inTransaction = false
       }
 
       if (changed) {
-        deleteStmt.run(c.id);
-        for (const s of sorted) {
-          insertStmt.run(
-            s.id,
-            s.class_id,
-            s.name,
-            s.dob || '',
-            s.gender || 'Nam',
-            s.machine_number,
-            s.stars || 0,
-            s.attendance || 'present',
-            s.skill_mouse || 'T',
-            s.skill_keyboard || 'H',
-            s.skill_paint || 'T',
-            s.eval_regular || 'T',
-            s.eval_hk1 || 'T',
-            s.eval_hk2 || 'T',
-            s.score_hk1,
-            s.score_ck,
-            s.note || ''
-          );
-        }
+        // Move only rowids, never delete students: their composite primary key
+        // and all foreign-key histories remain intact.
+        const maximum = db.prepare('SELECT MAX(rowid) AS maximum FROM students').get().maximum;
+        if (!Number.isSafeInteger(maximum + sorted.length)) throw new Error('Không thể sắp xếp: rowid vượt giới hạn an toàn.');
+        for (let i = 0; i < sorted.length; i++) moveStmt.run(maximum + i + 1, sorted[i].id, c.id);
+        for (let i = 0; i < sorted.length; i++) moveStmt.run(students[i].storage_rowid, sorted[i].id, c.id);
         totalReorderedClasses++;
         totalStudentsAffected += sorted.length;
       }
@@ -243,15 +221,26 @@ export function saveStudentsForClass(classId, studentsList) {
   const sortedList = Array.isArray(studentsList) ? [...studentsList].sort(compareVietnameseNames) : [];
   db.exec('BEGIN TRANSACTION;');
   try {
-    // Xóa danh sách học sinh cũ của lớp
-    db.prepare('DELETE FROM students WHERE class_id = ?;').run(classId);
+    // Delete only explicitly removed students. Updates must not cascade-delete
+    // participation, reward redemptions or star transaction history.
+    const retainedIds = new Set(sortedList.map(student => student.id));
+    const remove = db.prepare('DELETE FROM students WHERE class_id = ? AND id = ?;');
+    for (const existing of db.prepare('SELECT id FROM students WHERE class_id = ?').all(classId)) {
+      if (!retainedIds.has(existing.id)) remove.run(classId, existing.id);
+    }
 
     // Chèn lại danh sách học sinh mới đã sắp xếp A - Z
     const insertStmt = db.prepare(`
       INSERT INTO students (
         id, class_id, name, dob, gender, machine_number, stars, attendance,
         skill_mouse, skill_keyboard, skill_paint, eval_regular, eval_hk1, eval_hk2, score_hk1, score_ck, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id, class_id) DO UPDATE SET
+        name=excluded.name, dob=excluded.dob, gender=excluded.gender,
+        machine_number=excluded.machine_number, stars=excluded.stars, attendance=excluded.attendance,
+        skill_mouse=excluded.skill_mouse, skill_keyboard=excluded.skill_keyboard, skill_paint=excluded.skill_paint,
+        eval_regular=excluded.eval_regular, eval_hk1=excluded.eval_hk1, eval_hk2=excluded.eval_hk2,
+        score_hk1=excluded.score_hk1, score_ck=excluded.score_ck, note=excluded.note;
     `);
 
     for (const s of sortedList) {
