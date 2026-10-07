@@ -260,7 +260,10 @@ export default function App() {
     });
     const targetClass = classes.find(c => c.id === classIdToUpdate) || currentClass;
     if (targetClass) {
-      syncClassToSqlite({ ...targetClass, goodScores: safeScores });
+      // The star ledger already saved the new balance. A merit-only update must
+      // not send the stale roster captured before awarding stars.
+      const { students: _students, ...classMetadata } = targetClass;
+      syncClassToSqlite({ ...classMetadata, goodScores: safeScores });
     }
   };
 

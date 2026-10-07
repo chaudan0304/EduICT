@@ -24,8 +24,9 @@ const server = http.createServer(async (req, res) => {
   if (req.url && req.url.startsWith('/api/')) {
     try {
       const handled = await handleApiRequest(req, res);
-      if (handled) return;
+      if (handled || res.headersSent || res.writableEnded) return;
     } catch (err) {
+      if (res.headersSent || res.writableEnded) return;
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: err.message }));

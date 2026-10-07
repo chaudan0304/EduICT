@@ -199,6 +199,8 @@ export default function PresentationView({
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [showStarModal, setShowStarModal] = useState(false);
+  const [isAwardingStars, setIsAwardingStars] = useState(false);
+  const awardInFlightRef = useRef(false);
   const [showWheelModal, setShowWheelModal] = useState(false);
   const [showDuckRaceModal, setShowDuckRaceModal] = useState(false);
   const [dockedCaller, setDockedCaller] = useState(null); // { student: object, toolType: 'wheel' | 'duck' }
@@ -290,27 +292,30 @@ export default function PresentationView({
 
   // Cộng sao trực tiếp từ thẻ gọi thu nhỏ — qua sổ cái server
   const handleRewardDockedCaller = async (starsToAdd) => {
-    if (!dockedCaller?.student?.id) return;
+    if (!dockedCaller?.student?.id || !currentClass?.id || awardInFlightRef.current) return;
     const studentId = dockedCaller.student.id;
+    const classId = currentClass.id;
+    awardInFlightRef.current = true;
+    setIsAwardingStars(true);
     try {
       const newBalance = await awardStars({
         studentId,
-        classId: currentClass?.id,
+        classId,
         amount: starsToAdd,
         reason: 'Thưởng gọi trả bài (trình chiếu)',
         source: 'PRESENTATION',
       });
-      if (onUpdateStudents) onUpdateStudents(applyNewBalance(currentClass?.students || [], studentId, newBalance));
+      if (onUpdateStudents) await onUpdateStudents(applyNewBalance(currentClass?.students || [], studentId, newBalance), classId);
       if (soundEnabled) soundEffects.playStarDing();
       if (typeof newBalance === 'number') {
-        setDockedCaller(prev => ({
+        setDockedCaller(prev => prev?.student?.id === studentId ? ({
           ...prev,
           student: { ...prev.student, stars: newBalance }
-        }));
+        }) : prev);
       }
     } catch (e) {
-      DialogService.alert('Không thể cộng sao: ' + (e?.message || 'Lỗi không xác định'));
-    }
+      await DialogService.alertAsync('Không thể cộng sao: ' + (e?.message || 'Lỗi không xác định'));
+    } finally { awardInFlightRef.current = false; setIsAwardingStars(false); }
   };
 
   // Mở lại bảng gọi học sinh đầy đủ
@@ -432,45 +437,47 @@ export default function PresentationView({
 
   // Xử lý cộng sao nhanh cho học sinh — ⭐ qua sổ cái server, merit giữ riêng
   const handleAwardStarToStudent = async (studentId, starCount = 1) => {
-    if (!currentClass || !onUpdateStudents) return;
+    if (!currentClass || !onUpdateStudents || awardInFlightRef.current) return;
     const students = currentClass.students || [];
-    const target = students.find(s => s.id === studentId);
+    const target = students.find(s => String(s.id) === String(studentId));
     if (!target) return;
+    const classId = currentClass.id;
+    awardInFlightRef.current = true;
+    setIsAwardingStars(true);
 
     try {
       const newBalance = await awardStars({
         studentId,
-        classId: currentClass?.id,
+        classId,
         amount: starCount,
         reason: `Phát biểu trong bài: ${activeLesson?.title || 'Slide'}`,
         source: 'PRESENTATION',
       });
-      onUpdateStudents(applyNewBalance(students, studentId, newBalance));
+      await onUpdateStudents(applyNewBalance(students, studentId, newBalance), classId);
       if (soundEnabled) soundEffects.playStarDing();
+
+      // Thêm vào goodScores nếu có hàm
+      if (onUpdateGoodScores) {
+        const merit = {
+          id: `gs_${Date.now()}`,
+          studentId: target.id,
+          studentName: target.name,
+          date: new Date().toISOString().slice(0, 10),
+          ruleId: 'rule_pos_1',
+          type: 'positive',
+          points: starCount,
+          scoreChange: starCount,
+          title: `Phát biểu trong bài: ${activeLesson?.title || 'Slide'}`,
+          timestamp: new Date().toISOString()
+        };
+        const existingMerits = currentClass?.goodScores || [];
+        await onUpdateGoodScores([merit, ...existingMerits], classId);
+      }
+
+      setShowStarModal(false);
     } catch (e) {
-      DialogService.alert('Không thể cộng sao: ' + (e?.message || 'Lỗi không xác định'));
-      return;
-    }
-
-    // Thêm vào goodScores nếu có hàm
-    if (onUpdateGoodScores) {
-      const merit = {
-        id: `gs_${Date.now()}`,
-        studentId: target.id,
-        studentName: target.name,
-        date: new Date().toISOString().slice(0, 10),
-        ruleId: 'rule_pos_1',
-        type: 'positive',
-        points: starCount,
-        scoreChange: starCount,
-        title: `Phát biểu trong bài: ${activeLesson?.title || 'Slide'}`,
-        timestamp: new Date().toISOString()
-      };
-      const existingMerits = currentClass?.goodScores || [];
-      onUpdateGoodScores([merit, ...existingMerits]);
-    }
-
-    setShowStarModal(false);
+      await DialogService.alertAsync('Không thể cộng sao: ' + (e?.message || 'Lỗi không xác định'));
+    } finally { awardInFlightRef.current = false; setIsAwardingStars(false); }
   };
 
   // Định dạng thời gian
@@ -1171,7 +1178,7 @@ export default function PresentationView({
                 <span style={{ fontSize: '1.5rem' }}>⭐</span>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Thưởng Sao Học Sinh</h3>
               </div>
-              <button onClick={() => setShowStarModal(false)} className="btn btn-icon">
+              <button disabled={isAwardingStars} onClick={() => setShowStarModal(false)} className="btn btn-icon" aria-label="Đóng bảng thưởng sao">
                 <X size={18} />
               </button>
             </div>
@@ -1182,6 +1189,7 @@ export default function PresentationView({
               </label>
               <select
                 value={selectedStudentId}
+                disabled={isAwardingStars}
                 onChange={(e) => setSelectedStudentId(e.target.value)}
                 className="input-field"
                 style={{ width: '100%', fontSize: '1rem', padding: '0.65rem' }}
@@ -1197,7 +1205,7 @@ export default function PresentationView({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
               <button
-                disabled={!selectedStudentId}
+                disabled={!selectedStudentId || isAwardingStars}
                 onClick={() => handleAwardStarToStudent(selectedStudentId, 1)}
                 className="btn btn-primary"
                 style={{ background: 'linear-gradient(135deg, #0284c7, #2563eb)' }}
@@ -1205,7 +1213,7 @@ export default function PresentationView({
                 +1 ⭐
               </button>
               <button
-                disabled={!selectedStudentId}
+                disabled={!selectedStudentId || isAwardingStars}
                 onClick={() => handleAwardStarToStudent(selectedStudentId, 2)}
                 className="btn btn-primary"
                 style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
@@ -1213,7 +1221,7 @@ export default function PresentationView({
                 +2 ⭐⭐
               </button>
               <button
-                disabled={!selectedStudentId}
+                disabled={!selectedStudentId || isAwardingStars}
                 onClick={() => handleAwardStarToStudent(selectedStudentId, 3)}
                 className="btn btn-primary"
                 style={{ background: 'linear-gradient(135deg, #ec4899, #db2777)' }}
@@ -1222,7 +1230,9 @@ export default function PresentationView({
               </button>
             </div>
 
+            {isAwardingStars && <p role="status" style={{ marginBottom: '0.75rem' }}>Đang cộng sao…</p>}
             <button
+              disabled={isAwardingStars}
               onClick={() => setShowStarModal(false)}
               className="btn btn-secondary"
               style={{ width: '100%' }}
@@ -1326,6 +1336,7 @@ export default function PresentationView({
               <button
                 className="btn btn-amber btn-sm"
                 onClick={() => handleRewardDockedCaller(1)}
+                disabled={isAwardingStars}
                 style={{
                   padding: '0.2rem 0.5rem',
                   fontSize: '0.75rem',
@@ -1344,6 +1355,7 @@ export default function PresentationView({
               <button
                 className="btn btn-primary btn-sm"
                 onClick={() => handleRewardDockedCaller(2)}
+                disabled={isAwardingStars}
                 style={{
                   padding: '0.2rem 0.5rem',
                   fontSize: '0.75rem',
