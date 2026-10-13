@@ -1,5 +1,16 @@
 # Lịch sử thay đổi
 
+## 1.8.0 — 13/10/2026
+
+### Cộng/trừ sao cả lớp
+
+- Nút “Cộng/trừ cả lớp” trong Sổ điểm, Sổ điểm tốt và bảng Thưởng sao khi trình chiếu. Chọn cộng hoặc trừ, 1–100 sao mỗi học sinh, học kỳ và lý do; xem tên lớp/sĩ số trước khi xác nhận.
+- Áp dụng toàn bộ danh sách lớp, kể cả học sinh đang bị ẩn bởi bộ lọc. Sao hiện có không xuống dưới 0; nhật ký ghi số thay đổi thực tế cho từng em.
+- API lưu số dư, giao dịch sao, nhật ký điểm tốt và mã lượt trong cùng transaction SQLite. Kiểm tra danh sách lớp đã xác nhận; thử lại cùng mã không cộng/trừ lặp.
+- Đồng bộ kết quả server vào giao diện, không lưu lại danh sách học sinh cũ. Các định dạng sao lưu toàn bộ hiện có giữ cả giao dịch và mã lượt.
+
+Đã build web và đóng gói NSIS 1.8.0, đối chiếu payload và quét secret. Chưa chạy thao tác cộng/trừ thử trên học sinh thật hoặc thêm/chạy test. Chi tiết: `docs/desktop-build-1.8.0-2026-10-13.md`.
+
 ## 1.7.1 — 07/10/2026
 
 ### Sửa cộng sao khi trình chiếu
