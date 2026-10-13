@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Sparkles, 
   X, 
@@ -6,15 +6,13 @@ import {
   BookOpen, 
   Layers, 
   Users, 
-  BarChart3, 
-  CheckCircle2, 
   AlertCircle, 
   Cpu, 
   ShieldCheck,
-  ExternalLink,
   ChevronRight
 } from 'lucide-react';
 import { fetchAiStatus } from './aiService';
+import { getNativeAdapter } from '../../services/DesktopCapabilityService';
 
 export default function AiAssistantModal({
   isOpen,
@@ -26,6 +24,23 @@ export default function AiAssistantModal({
 }) {
   const [status, setStatus] = useState({ enabled: true, configured: false, model: 'gemini-3.5-flash-lite' });
   const [checking, setChecking] = useState(true);
+  const statusRequestRef = useRef(0);
+  const isDesktop = Boolean(getNativeAdapter());
+  const refreshStatus = useCallback(async () => {
+    const requestId = ++statusRequestRef.current;
+    setChecking(true);
+    const nextStatus = await fetchAiStatus();
+    if (requestId === statusRequestRef.current) {
+      setStatus(nextStatus);
+      setChecking(false);
+    }
+  }, []);
+  const invalidateStatusRequest = useCallback(() => { statusRequestRef.current++; }, []);
+  const configReady = !checking && status.available !== false && status.enabled && status.configured;
+  const statusLabel = checking ? 'Đang kiểm tra cấu hình…'
+    : status.available === false ? 'Không kết nối được máy chủ AI'
+    : !status.enabled ? 'Trợ giảng AI đang tắt'
+    : status.configured ? 'Đã thiết lập khóa API' : 'Chưa thiết lập khóa API';
 
   // Định dạng tên mô hình hiển thị trên huy hiệu tiêu đề
   const formatModelBadge = (modelName) => {
@@ -39,13 +54,9 @@ export default function AiAssistantModal({
   };
 
   useEffect(() => {
-    if (isOpen) {
-      setChecking(true);
-      fetchAiStatus()
-        .then(st => setStatus(st))
-        .finally(() => setChecking(false));
-    }
-  }, [isOpen]);
+    if (isOpen) refreshStatus();
+    return invalidateStatusRequest;
+  }, [isOpen, refreshStatus, invalidateStatusRequest]);
 
   if (!isOpen) return null;
 
@@ -137,7 +148,7 @@ export default function AiAssistantModal({
         {/* Trạng thái kết nối Gemini */}
         <div style={{
           padding: '0.85rem 2rem',
-          background: status.configured ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+          background: configReady ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
           borderBottom: '1px solid var(--surface-border, #334155)',
           display: 'flex',
           alignItems: 'center',
@@ -151,23 +162,24 @@ export default function AiAssistantModal({
               width: 9,
               height: 9,
               borderRadius: '50%',
-              background: status.configured ? '#10b981' : '#f59e0b',
-              boxShadow: status.configured ? '0 0 8px #10b981' : 'none'
+              background: configReady ? '#10b981' : '#f59e0b',
+              boxShadow: configReady ? '0 0 8px #10b981' : 'none'
             }} />
-            <span>Trạng thái kết nối:</span>
-            <strong style={{ color: status.configured ? '#10b981' : '#f59e0b' }}>
-              {status.configured ? 'Sẵn sàng hoạt động' : 'Chưa thiết lập GEMINI_API_KEY'}
+            <span>Trạng thái cấu hình:</span>
+            <strong role="status" style={{ color: configReady ? '#10b981' : '#f59e0b' }}>
+              {statusLabel}
             </strong>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted, #94a3b8)' }}>
             <Cpu size={15} />
             <span>Mô hình: <strong style={{ color: 'var(--text-main, #f8fafc)', fontFamily: 'monospace' }}>{status.model || 'gemini-3.5-flash-lite'}</strong></span>
+            <button type="button" className="btn btn-outline btn-sm" disabled={checking} onClick={refreshStatus}>Kiểm tra lại</button>
           </div>
         </div>
 
         {/* Cảnh báo hướng dẫn nếu chưa cấu hình key */}
-        {!status.configured && (
+        {!checking && status.available !== false && !status.configured && (
           <div style={{
             margin: '1.25rem 2rem 0',
             background: 'rgba(245, 158, 11, 0.08)',
@@ -184,8 +196,12 @@ export default function AiAssistantModal({
               <strong style={{ color: '#f59e0b', display: 'block', marginBottom: '0.25rem' }}>
                 Chưa cấu hình GEMINI_API_KEY
               </strong>
-              <span style={{ color: 'var(--text-muted, #94a3b8)', lineHeight: 1.5 }}>
-                Để sử dụng các tính năng Trợ Giảng AI, thầy/cô hoặc quản trị viên vui lòng thêm khóa API vào file <code>.env</code> ở thư mục gốc dự án:
+              <div style={{ color: 'var(--text-muted, #94a3b8)', lineHeight: 1.5 }}>
+                {isDesktop ? <>
+                  App desktop dùng cấu hình riêng trên máy. Nhấn Win + R, mở <code>%APPDATA%\EduMaster\data\settings</code>, rồi điền khóa API vào file <code>.env</code>:
+                </> : <>
+                  Để sử dụng Trợ Giảng AI, thêm khóa API vào file <code>.env</code> ở thư mục gốc dự án:
+                </>}
                 <pre style={{
                   background: 'rgba(0, 0, 0, 0.3)',
                   padding: '0.4rem 0.6rem',
@@ -193,11 +209,18 @@ export default function AiAssistantModal({
                   marginTop: '0.4rem',
                   color: '#38bdf8',
                   fontSize: '0.8rem'
-                }}>GEMINI_API_KEY=AIzaSy...&#10;GEMINI_MODEL=gemini-3.5-flash-lite&#10;GEMINI_ENABLED=true</pre>
+                }}>GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE&#10;GEMINI_MODEL=gemini-3.5-flash-lite&#10;GEMINI_ENABLED=true</pre>
+                <p style={{ margin: '0.5rem 0' }}>Lưu file rồi bấm <strong>Kiểm tra lại</strong>. Giữ khóa API riêng tư.</p>
                 <em>Lưu ý: Mọi chức năng cốt lõi của EduICT vẫn hoạt động bình thường kể cả khi không kích hoạt AI.</em>
-              </span>
+              </div>
             </div>
           </div>
+        )}
+
+        {!checking && status.available === false && (
+          <p role="alert" style={{ margin: '1rem 2rem 0', color: 'var(--danger, #ef4444)' }}>
+            Không đọc được cấu hình AI. Hãy mở lại ứng dụng và bấm Kiểm tra lại.
+          </p>
         )}
 
         {/* Danh Sách 5 Tính Năng Chính */}

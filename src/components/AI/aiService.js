@@ -2,17 +2,15 @@
  * aiService.js
  * Frontend REST API client kết nối với phân hệ Trợ Giảng AI (/api/ai/*)
  */
+import apiClient from '../../services/apiClient';
 
 export async function fetchAiStatus() {
   try {
-    const res = await fetch('/api/ai/status');
-    if (res.ok) {
-      return await res.json();
-    }
+    return { ...await apiClient.get('/api/ai/status', { timeout: 8000 }), available: true };
   } catch (err) {
     console.warn('[AI Service] Không thể kiểm tra trạng thái AI:', err.message);
   }
-  return { enabled: false, configured: false, model: 'gemini-3.5-flash-lite' };
+  return { enabled: false, configured: false, available: false, model: 'gemini-3.5-flash-lite' };
 }
 
 export async function analyzeLessonApi(lessonId) {
