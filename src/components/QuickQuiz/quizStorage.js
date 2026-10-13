@@ -155,19 +155,31 @@ export async function fetchQuestionsApi(filters = {}) {
 }
 
 // 2. Tạo mới câu hỏi
-export async function createQuestionApi(questionData) {
+export async function createQuestionApi(questionData, { allowLocalFallback = true } = {}) {
   try {
     const res = await fetch('/api/questions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(questionData)
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error || `HTTP ${res.status}`);
+    }
     const created = await res.json();
+    if (!allowLocalFallback) {
+      try {
+        saveLocalQuestionsCache([created, ...getLocalQuestionsCache()]);
+      } catch (err) {
+        console.warn('Đã lưu câu hỏi trên máy chủ nhưng chưa cập nhật được bộ nhớ cục bộ:', err);
+      }
+      return created;
+    }
     const cache = getLocalQuestionsCache();
     saveLocalQuestionsCache([created, ...cache]);
     return created;
   } catch (err) {
+    if (!allowLocalFallback) throw err;
     console.warn('API createQuestion lỗi, lưu cục bộ:', err);
     const created = {
       ...questionData,

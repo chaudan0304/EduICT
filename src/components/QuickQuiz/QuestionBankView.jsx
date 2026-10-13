@@ -776,6 +776,7 @@ export default function QuestionBankView({
           isOpen={isAiGenOpen}
           onClose={() => setIsAiGenOpen(false)}
           lessons={loadedLessons}
+          initialGrade={currentClass?.grade || selectedGrade}
           onQuestionsAdded={() => {
             fetchQuestionsApi({
               grade: selectedGrade,
