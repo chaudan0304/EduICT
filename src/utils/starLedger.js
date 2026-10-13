@@ -93,3 +93,8 @@ export async function changeStars(opts = {}) {
   if (amt >= 1) return awardStars(opts);
   return adjustStars(opts);
 }
+
+/** Apply a confirmed whole-class adjustment; retain operationId when retrying. */
+export async function adjustClassStars(payload) {
+  return apiClient.post('/api/gamification/stars/class-adjust', payload);
+}

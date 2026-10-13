@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DialogService from '../services/DialogService';
+import ClassStarAdjustButton from './ClassStars/ClassStarAdjustButton';
 import {
   Award, 
   PlusCircle, 
@@ -803,7 +804,8 @@ export default function GoodScoresBoard({
           </div>
 
           {/* Các nút hành động chính */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <ClassStarAdjustButton currentClass={currentClass} semester={activeSemester} />
             <button 
               type="button"
               className="btn btn-outline btn-sm"

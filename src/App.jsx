@@ -9,6 +9,7 @@ import ClassroomTimer from './components/ClassroomTimer';
 import HomeDashboard from './components/HomeDashboard';
 import NewSchoolYearDetectedModal from './components/NewSchoolYearDetectedModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import { ClassStarContext } from './components/ClassStars/ClassStarContext';
 
 // Part F (Giai đoạn 1B) — Code splitting: các tab NẶNG tải theo yêu cầu (React.lazy).
 // Vỏ ứng dụng (Navbar/Sidebar/HomeDashboard/ClassroomTimer/modal năm học) giữ eager
@@ -227,6 +228,17 @@ export default function App() {
 
   const currentClass = classes.find(c => c.id === currentClassId) || classes[0];
 
+  const handleClassStarsApplied = result => {
+    const balances = new Map(result.balances.map(item => [String(item.studentId), item.newBalance]));
+    // The batch API already persisted everything. Do not re-save a stale roster.
+    setClasses(previous => previous.map(c => String(c.id) === result.classId ? {
+      ...c,
+      students: (c.students || []).map(s => balances.has(String(s.id)) ? { ...s, stars: balances.get(String(s.id)) } : s),
+      goodScores: result.goodScores,
+    } : c));
+    refreshStudentStats();
+  };
+
   // Cập nhật danh sách học sinh của lớp (đồng bộ cả LocalStorage và SQLite, hỗ trợ targetClassId cho Tiết dạy)
   const handleUpdateStudents = async (updatedStudents, targetClassId = null) => {
     const classIdToUpdate = targetClassId || currentClass?.id;
@@ -384,6 +396,7 @@ export default function App() {
   };
 
   return (
+    <ClassStarContext.Provider value={handleClassStarsApplied}>
     <div className="app-root-layout" style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg-main)' }}>
       {/* Left Sidebar Navigation */}
       <Sidebar
@@ -683,5 +696,6 @@ export default function App() {
       </footer>
       </div>
     </div>
+    </ClassStarContext.Provider>
   );
 }

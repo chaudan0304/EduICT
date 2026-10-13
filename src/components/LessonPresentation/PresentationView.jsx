@@ -32,6 +32,7 @@ import DuckRace from '../DuckRace';
 import { soundEffects } from '../../utils/audio';
 import { awardStars, applyNewBalance } from '../../utils/starLedger';
 import DialogService from '../../services/DialogService';
+import ClassStarAdjustButton from '../ClassStars/ClassStarAdjustButton';
 import CreateQuizModal from '../QuickQuiz/CreateQuizModal';
 import QuizPlayer from '../QuickQuiz/QuizPlayer';
 import QuizResultModal from '../QuickQuiz/QuizResultModal';
@@ -1176,13 +1177,16 @@ export default function PresentationView({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>⭐</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Thưởng Sao Học Sinh</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Sao Học Sinh</h3>
               </div>
               <button disabled={isAwardingStars} onClick={() => setShowStarModal(false)} className="btn btn-icon" aria-label="Đóng bảng thưởng sao">
                 <X size={18} />
               </button>
             </div>
 
+            <div style={{ marginBottom: '1.25rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-border)' }}>
+              <ClassStarAdjustButton currentClass={currentClass} disabled={isAwardingStars} />
+            </div>
             <div style={{ marginBottom: '1.25rem' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-muted)' }}>
                 Chọn học sinh lớp {currentClass.name}:

@@ -26,6 +26,7 @@ import {
 import { soundEffects } from '../utils/audio';
 import { changeStars, applyNewBalance } from '../utils/starLedger';
 import AiClassAnalysisModal from './AI/AiClassAnalysisModal';
+import ClassStarAdjustButton from './ClassStars/ClassStarAdjustButton';
 
 export default function Gradebook({ 
   currentClass, 
@@ -326,6 +327,7 @@ export default function Gradebook({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <ClassStarAdjustButton currentClass={currentClass} semester={activeSemester} />
           <button 
             type="button"
             className="btn btn-outline btn-sm"
