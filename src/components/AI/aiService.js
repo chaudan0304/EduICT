@@ -28,11 +28,19 @@ export async function analyzeLessonApi(lessonId) {
   return data; // { success: true, data: { lessonTitle, objectives, keyKnowledge, keywords, suggestedActivities, ... }, isCached }
 }
 
-export async function generateQuestionsApi({ lessonId, count = 5, difficulty = 'mixed', types = ['MULTIPLE_CHOICE'] }) {
+export async function fetchQuestionSourceApi(lessonId, signal) {
+  const res = await fetch(`/api/ai/question-source/${encodeURIComponent(lessonId)}`, { signal });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || 'Không thể đọc nội dung bài học.');
+  return data.data;
+}
+
+export async function generateQuestionsApi({ lessonId, count = 5, difficulty = 'mixed', types = ['MULTIPLE_CHOICE'], sourceContent, instructions, signal }) {
   const res = await fetch('/api/ai/generate-questions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lessonId, count, difficulty, types })
+    body: JSON.stringify({ lessonId, count, difficulty, types, sourceContent, instructions }),
+    signal
   });
   const data = await res.json();
   if (!res.ok || !data.success) {

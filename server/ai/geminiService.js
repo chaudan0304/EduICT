@@ -12,6 +12,7 @@ import { buildQuestionGenerationPrompt } from './prompts/questionGenerationPromp
 import { buildLessonFlowPrompt } from './prompts/lessonFlowPrompt.js';
 import { buildQuizAnalysisPrompt } from './prompts/quizAnalysisPrompt.js';
 import { buildClassAnalysisPrompt } from './prompts/classAnalysisPrompt.js';
+import { getQuestionSource } from './questionSource.js';
 
 // In-memory rate limiter: Tối đa 15 requests / phút / client IP
 const requestHistory = new Map();
@@ -277,24 +278,23 @@ export async function analyzeLessonService({ lessonId, clientIp }) {
 }
 
 // 2. Tạo câu hỏi ngân hàng câu hỏi
-export async function generateQuestionsService({ lessonId, count = 5, difficulty = 'mixed', types = ['MULTIPLE_CHOICE'], clientIp }) {
+export async function generateQuestionsService({ lessonId, count = 5, difficulty = 'mixed', types = ['MULTIPLE_CHOICE'], sourceContent, instructions = '', clientIp }) {
   const lesson = getLessonById(lessonId);
   if (!lesson) {
     throw new Error('Không tìm thấy bài học để tạo câu hỏi.');
   }
 
-  let slidesText = (lesson.slides || [])
-    .slice(0, 30)
-    .map(s => s.content ? `${s.title}: ${s.content}` : '')
-    .filter(Boolean)
-    .join('\n');
-
-  if (!slidesText || slidesText.trim().length === 0) {
-    if (lesson.content_fingerprint) {
-      slidesText = `Nội dung tóm tắt bài học: ${lesson.content_fingerprint}`;
-    } else if (lesson.objectives) {
-      slidesText = `Mục tiêu bài học: ${lesson.objectives}`;
-    }
+  if ((sourceContent !== undefined && (typeof sourceContent !== 'string' || sourceContent.length > 12000))
+    || typeof instructions !== 'string' || instructions.length > 800) {
+    const err = new Error('Nội dung tối đa 12.000 ký tự; yêu cầu thêm tối đa 800 ký tự.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const slidesText = (sourceContent ?? getQuestionSource(lesson).content).trim();
+  if (!slidesText) {
+    const err = new Error('Bài chưa có nội dung để tạo câu hỏi. Hãy nhập kiến thức hoặc mục tiêu bài học.');
+    err.statusCode = 400;
+    throw err;
   }
 
   const inputData = JSON.stringify({
@@ -305,7 +305,8 @@ export async function generateQuestionsService({ lessonId, count = 5, difficulty
     count,
     difficulty,
     types,
-    textSummary: slidesText.slice(0, 3000)
+    textSummary: slidesText,
+    instructions: instructions.trim()
   });
 
   const prompt = buildQuestionGenerationPrompt({
@@ -313,6 +314,7 @@ export async function generateQuestionsService({ lessonId, count = 5, difficulty
     grade: lesson.grade,
     topic: lesson.topic,
     slidesContent: slidesText,
+    instructions: instructions.trim(),
     count: Number(count) || 5,
     difficulty,
     types

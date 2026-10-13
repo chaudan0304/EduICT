@@ -6,7 +6,8 @@ import {
   analyzeQuizService, 
   analyzeClassService 
 } from './geminiService.js';
-import { getAllClassesWithStudents } from '../db.js';
+import { getAllClassesWithStudents, getLessonById } from '../db.js';
+import { getQuestionSource } from './questionSource.js';
 
 function sendJson(res, statusCode, data) {
   res.statusCode = statusCode;
@@ -25,6 +26,18 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
   }
 
   const clientIp = getClientIp(req);
+
+  if (pathname.startsWith('/api/ai/question-source/') && method === 'GET') {
+    try {
+      const lesson = getLessonById(decodeURIComponent(pathname.slice('/api/ai/question-source/'.length)));
+      sendJson(res, lesson ? 200 : 404, lesson
+        ? { success: true, data: getQuestionSource(lesson) }
+        : { success: false, error: 'Không tìm thấy bài học.' });
+    } catch (err) {
+      sendJson(res, 400, { success: false, error: err.message });
+    }
+    return true;
+  }
 
   // 14.1 GET /api/ai/status (Kiểm tra trạng thái cấu hình AI)
   if (pathname === '/api/ai/status' && method === 'GET') {
@@ -59,7 +72,7 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
   if (pathname === '/api/ai/generate-questions' && method === 'POST') {
     try {
       const body = await parseJsonBody(req);
-      const { lessonId, count, difficulty, types } = body;
+      const { lessonId, count, difficulty, types, sourceContent, instructions } = body;
       if (!lessonId) {
         sendJson(res, 400, { success: false, error: 'Thiếu lessonId để tạo câu hỏi.' });
         return true;
@@ -69,6 +82,8 @@ export async function handleAiApiRequest(req, res, pathname, method, parseJsonBo
         count: count || 5,
         difficulty: difficulty || 'mixed',
         types: types || ['MULTIPLE_CHOICE'],
+        sourceContent,
+        instructions,
         clientIp
       });
       sendJson(res, result.success ? 200 : 400, result);
