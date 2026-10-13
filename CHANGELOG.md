@@ -1,5 +1,15 @@
 # Lịch sử thay đổi
 
+## 1.8.1 — 13/10/2026
+
+### Cấu hình Gemini trên desktop
+
+- Sửa hướng dẫn Trợ giảng AI: desktop đọc cấu hình riêng trong `%APPDATA%/EduMaster/data/settings/.env`, web đọc `.env` ở dự án.
+- Thêm nút “Kiểm tra lại”, giới hạn chờ trạng thái 8 giây và bỏ kết quả cũ sau khi đóng/mở bảng AI. Hiển thị riêng AI đang tắt, thiếu khóa và máy chủ không phản hồi; có khóa chỉ báo đã cấu hình.
+- Mẫu desktop ghi rõ `gemini-3.5-flash-lite`. Khóa API vẫn do người dùng cấu hình riêng, không nằm trong Git hoặc bộ cài.
+
+Trên máy này, cấu hình desktop còn khóa mẫu trong khi web đã có khóa. Đã đồng bộ riêng ba thiết lập Gemini vào cấu hình desktop và đọc metadata mô hình từ Google thành công (HTTP 200). Chưa gọi tạo nội dung AI hoặc thêm/chạy test.
+
 ## 1.8.0 — 13/10/2026
 
 ### Cộng/trừ sao cả lớp
