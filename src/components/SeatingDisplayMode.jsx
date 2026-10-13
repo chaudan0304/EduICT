@@ -21,6 +21,7 @@ export default function SeatingDisplayMode({
   labLayout,
   machineStudentMap,
   brokenMachines = [],
+  machineFaults = [],
   teacherSide = 'right',
   initialPerspective = 'student',
   onClose
@@ -603,13 +604,17 @@ export default function SeatingDisplayMode({
                 {machineNumbers.map(mNum => {
                   const assigned = machineStudentMap[mNum] || [];
                   const isBroken = brokenMachines.includes(mNum);
+                  const fault = machineFaults.find(machine => machine.machineNumber === mNum)?.fault;
                   const isShared = assigned.length === 2;
 
                   let cardBorder = '#e2e8f0';
                   let cardBg = '#ffffff';
 
                   if (isBroken) {
-                    cardBorder = '#f59e0b';
+                    cardBorder = '#dc2626';
+                    cardBg = '#fff1f2';
+                  } else if (fault?.status === 'limited') {
+                    cardBorder = '#b45309';
                     cardBg = '#fffbeb';
                   } else if (isShared) {
                     cardBorder = '#818cf8';
@@ -697,6 +702,9 @@ export default function SeatingDisplayMode({
                       </div>
 
                       {/* Cảnh báo nếu máy hỏng */}
+                      {fault && <p style={{ fontSize: '0.75rem', color: '#78350f', overflowWrap: 'anywhere' }}>
+                        {fault.status === 'limited' ? 'Có lỗi, vẫn dùng được' : 'Không dùng được'}{fault.note ? ` · ${fault.note}` : ''}
+                      </p>}
                       {isBroken && (
                         <div style={{
                           fontSize: '0.75rem',
@@ -710,7 +718,7 @@ export default function SeatingDisplayMode({
                           gap: '0.3rem'
                         }}>
                           <AlertTriangle size={13} style={{ flexShrink: 0 }} />
-                          <span>Máy đang sửa, không ngồi vào máy này!</span>
+                          <span>Máy đang lỗi, không ngồi vào máy này!</span>
                         </div>
                       )}
 

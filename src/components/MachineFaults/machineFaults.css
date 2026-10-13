@@ -1,0 +1,31 @@
+.machine-fault-panel { padding: 1.25rem; }
+.machine-fault-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.machine-fault-heading h2, .machine-fault-history h3 { display: flex; align-items: center; gap: .5rem; color: var(--text-main); }
+.machine-fault-muted { color: var(--text-muted); font-size: .875rem; margin: .5rem 0; }
+.machine-fault-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .75rem 0; }
+.machine-fault-totals { display: flex; gap: 1rem; flex-wrap: wrap; padding: 1rem 0; color: var(--text-main); font-weight: 700; }
+.machine-fault-totals span { display: inline-flex; align-items: center; gap: .4rem; }
+.machine-fault-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .75rem; }
+.machine-fault-card { background: var(--surface); border: 2px solid var(--surface-border); border-radius: var(--radius-md); padding: 1rem; text-align: left; display: flex; flex-direction: column; gap: .5rem; color: var(--text-main); cursor: pointer; min-height: 9rem; }
+.machine-fault-card:hover { box-shadow: var(--shadow-sm); }
+.machine-fault-card:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+.machine-fault-card:disabled { cursor: wait; opacity: .65; }
+.machine-fault-number { display: flex; align-items: center; gap: .5rem; font-weight: 800; }
+.machine-fault-limited { border-color: #b45309; }
+.machine-fault-unavailable { border-color: #dc2626; }
+.machine-fault-card-note { font-size: .8125rem; color: var(--text-muted); overflow-wrap: anywhere; white-space: pre-wrap; }
+.machine-fault-waiting { margin-top: 1.5rem; }
+.machine-fault-waiting ul, .machine-fault-history ol { list-style: none; padding: 0; }
+.machine-fault-waiting li { display: flex; align-items: flex-start; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid var(--surface-border); }
+.machine-fault-waiting p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.machine-fault-dialog { width: min(36rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; border: 1px solid var(--surface-border); border-radius: var(--radius-lg); background: var(--surface); color: var(--text-main); padding: 1.25rem; margin: auto; }
+.machine-fault-dialog::backdrop { background: rgb(0 0 0 / .6); }
+.machine-fault-dialog fieldset { border: 0; padding: 0; display: grid; gap: .5rem; }
+.machine-fault-dialog label { font-weight: 700; margin-top: .5rem; }
+.machine-fault-dialog select, .machine-fault-dialog textarea { width: 100%; padding: .75rem; border: 1px solid var(--surface-border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-main); font: inherit; }
+.machine-fault-error { color: #b91c1c; background: #fff1f2; border-radius: var(--radius-sm); padding: .75rem; overflow-wrap: anywhere; }
+.machine-fault-history { margin-top: 1rem; border-top: 1px solid var(--surface-border); padding-top: 1rem; }
+.machine-fault-history li { display: grid; gap: .25rem; padding: .75rem 0; border-bottom: 1px solid var(--surface-border); overflow-wrap: anywhere; }
+.machine-fault-history time { color: var(--text-muted); font-size: .8125rem; }
+.machine-fault-history li span { white-space: pre-wrap; }
+@media (max-width: 480px) { .machine-fault-panel, .machine-fault-dialog { padding: .75rem; } }

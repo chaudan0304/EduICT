@@ -129,7 +129,7 @@ export default function QuickToolModal({
                 </span>
               </div>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                Phân công máy cho học sinh, đánh dấu máy hỏng, sơ đồ 31 máy phòng Tin học
+                Theo dõi lỗi và lịch sử sửa chữa của 31 máy phòng Tin học
               </p>
             </div>
             <SeatingChart

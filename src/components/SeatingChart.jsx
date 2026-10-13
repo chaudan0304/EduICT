@@ -26,14 +26,13 @@ import {
 import { soundEffects } from '../utils/audio';
 import { awardStars, changeStars, applyNewBalance } from '../utils/starLedger';
 import { 
-  getGlobalBrokenMachines, 
-  saveGlobalBrokenMachines, 
   detectGradeFromName,
-  fetchBrokenMachinesFromSqlite,
-  syncBrokenMachinesToSqlite,
   getClassroomRules
 } from '../utils/storage';
 import SeatingDisplayMode from './SeatingDisplayMode';
+import useMachineFaults from './MachineFaults/useMachineFaults';
+import MachineFaultPanel from './MachineFaults/MachineFaultPanel';
+import MachineFaultDialog from './MachineFaults/MachineFaultDialog';
 
 export default function SeatingChart({ 
   currentClass, 
@@ -53,7 +52,10 @@ export default function SeatingChart({
   // Góc nhìn hiển thị: 'teacher' (Góc nhìn Giáo viên) | 'student' (Góc nhìn Học sinh)
   const [chartPerspective, setChartPerspective] = useState('teacher');
   // Danh sách máy hỏng dùng chung cho toàn bộ 23 lớp
-  const [brokenMachines, setBrokenMachines] = useState(() => getGlobalBrokenMachines());
+  const machineFaults = useMachineFaults();
+  const brokenMachines = useMemo(() => machineFaults.machines.filter(machine => machine.fault?.status === 'unavailable').map(machine => machine.machineNumber), [machineFaults.machines]);
+  const [showSeating, setShowSeating] = useState(false);
+  const [faultMachine, setFaultMachine] = useState(null);
   // Modal máy đang chọn
   const [activeMachineNum, setActiveMachineNum] = useState(null);
 
@@ -74,7 +76,7 @@ export default function SeatingChart({
   const rules = React.useMemo(() => getClassroomRules(), [activeMachineNum]);
   const [quickRuleFeedback, setQuickRuleFeedback] = useState(null);
 
-  // Thông báo khi tự động xếp lại chỗ do báo máy hỏng
+  // Thông báo thao tác xếp chỗ
   const [reassignAlerts, setReassignAlerts] = useState(null);
 
   React.useEffect(() => {
@@ -139,18 +141,6 @@ export default function SeatingChart({
     setQuickRuleFeedback({ text: msg, isPositive: pointsDelta > 0 });
     setTimeout(() => setQuickRuleFeedback(null), 3500);
   };
-
-  // Nạp danh sách máy hỏng từ SQLite nếu có
-  React.useEffect(() => {
-    async function loadBrokenFromSqlite() {
-      const fromSqlite = await fetchBrokenMachinesFromSqlite();
-      if (fromSqlite && Array.isArray(fromSqlite)) {
-        setBrokenMachines(fromSqlite);
-        saveGlobalBrokenMachines(fromSqlite);
-      }
-    }
-    loadBrokenFromSqlite();
-  }, []);
 
   // Tính toán layout 5 dãy
   const labLayout = useMemo(() => {
@@ -485,145 +475,9 @@ export default function SeatingChart({
     }
   };
 
-  // Bật/tắt máy hỏng dùng chung toàn trường & tự động chuyển chỗ ngồi cho học sinh
   const toggleBrokenMachine = (machineNum) => {
-    const isCurrentlyBroken = brokenMachines.includes(machineNum);
-
-    if (isCurrentlyBroken) {
-      // 1. GIÁO VIÊN HỦY BÁO HỎNG (máy đã sửa xong, đưa về hoạt động bình thường)
-      const nextBroken = brokenMachines.filter(m => m !== machineNum);
-      setBrokenMachines(nextBroken);
-      saveGlobalBrokenMachines(nextBroken);
-      syncBrokenMachinesToSqlite(nextBroken);
-
-      // Máy trở về trạng thái trống bình thường, KHÔNG tự động kéo học sinh về để tránh xáo trộn
-      setReassignAlerts({
-        type: 'info',
-        title: `Đã Hủy Báo Hỏng Máy ${String(machineNum).padStart(2, '0')}`,
-        items: [
-          {
-            type: 'info',
-            text: `Máy ${String(machineNum).padStart(2, '0')} đã sẵn sàng hoạt động bình thường (ở trạng thái trống). Thầy/Cô có thể xếp học sinh thủ công nếu muốn dùng lại máy này.`
-          }
-        ]
-      });
-
-      if (soundEnabled) soundEffects.playTick();
-      return;
-    }
-
-    // 2. GIÁO VIÊN BÁO MÁY HỎNG
-    const nextBroken = [...brokenMachines, machineNum];
-    setBrokenMachines(nextBroken);
-    saveGlobalBrokenMachines(nextBroken);
-    syncBrokenMachinesToSqlite(nextBroken);
-
-    // a. Lấy danh sách học sinh đang gán ở máy vừa bị đánh dấu hỏng (cả HS1 và HS2 nếu có)
-    const currentOnBroken = machineStudentMap[machineNum] || [];
-    const displacedStudents = students.filter(
-      s => Number(s.machineNumber) === machineNum || currentOnBroken.some(c => c.id === s.id)
-    );
-
-    if (displacedStudents.length === 0) {
-      // Máy đang trống, không có học sinh bị ảnh hưởng
-      setReassignAlerts({
-        type: 'warning',
-        title: `Đã Báo Hỏng Máy ${String(machineNum).padStart(2, '0')}`,
-        items: [
-          {
-            type: 'warning',
-            text: `Máy ${String(machineNum).padStart(2, '0')} đã được đánh dấu Hỏng (máy đang trống, không có học sinh bị ảnh hưởng).`
-          }
-        ]
-      });
-      if (soundEnabled) soundEffects.playBuzzer();
-      return;
-    }
-
-    // b. Xác định các máy hoạt động còn lại
-    const workingMachines = [];
-    for (let m = 1; m <= 31; m++) {
-      if (!nextBroken.includes(m)) {
-        workingMachines.push(m);
-      }
-    }
-
-    // c. Tính toán số lượng học sinh hiện có ở các máy hoạt động (loại trừ các học sinh ở máy vừa hỏng)
-    const displacedIds = new Set(displacedStudents.map(s => s.id));
-    const occupancyMap = {};
-    for (const m of workingMachines) {
-      const seated = (machineStudentMap[m] || []).filter(s => !displacedIds.has(s.id));
-      occupancyMap[m] = [...seated];
-    }
-
-    const notices = [];
-    const updatedStudents = [...students];
-
-    // d. Duyệt qua từng học sinh bị ảnh hưởng để tìm máy phù hợp theo đúng logic ghép đôi
-    for (const student of displacedStudents) {
-      let targetMachine = null;
-
-      // ƯU TIÊN 1: Tìm máy hoạt động còn trống hoàn toàn (0 học sinh)
-      for (const m of workingMachines) {
-        if (occupancyMap[m].length === 0) {
-          targetMachine = m;
-          break;
-        }
-      }
-
-      // ƯU TIÊN 2: Nếu hết máy trống hoàn toàn, tìm máy đang có đúng 1 học sinh (ghép đôi slot 2)
-      if (!targetMachine) {
-        for (const m of workingMachines) {
-          if (occupancyMap[m].length === 1) {
-            targetMachine = m;
-            break;
-          }
-        }
-      }
-
-      const sIdx = updatedStudents.findIndex(s => s.id === student.id);
-
-      if (targetMachine) {
-        // Gán học sinh vào targetMachine và cập nhật occupancy
-        occupancyMap[targetMachine].push(student);
-        const isPaired = occupancyMap[targetMachine].length === 2;
-
-        if (sIdx !== -1) {
-          updatedStudents[sIdx] = { ...updatedStudents[sIdx], machineNumber: targetMachine };
-        }
-
-        notices.push({
-          type: 'success',
-          text: `Đã tự động chuyển ${student.name} từ Máy ${String(machineNum).padStart(2, '0')} (hỏng) sang Máy ${String(targetMachine).padStart(2, '0')}${isPaired ? ' (ngồi ghép đôi)' : ''}`
-        });
-      } else {
-        // Trường hợp không còn máy trống / chỗ ghép (tất cả máy hoạt động đã đủ 2 bạn)
-        // Tuyệt đối KHÔNG tự ý ghép 3 bạn vào 1 máy, chuyển về trạng thái chưa có chỗ (machineNumber = null)
-        if (sIdx !== -1) {
-          updatedStudents[sIdx] = { ...updatedStudents[sIdx], machineNumber: null };
-        }
-
-        notices.push({
-          type: 'error',
-          text: `Không đủ chỗ để tự động xếp lại cho ${student.name} — vui lòng xếp thủ công`
-        });
-      }
-    }
-
-    // Cập nhật lại dữ liệu xếp chỗ trong database cho các học sinh vừa được chuyển
-    onUpdateStudents(updatedStudents);
-
-    const hasError = notices.some(n => n.type === 'error');
-    setReassignAlerts({
-      type: hasError ? 'error' : 'success',
-      title: `Báo Hỏng Máy ${String(machineNum).padStart(2, '0')} — Tự Động Xử Lý Chỗ Ngồi`,
-      items: notices
-    });
-
-    if (soundEnabled) {
-      if (hasError) soundEffects.playBuzzer();
-      else soundEffects.playStarDing();
-    }
+    const machine = machineFaults.machines.find(item => item.machineNumber === machineNum);
+    if (machine && !machineFaults.loading && !machineFaults.error) setFaultMachine(machine);
   };
 
   // Gán học sinh cụ thể vào máy (Học sinh 1 hoặc Học sinh 2)
@@ -679,9 +533,20 @@ export default function SeatingChart({
   }
 
   const activeMachineStudents = activeMachineNum ? (machineStudentMap[activeMachineNum] || []) : [];
+  const faultDialog = faultMachine && <MachineFaultDialog key={faultMachine.machineNumber}
+    machine={faultMachine} onSave={machineFaults.save} onReload={machineFaults.reload}
+    onClose={() => setFaultMachine(null)} />;
+  if (!showSeating) return <>
+    <MachineFaultPanel {...machineFaults} onReload={machineFaults.reload}
+      onSelect={setFaultMachine} onSeating={() => setShowSeating(true)} />
+    {faultDialog}
+  </>;
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {faultDialog}
+      <button type="button" className="btn btn-outline" onClick={() => setShowSeating(false)}>← Quản lý tình trạng máy</button>
       {/* Header Toolbar */}
       <div className="glass-panel" style={{ padding: '1.25rem' }}>
         <div style={{
@@ -830,7 +695,7 @@ export default function SeatingChart({
         </div>
       </div>
 
-      {/* Thông Báo Tự Động Xếp Lại Chỗ Khi Báo Máy Hỏng */}
+      {/* Thông báo thao tác xếp chỗ */}
       {reassignAlerts && (
         <div style={{
           background: reassignAlerts.type === 'error' ? '#fef2f2' : (reassignAlerts.type === 'warning' ? '#fffbeb' : '#ecfdf5'),
@@ -893,6 +758,7 @@ export default function SeatingChart({
           </button>
         </div>
       )}
+
 
       {/* KHAY HỌC SINH CHƯA XẾP CHỖ (Hỗ trợ Tự Sắp Xếp Chỗ Ngồi: Kéo - Thả, Click-to-Assign, Tìm kiếm) */}
       <div 
@@ -1366,6 +1232,7 @@ export default function SeatingChart({
                 {machineNumbers.map(mNum => {
                   const assigned = machineStudentMap[mNum] || [];
                   const isBroken = brokenMachines.includes(mNum);
+                  const fault = machineFaults.machines.find(machine => machine.machineNumber === mNum)?.fault;
                   const isShared = assigned.length === 2;
                   const isDraggingOverThis = dragOverMachine === mNum;
                   const isPlacementTarget = Boolean(selectedStudentForPlacement && !isBroken && assigned.length < 2);
@@ -1374,7 +1241,10 @@ export default function SeatingChart({
                   let statusBg = 'var(--surface)';
 
                   if (isBroken) {
-                    statusBorder = '#f59e0b';
+                    statusBorder = '#dc2626';
+                    statusBg = 'rgba(220, 38, 38, 0.08)';
+                  } else if (fault?.status === 'limited') {
+                    statusBorder = '#b45309';
                     statusBg = 'rgba(245, 158, 11, 0.08)';
                   } else if (isShared) {
                     statusBorder = '#818cf8';
@@ -1433,6 +1303,12 @@ export default function SeatingChart({
                       }}
                     >
                       {/* Top Bar: Machine # & Badges */}
+                      <button type="button" className="btn btn-outline btn-sm"
+                        disabled={machineFaults.loading || Boolean(machineFaults.error)}
+                        onClick={event => { event.stopPropagation(); toggleBrokenMachine(mNum); }}>
+                        <Wrench size={12} /> {fault?.status === 'limited' ? 'Có lỗi, vẫn dùng được' : 'Tình trạng máy'}
+                      </button>
+                      {fault?.note && <span className="machine-fault-card-note">{fault.note}</span>}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                           <Monitor size={15} color={isBroken ? '#f59e0b' : (row.isTeacherSide ? '#d97706' : 'var(--primary)')} />
@@ -1849,10 +1725,11 @@ export default function SeatingChart({
 
               <button
                 className={`btn btn-sm ${brokenMachines.includes(activeMachineNum) ? 'btn-danger' : 'btn-outline'}`}
+                disabled={machineFaults.loading || Boolean(machineFaults.error)}
                 onClick={() => toggleBrokenMachine(activeMachineNum)}
               >
                 <Wrench size={14} />
-                {brokenMachines.includes(activeMachineNum) ? 'Hủy Báo Hỏng' : 'Báo Máy Hỏng'}
+                Tình trạng & lịch sử máy
               </button>
             </div>
 
@@ -1875,7 +1752,7 @@ export default function SeatingChart({
                   <span>Máy này đang gặp sự cố (Đã Báo Hỏng / Tạm Ngưng).</span>
                 </div>
                 <div style={{ fontSize: '0.8125rem', color: '#78350f' }}>
-                  Hệ thống đã tự động gỡ và xếp lại các học sinh trước đó sang máy hoạt động khác. Khi máy được sửa xong, hãy bấm "Hủy Báo Hỏng" để đưa máy trở lại sử dụng bình thường.
+                  Máy đang tạm ngưng sử dụng. Chỗ ngồi đã lưu của học sinh được giữ nguyên. Mở “Tình trạng & lịch sử máy” và bấm “Đã sửa” khi máy hoạt động trở lại.
                 </div>
               </div>
             )}
@@ -2381,6 +2258,7 @@ export default function SeatingChart({
           labLayout={labLayout}
           machineStudentMap={machineStudentMap}
           brokenMachines={brokenMachines}
+          machineFaults={machineFaults.machines}
           teacherSide={teacherSide}
           initialPerspective={chartPerspective === 'student' ? 'student' : 'student'}
           onClose={() => setIsDisplayMode(false)}
