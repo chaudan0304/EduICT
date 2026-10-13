@@ -17,6 +17,7 @@ import { tryHandleOneDrive } from './oneDrive.js';
 import { getDatabase } from '../db/connection.js';
 import { getRuntimeConfig } from '../services/runtimeConfig.js';
 import { tryHandleClassroomTools } from './classroomTools.js';
+import { tryHandleMachineFaults } from './machineFaults.js';
 
 export async function handleApiRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -77,6 +78,7 @@ export async function handleApiRequest(req, res) {
   const ctx = { pathname, method, url };
 
   if (await tryHandleClassroomTools(req, res, ctx)) return true;
+  if (await tryHandleMachineFaults(req, res, ctx)) return true;
 
   if (await tryHandleClasses(req, res, ctx)) return true;
   if (await tryHandleSchoolYear(req, res, ctx)) return true;

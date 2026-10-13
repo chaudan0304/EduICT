@@ -1,5 +1,6 @@
 import { getDatabase } from './connection.js';
 import { compareVietnameseNames } from './classes.js';
+import { reconcileBrokenMachines } from '../services/machineFaults.js';
 
 // Chuẩn hóa tên năm học (hỗ trợ cả '2026-2027' và '2026 - 2027')
 export function normalizeSchoolYear(year) {
@@ -486,25 +487,13 @@ export function transitionSchoolYear(fromYear, toYear) {
 // Lấy danh sách máy hỏng
 export function getDbBrokenMachines() {
   const db = getDatabase();
-  const rows = db.prepare('SELECT machine_number FROM broken_machines;').all();
+  const rows = db.prepare("SELECT machine_number FROM broken_machines WHERE status = 'unavailable';").all();
   return rows.map(r => r.machine_number);
 }
 
 // Lưu danh sách máy hỏng
 export function saveDbBrokenMachines(machines) {
-  const db = getDatabase();
-  db.exec('BEGIN TRANSACTION;');
-  try {
-    db.exec('DELETE FROM broken_machines;');
-    const insertStmt = db.prepare('INSERT INTO broken_machines (machine_number) VALUES (?);');
-    for (const m of machines) {
-      insertStmt.run(Number(m));
-    }
-    db.exec('COMMIT;');
-  } catch (err) {
-    db.exec('ROLLBACK;');
-    throw err;
-  }
+  reconcileBrokenMachines(machines);
 }
 // Quản lý Nội quy phòng máy & Tiêu chí cộng/trừ điểm
 export const DEFAULT_CLASSROOM_RULES = [

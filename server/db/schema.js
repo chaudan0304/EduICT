@@ -56,6 +56,32 @@ export function initSchema(db) {
   `);
 
   // Bảng Cài đặt hệ thống
+  const machineColumns = new Set(db.prepare('PRAGMA table_info(broken_machines)').all().map(column => column.name));
+  for (const [name, definition] of Object.entries({
+    status: "TEXT NOT NULL DEFAULT 'unavailable'", category: "TEXT NOT NULL DEFAULT 'other'",
+    note: "TEXT NOT NULL DEFAULT ''", updated_at: "TEXT NOT NULL DEFAULT ''",
+  })) {
+    if (!machineColumns.has(name)) db.exec(`ALTER TABLE broken_machines ADD COLUMN ${name} ${definition};`);
+  }
+  if (!machineColumns.has('note')) db.exec("UPDATE broken_machines SET note = COALESCE(issue, ''), updated_at = COALESCE(reported_at, '');");
+  db.exec(`CREATE TABLE IF NOT EXISTS machine_fault_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    machine_number INTEGER NOT NULL,
+    event TEXT NOT NULL,
+    status TEXT NOT NULL,
+    category TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    reported_at TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    operation_id TEXT NOT NULL UNIQUE
+  );
+  CREATE INDEX IF NOT EXISTS idx_machine_fault_history ON machine_fault_history(machine_number, id);
+  INSERT INTO machine_fault_history (machine_number, event, status, category, note, reported_at, recorded_at, operation_id)
+    SELECT machine_number, 'imported', status, category, COALESCE(NULLIF(note, ''), issue, ''),
+      COALESCE(reported_at, CURRENT_TIMESTAMP), COALESCE(reported_at, CURRENT_TIMESTAMP), 'legacy-machine-' || machine_number
+    FROM broken_machines AS machine
+    WHERE NOT EXISTS (SELECT 1 FROM machine_fault_history AS history WHERE history.machine_number = machine.machine_number);`);
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,

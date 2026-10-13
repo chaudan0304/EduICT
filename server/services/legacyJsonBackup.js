@@ -1,4 +1,5 @@
 import { readDatabaseSnapshot } from './databaseExport.js';
+import { randomUUID } from 'node:crypto';
 
 // Old JSON files contain classes/score logs only. Merge them into a full snapshot
 // so the restore uses the same atomic path and preserves unrelated database data.
@@ -39,14 +40,29 @@ export function legacyJsonSnapshot(db, data) {
   }
   if (Array.isArray(data.brokenMachines)) {
     const table = snapshot.tables.find(item => item.name === 'broken_machines');
+    const history = snapshot.tables.find(item => item.name === 'machine_fault_history');
+    const previous = table.rows.map(row => Object.fromEntries(table.columns.map((column, i) => [column, row[i]])));
+    let historyId = history.rows.reduce((maximum, row) => Math.max(maximum, row[history.columns.indexOf('id')]), 0);
+    const appendHistory = (values, event, status) => {
+      const record = { ...values, id: ++historyId, event, status, recorded_at: now, operation_id: randomUUID() };
+      history.rows.push(history.columns.map(column => record[column] ?? null));
+    };
     const numbers = new Set();
     table.rows = data.brokenMachines.map(item => {
       const number = typeof item === 'number' ? item : item?.machine_number;
       if (!Number.isInteger(number) || number < 1 || number > 31 || numbers.has(number)) throw new Error('Danh sách máy hỏng trong JSON không hợp lệ.');
       numbers.add(number);
-      const values = { machine_number: number, issue: item?.issue ?? 'Máy gặp sự cố', reported_at: item?.reported_at ?? now };
+      const old = previous.find(row => row.machine_number === number);
+      const values = { machine_number: number, issue: item?.issue ?? old?.issue ?? 'Máy gặp sự cố', reported_at: item?.reported_at ?? old?.reported_at ?? now,
+        status: 'unavailable', category: old?.category || 'other', note: item?.issue ?? old?.note ?? 'Máy gặp sự cố', updated_at: now };
+      appendHistory(values, 'imported', 'unavailable');
       return table.columns.map(column => values[column] ?? null);
     });
+    for (const old of previous) {
+      if (numbers.has(old.machine_number)) continue;
+      if (old.status === 'limited') table.rows.push(table.columns.map(column => old[column] ?? null));
+      else appendHistory(old, 'resolved', 'normal');
+    }
   }
   return snapshot;
 }
