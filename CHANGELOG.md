@@ -1,5 +1,17 @@
 # Lịch sử thay đổi
 
+## 1.10.0 — 13/10/2026
+
+### Quản lý máy lỗi
+
+- Sơ đồ phòng máy mặc định hiển thị 31 máy, không cần xếp chỗ học sinh.
+- Ghi nhận lỗi vẫn dùng được hoặc không dùng được, loại lỗi, ghi chú và ngày báo tự động.
+- Danh sách máy cần xử lý, nút “Đã sửa” và lịch sử từng máy dùng chung giữa các lớp.
+- Giữ các máy hỏng cũ và bỏ tự động chuyển học sinh khi báo lỗi. Công cụ chỗ ngồi vẫn mở được khi cần.
+- Lịch sử máy nằm trong bản xuất toàn bộ dữ liệu; nhập JSON cũ tương thích các cột mới.
+
+Chi tiết: docs/machine-fault-management-1.10.0.md.
+
 ## 1.9.0 — 13/10/2026
 
 ### Công cụ lớp học
