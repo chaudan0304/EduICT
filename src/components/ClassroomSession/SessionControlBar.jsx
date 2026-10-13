@@ -255,6 +255,7 @@ export default function SessionControlBar({
           </button>
 
           {/* Nút Kết thúc tiết học */}
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => onOpenQuickTool('activities')} title="Mở Hộp quà, Chuyến tàu và Bản đồ kho báu">🎁 Trò chơi</button>
           <button
             type="button"
             className="btn btn-outline btn-sm"

@@ -14,6 +14,7 @@ export default function Sidebar({ activeTab, onSelectTab, isCollapsed, onToggleC
       ['goodscores', 'Điểm tốt & nội quy', Star], ['rewards', 'Đổi quà', Gift],
     ] },
     { label: 'Hoạt động', items: [
+      ['activities', 'Trò chơi lớp học', Gift],
       ['duckrace', 'Đua vịt', Gamepad2], ['luckywheel', 'Vòng quay', Gamepad2], ['timer', 'Đếm giờ', Clock],
     ] },
   ];

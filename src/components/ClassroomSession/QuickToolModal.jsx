@@ -1,18 +1,21 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Zap, CheckCircle2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import LuckyWheel from '../LuckyWheel';
 import DuckRace from '../DuckRace';
 import SeatingChart from '../SeatingChart';
+import ClassroomActivitiesModal from '../ClassroomActivities/ClassroomActivitiesModal';
+import QuickQuizManager from '../QuickQuiz/QuickQuizManager';
 
 export default function QuickToolModal({
-  toolType, // 'wheel' | 'duckrace' | 'quiz' | 'seating' | null
+  toolType, // 'wheel' | 'duckrace' | 'quiz' | 'seating' | 'activities' | null
   onClose,
   currentClass,
   onUpdateStudents,
   soundEnabled
 }) {
   if (!toolType) return null;
+  if (toolType === 'activities') return <ClassroomActivitiesModal isOpen onClose={onClose} currentClass={currentClass} soundEnabled={soundEnabled} />;
 
   return typeof document !== 'undefined' && createPortal(
     <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>

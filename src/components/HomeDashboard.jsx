@@ -28,6 +28,7 @@ export default function HomeDashboard({ classes = [], currentClass, onSelectClas
     ['goodscores', 'Điểm tốt & nội quy', 'Ghi nhận thi đua và thưởng sao.', Star],
     ['rewards', 'Đổi quà', 'Đổi sao tích lũy lấy phần thưởng.', Gift],
     ['duckrace', 'Đua vịt', 'Gọi học sinh bằng một cuộc đua vui.', Gamepad2],
+    ['activities', 'Trò chơi lớp học', 'Hộp quà, chuyến tàu và bản đồ kho báu.', Gift],
     ['luckywheel', 'Vòng quay', 'Bốc thăm học sinh trong lớp.', Gamepad2],
     ['timer', 'Đếm giờ', 'Đặt thời gian cho hoạt động của lớp.', Clock],
   ];

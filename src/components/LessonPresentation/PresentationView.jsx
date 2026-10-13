@@ -29,6 +29,7 @@ import PowerPointOnlineControls from './PowerPointOnlineControls';
 import { hasOnlinePowerPoint } from '../../../shared/powerPointOnline.js';
 import LuckyWheel from '../LuckyWheel';
 import DuckRace from '../DuckRace';
+import ClassroomActivitiesModal from '../ClassroomActivities/ClassroomActivitiesModal';
 import { soundEffects } from '../../utils/audio';
 import { awardStars, applyNewBalance } from '../../utils/starLedger';
 import DialogService from '../../services/DialogService';
@@ -204,6 +205,7 @@ export default function PresentationView({
   const awardInFlightRef = useRef(false);
   const [showWheelModal, setShowWheelModal] = useState(false);
   const [showDuckRaceModal, setShowDuckRaceModal] = useState(false);
+  const [showActivitiesModal, setShowActivitiesModal] = useState(false);
   const [dockedCaller, setDockedCaller] = useState(null); // { student: object, toolType: 'wheel' | 'duck' }
   const [dockedPosition, setDockedPosition] = useState({ x: null, y: null });
   const [isDockedCollapsed, setIsDockedCollapsed] = useState(false);
@@ -330,7 +332,7 @@ export default function PresentationView({
 
   const currentSlide = isNativePowerPoint || isOnlinePowerPoint ? { teacher_notes: activeLesson?.teacher_notes } : slides[currentIndex] || slides[0];
   const totalSlides = isNativePowerPoint ? nativeStatus.slideCount || 0 : slides.length;
-  const nativeVisible = !(showStarModal || showWheelModal || showDuckRaceModal || showQuizModal || activeQuizSession || isQuizResultOpen || isTimetableOpen || isNotesOpen);
+  const nativeVisible = !(showStarModal || showWheelModal || showDuckRaceModal || showActivitiesModal || showQuizModal || activeQuizSession || isQuizResultOpen || isTimetableOpen || isNotesOpen);
   const prevDisabled = isNativePowerPoint ? !nativeStatus.active || nativeStatus.busy : currentIndex === 0;
   const nextDisabled = isNativePowerPoint ? !nativeStatus.active || nativeStatus.busy : currentIndex === totalSlides - 1;
 
@@ -372,7 +374,7 @@ export default function PresentationView({
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Nếu đang mở modal thì không bắt phím điều hướng slide
-      if (showStarModal || showWheelModal || showDuckRaceModal || showQuizModal || activeQuizSession || isQuizResultOpen || isTimetableOpen) return;
+      if (showStarModal || showWheelModal || showDuckRaceModal || showActivitiesModal || showQuizModal || activeQuizSession || isQuizResultOpen || isTimetableOpen) return;
       if (e.target instanceof HTMLElement && (e.target.matches('input, textarea, select') || e.target.isContentEditable)) return;
       if (isOnlinePowerPoint && ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', ' ', 'Home', 'End'].includes(e.key)) return;
 
@@ -415,7 +417,7 @@ export default function PresentationView({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev, closePresentation, totalSlides, isNotesOpen, showStarModal, showWheelModal, showDuckRaceModal, showQuizModal, activeQuizSession, isQuizResultOpen, isTimetableOpen, isNativePowerPoint, isOnlinePowerPoint]);
+  }, [handleNext, handlePrev, closePresentation, totalSlides, isNotesOpen, showStarModal, showWheelModal, showDuckRaceModal, showActivitiesModal, showQuizModal, activeQuizSession, isQuizResultOpen, isTimetableOpen, isNativePowerPoint, isOnlinePowerPoint]);
 
   // Tự động ẩn thanh công cụ khi không rê chuột (Auto-hide dock)
   useEffect(() => {
@@ -1080,6 +1082,7 @@ export default function PresentationView({
           )}
 
           {/* Quick Quiz củng cố */}
+          {currentClass && <button type="button" className="btn class-activity-presentation-trigger" onClick={() => openTool(setShowActivitiesModal)} title="Hộp quà, Chuyến tàu và Bản đồ kho báu">🎁 Trò chơi</button>}
           <button
             onClick={() => openTool(setShowQuizModal)}
             className="btn"
@@ -1551,6 +1554,7 @@ export default function PresentationView({
       )}
 
       {/* Modal Cấu Hình Tạo Đề Quick Quiz */}
+      <ClassroomActivitiesModal isOpen={showActivitiesModal} onClose={() => setShowActivitiesModal(false)} currentClass={currentClass} soundEnabled={soundEnabled} />
       <CreateQuizModal
         isOpen={showQuizModal}
         onClose={() => setShowQuizModal(false)}

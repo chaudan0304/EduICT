@@ -17,6 +17,7 @@ import { ClassStarContext } from './components/ClassStars/ClassStarContext';
 // Mỗi component đích đều là `export default` (đã kiểm chứng) nên lazy() dùng trực tiếp.
 const Gradebook = lazy(() => import('./components/Gradebook'));
 const DuckRace = lazy(() => import('./components/DuckRace'));
+const ClassroomActivities = lazy(() => import('./components/ClassroomActivities/ClassroomActivities'));
 const LuckyWheel = lazy(() => import('./components/LuckyWheel'));
 const SeatingChart = lazy(() => import('./components/SeatingChart'));
 const RewardShop = lazy(() => import('./components/RewardShop'));
@@ -619,6 +620,8 @@ export default function App() {
               soundEnabled={soundEnabled}
             />
           )}
+
+          {activeTab === 'activities' && <ClassroomActivities currentClass={currentClass} soundEnabled={soundEnabled} />}
 
           {activeTab === 'luckywheel' && (
             <LuckyWheel

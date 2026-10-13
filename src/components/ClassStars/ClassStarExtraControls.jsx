@@ -6,7 +6,7 @@ import { readPendingStars, savePendingStars, clearPendingStars, newStarOperation
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-export default function ClassStarExtraControls({ currentClass, semester, disabled }) {
+export default function ClassStarExtraControls({ currentClass, semester, disabled, initialSelectedStudentIds = [], defaultReason = '', triggerLabel = 'Sao nhóm / Hoàn tác' }) {
   const applyResult = useContext(ClassStarContext);
   const dialog = useRef(null); const busyRef = useRef(false); const sequence = useRef(0); const trigger = useRef(null);
   const titleId = useId();
@@ -34,8 +34,8 @@ export default function ClassStarExtraControls({ currentClass, semester, disable
     const classId = String(currentClass.id); const stored = readPendingStars(classId);
     if (stored && stored.kind === 'adjust' && !stored.payload.selectedStudentIds) { setStatus('Có lượt cả lớp chưa nhận kết quả. Mở Cộng/trừ cả lớp để thử lại.'); return; }
     const snapshot = { classId, name: currentClass.name, students: currentClass.students.map(s => ({ id: String(s.id), name: s.name })) };
-    setScope(snapshot); setPending(stored); setSelected(stored?.payload.selectedStudentIds || []);
-    setAmount(String(stored?.payload.amount || 1)); setReason(stored?.payload.reason || ''); setGroupName(''); setChosenGroup('');
+    setScope(snapshot); setPending(stored); setSelected(stored?.payload.selectedStudentIds || initialSelectedStudentIds.map(String).filter(id => snapshot.students.some(student => student.id === id)));
+    setAmount(String(stored?.payload.amount || 1)); setReason(stored?.payload.reason || defaultReason); setGroupName(''); setChosenGroup('');
     const month = new Date().getMonth() + 1;
     setTerm(stored?.payload.semester || semester || (month >= 2 && month <= 7 ? 'hk2' : 'hk1'));
     setLatest(null); setGroups({ version: 0, groups: [] }); setError(''); setStatus(''); setOpen(true); setLoading(true);
@@ -90,7 +90,7 @@ export default function ClassStarExtraControls({ currentClass, semester, disable
   const locked = busy || loading || Boolean(pending);
   return <>
     <button type="button" className="btn btn-outline btn-sm class-stars-trigger" disabled={disabled || !applyResult || !currentClass?.students?.length} onClick={show}>
-      <Users size={16} /> Sao nhóm / Hoàn tác
+      <Users size={16} /> {triggerLabel}
     </button>
     {status && <p className="class-stars-status" role="status">{status}</p>}
     <dialog ref={dialog} className="class-stars-dialog class-stars-group-dialog" aria-labelledby={titleId}
