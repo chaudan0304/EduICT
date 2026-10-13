@@ -1,5 +1,18 @@
 # Lịch sử thay đổi
 
+## 1.9.0 — 13/10/2026
+
+### Công cụ lớp học
+
+- Nhập/thay/xóa khóa Gemini, bật/tắt và chọn model ngay trong Công cụ; kiểm tra kết nối model riêng, không gửi nội dung học sinh.
+- Cộng/trừ sao cho nhóm học sinh, lưu nhóm theo lớp, xác nhận phạm vi và giữ receipt chống lặp khi retry.
+- Hoàn tác lượt sao cả lớp/nhóm gần nhất bằng bút toán bù; giữ lịch sử và sao nhận sau đó, từ chối cả lượt nếu số dư âm hoặc thiếu dữ liệu gốc.
+- Kiểm tra trước giờ dạy: SQLite, kết nối Microsoft, nguồn slide và cấu hình AI; quyền truy cập/hiệu ứng bài Online cần mở thử riêng.
+- Báo cáo học sinh theo tháng với nhật ký sao và kỹ năng/điểm/nhận xét hiện tại. Desktop có xuất PDF trực tiếp qua hộp thoại lưu file; web dùng bản in/Lưu thành PDF.
+- Hiển thị phiên bản đang chạy, kiểm tra GitHub Releases và thông báo bộ cài mới trên desktop. Không tự cài đặt.
+
+Claude Code đã được gọi nhưng gặp 503 và không trả kết quả ở lần thử lại; Codex tiếp quản theo yêu cầu người dùng. Không thêm/chạy tests trong lượt này; lint/build và đóng gói được ghi trong `docs/classroom-improvements-1.9.0-2026-10-13.md`.
+
 ## 1.8.1 — 13/10/2026
 
 ### Cấu hình Gemini trên desktop
