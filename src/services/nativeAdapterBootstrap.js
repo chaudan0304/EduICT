@@ -31,6 +31,12 @@ function nativeError(result) {
 function createNativeAdapter(api) {
   return {
     getCapabilities: () => api.getCapabilities(),
+    async exportStudentReportPdf(options) {
+      if (typeof api.exportStudentReportPdf !== 'function') throw new Error('Cập nhật EduICT Desktop để xuất báo cáo PDF trực tiếp.');
+      const result = await api.exportStudentReportPdf(options);
+      if (!result || result.ok === false) throw nativeError(result);
+      return Boolean(result.saved);
+    },
 
     async selectPresentationFile() {
       if (typeof api.selectPresentationFile !== 'function') throw new Error('Cần cập nhật EduICT Desktop để liên kết PowerPoint.');

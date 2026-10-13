@@ -32,6 +32,7 @@ const desktop = {
   openFile: (options) => ipcRenderer.invoke('edumaster:openFile', options),
   selectPresentationFile: () => ipcRenderer.invoke('edumaster:selectPresentationFile'),
   saveFile: (options) => ipcRenderer.invoke('edumaster:saveFile', options),
+  exportStudentReportPdf: (options) => ipcRenderer.invoke('edumaster:exportStudentReportPdf', options),
   selectFolder: (options) => ipcRenderer.invoke('edumaster:selectFolder', options),
   dialog: {
     alert: (message) => ipcRenderer.invoke('edumaster:dialog', { kind: 'alert', message }),

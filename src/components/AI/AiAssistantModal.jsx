@@ -12,7 +12,6 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { fetchAiStatus } from './aiService';
-import { getNativeAdapter } from '../../services/DesktopCapabilityService';
 
 export default function AiAssistantModal({
   isOpen,
@@ -20,12 +19,12 @@ export default function AiAssistantModal({
   onOpenAnalyzeLesson,
   onOpenQuestionGen,
   onOpenLessonFlow,
-  onOpenClassAnalysis
+  onOpenClassAnalysis,
+  onOpenSettings
 }) {
   const [status, setStatus] = useState({ enabled: true, configured: false, model: 'gemini-3.5-flash-lite' });
   const [checking, setChecking] = useState(true);
   const statusRequestRef = useRef(0);
-  const isDesktop = Boolean(getNativeAdapter());
   const refreshStatus = useCallback(async () => {
     const requestId = ++statusRequestRef.current;
     setChecking(true);
@@ -175,6 +174,7 @@ export default function AiAssistantModal({
             <Cpu size={15} />
             <span>Mô hình: <strong style={{ color: 'var(--text-main, #f8fafc)', fontFamily: 'monospace' }}>{status.model || 'gemini-3.5-flash-lite'}</strong></span>
             <button type="button" className="btn btn-outline btn-sm" disabled={checking} onClick={refreshStatus}>Kiểm tra lại</button>
+            {onOpenSettings && <button type="button" className="btn btn-primary btn-sm" onClick={onOpenSettings}>Cấu hình Gemini</button>}
           </div>
         </div>
 
@@ -197,20 +197,7 @@ export default function AiAssistantModal({
                 Chưa cấu hình GEMINI_API_KEY
               </strong>
               <div style={{ color: 'var(--text-muted, #94a3b8)', lineHeight: 1.5 }}>
-                {isDesktop ? <>
-                  App desktop dùng cấu hình riêng trên máy. Nhấn Win + R, mở <code>%APPDATA%\EduMaster\data\settings</code>, rồi điền khóa API vào file <code>.env</code>:
-                </> : <>
-                  Để sử dụng Trợ Giảng AI, thêm khóa API vào file <code>.env</code> ở thư mục gốc dự án:
-                </>}
-                <pre style={{
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  padding: '0.4rem 0.6rem',
-                  borderRadius: 6,
-                  marginTop: '0.4rem',
-                  color: '#38bdf8',
-                  fontSize: '0.8rem'
-                }}>GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE&#10;GEMINI_MODEL=gemini-3.5-flash-lite&#10;GEMINI_ENABLED=true</pre>
-                <p style={{ margin: '0.5rem 0' }}>Lưu file rồi bấm <strong>Kiểm tra lại</strong>. Giữ khóa API riêng tư.</p>
+                Mở <strong>Cấu hình Gemini</strong>, nhập khóa API và lưu trên máy chạy EduICT. Sau đó bấm <strong>Kiểm tra kết nối đã lưu</strong>. Giữ khóa API riêng tư.
                 <em>Lưu ý: Mọi chức năng cốt lõi của EduICT vẫn hoạt động bình thường kể cả khi không kích hoạt AI.</em>
               </div>
             </div>

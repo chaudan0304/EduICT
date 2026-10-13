@@ -18,6 +18,7 @@ const {
 const { createLogger } = require('./logger.cjs');
 const { startBackend } = require('./backendProcess.cjs');
 const { createIpcHandlers, registerIpc } = require('./ipc.cjs');
+const { createStudentReportPdfExporter } = require('./studentReportPdf.cjs');
 const { createPresentationWindow } = require('./presentationWindow.cjs');
 const { createPresentationHost } = require('./presentationHost.cjs');
 const { isAllowedExternalUrl, isAllowedNavigation } = require('./security.cjs');
@@ -243,7 +244,8 @@ async function boot() {
 
   presentationWindow = createPresentationWindow({ BrowserWindow, screen, getWindow: () => mainWindow, origin: backend.origin });
   presentationHost = createPresentationHost({ getWindow: () => mainWindow, screen, bridge, logger });
-  const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, linkedPresentations, presentationWindow, presentationHost, logger });
+  const exportStudentReportPdf = createStudentReportPdfExporter({ BrowserWindow, dialog, backendOrigin: backend.origin, getWindow: () => mainWindow });
+  const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, linkedPresentations, presentationWindow, presentationHost, exportStudentReportPdf, logger });
   registerIpc({ ipcMain, handlers, backendOrigin: backend.origin, logger });
 
   // Từ chối mọi yêu cầu quyền trình duyệt trừ nhóm an toàn tối thiểu.

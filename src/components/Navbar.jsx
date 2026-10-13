@@ -45,6 +45,8 @@ import AiAssistantModal from './AI/AiAssistantModal';
 import { fetchAiStatus } from './AI/aiService';
 import { getCurrentPeriodStatus } from '../utils/timetable';
 import TimetableModal from './ClassroomSession/TimetableModal';
+import ClassroomToolsModal from './ClassroomTools/ClassroomToolsModal';
+import ClassroomToolsUpdateNotice from './ClassroomToolsUpdateNotice';
 
 export default function Navbar({ 
   classes, 
@@ -90,6 +92,8 @@ export default function Navbar({
   const [newClassGrade, setNewClassGrade] = useState(3);
   const [newClassSubject, setNewClassSubject] = useState('Tin Học');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showClassroomTools, setShowClassroomTools] = useState(false);
+  const [classroomToolsTab, setClassroomToolsTab] = useState('gemini');
   const [modalGradeFilter, setModalGradeFilter] = useState('all');
   const [showTimetableModal, setShowTimetableModal] = useState(false);
   const [livePeriodStatus, setLivePeriodStatus] = useState(() => getCurrentPeriodStatus());
@@ -450,6 +454,10 @@ export default function Navbar({
                 {soundEnabled ? <Volume2 size={16} color="var(--primary)" /> : <VolumeX size={16} color="var(--text-dim)" />}
               </button>
 
+              <ClassroomToolsUpdateNotice onOpen={() => { setClassroomToolsTab('version'); setShowClassroomTools(true); }} />
+              <button type="button" className="btn btn-outline btn-sm" title="Gemini, kiểm tra giờ dạy, báo cáo và phiên bản" onClick={() => { setClassroomToolsTab('gemini'); setShowClassroomTools(true); }}>
+                <Settings size={16} /> Công cụ
+              </button>
               {/* Menu "⋮" More actions */}
               <div className="navbar-more-dropdown-wrapper" style={{ position: 'relative', flexShrink: 0 }}>
                 <button
@@ -495,6 +503,9 @@ export default function Navbar({
                       backdropFilter: 'blur(16px)'
                     }}
                   >
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => {
+                      setShowMoreMenu(false); setClassroomToolsTab('gemini'); setShowClassroomTools(true);
+                    }}><Settings size={16} /> Công cụ lớp học</button>
                     {/* Âm thanh */}
                     <button
                       type="button"
@@ -1659,6 +1670,8 @@ export default function Navbar({
       )}
 
       {/* Modal Trung Tâm Điều Khiển Trợ Giảng AI Gemini */}
+      {showClassroomTools && <ClassroomToolsModal isOpen={showClassroomTools} initialTab={classroomToolsTab}
+        currentClass={currentClass} onClose={() => setShowClassroomTools(false)} onAiStatusChange={setAiStatus} />}
       {showAiAssistantModal && (
         <AiAssistantModal
           isOpen={showAiAssistantModal}
@@ -1667,6 +1680,7 @@ export default function Navbar({
           onOpenQuestionGen={() => onSelectTab('quiz')}
           onOpenLessonFlow={() => onSelectTab('sessions')}
           onOpenClassAnalysis={() => onSelectTab('gradebook')}
+          onOpenSettings={() => { setShowAiAssistantModal(false); setClassroomToolsTab('gemini'); setShowClassroomTools(true); }}
         />
       )}
 
