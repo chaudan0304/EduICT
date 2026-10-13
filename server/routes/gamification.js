@@ -1,4 +1,5 @@
 import { sendJson, parseJsonBody } from './helpers.js';
+import { adjustClassStars } from '../services/classStarAdjustment.js';
 import {
   awardStar,
   adjustStars,
@@ -10,6 +11,15 @@ import {
 
 export async function tryHandleGamification(req, res, ctx) {
   const { pathname, method } = ctx;
+
+  if (pathname === '/api/gamification/stars/class-adjust' && method === 'POST') {
+    try {
+      return sendJson(res, 200, adjustClassStars(await parseJsonBody(req)));
+    } catch (error) {
+      console.error('Lỗi điều chỉnh sao cả lớp:', error);
+      return sendJson(res, error.statusCode || 500, { error: error.statusCode ? error.message : 'Không thể lưu sao cả lớp. Hãy thử lại.' });
+    }
+  }
 
   // 1. STAR SYSTEM
   if (pathname === '/api/gamification/stars/award' && method === 'POST') {
