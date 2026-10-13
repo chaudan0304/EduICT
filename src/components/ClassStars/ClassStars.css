@@ -1,4 +1,11 @@
-.class-stars-control { min-width: 0; }
+.class-stars-control { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.class-stars-control > p { flex-basis: 100%; }
+.class-stars-group-dialog { width: min(620px, calc(100vw - 2rem)); }
+.class-stars-student-list { margin: 1rem 0; max-height: 220px; overflow: auto; display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; border: 1px solid var(--surface-border); border-radius: 12px; padding: .75rem; }
+.class-stars-student-list label { display: flex; align-items: center; gap: .5rem; padding: .4rem; font-size: .9rem; }
+.class-stars-student-list input { accent-color: var(--primary); }
+.class-stars-undo { border-top: 1px solid var(--surface-border); margin-top: 1.5rem; padding-top: 1rem; }
+.class-stars-undo h4 { display: flex; gap: .5rem; align-items: center; margin: 0; }
 .class-stars-trigger { color: var(--primary); font-weight: 700; white-space: nowrap; }
 .class-stars-dialog {
   width: min(480px, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem);
@@ -36,5 +43,6 @@
 @media (max-width: 420px) {
   .class-stars-dialog { padding: 1rem; }
   .class-stars-fields { grid-template-columns: 1fr; }
+  .class-stars-student-list { grid-template-columns: 1fr; }
   .class-stars-actions .btn { flex: 1; justify-content: center; }
 }

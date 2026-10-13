@@ -3,9 +3,10 @@ import { Loader2, Star, Users, X } from 'lucide-react';
 import { ClassStarContext } from './ClassStarContext';
 import { adjustClassStars } from '../../utils/starLedger';
 import './ClassStars.css';
+import ClassStarExtraControls from './ClassStarExtraControls';
+import { readPendingStars, savePendingStars, clearPendingStars } from './pendingStarRequests';
 
 // Preserve an uncertain request when switching tabs: retry with the same ID.
-const pendingRequests = new Map();
 const localDate = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -45,7 +46,12 @@ export default function ClassStarAdjustButton({ currentClass, semester, disabled
 
   const showDialog = () => {
     const classId = String(currentClass.id);
-    const pending = pendingRequests.get(classId);
+    const stored = readPendingStars(classId);
+    if (stored && (stored.kind !== 'adjust' || stored.payload.selectedStudentIds)) {
+      setStatus('Có lượt nhóm/hoàn tác chưa nhận kết quả. Mở Sao nhóm / Hoàn tác để thử lại trước.');
+      return;
+    }
+    const pending = stored;
     requestRef.current = pending?.payload || null;
     setScope({ classId, name: pending?.className || currentClass.name,
       studentIds: pending?.payload.expectedStudentIds || currentClass.students.map(s => String(s.id)) });
@@ -70,7 +76,12 @@ export default function ClassStarAdjustButton({ currentClass, semester, disabled
       expectedStudentIds: scope.studentIds, confirmed: true,
     };
     requestRef.current = payload;
-    pendingRequests.set(payload.classId, { payload, className: scope.name });
+    const existing = readPendingStars(payload.classId);
+    if (existing && existing.payload.operationId !== payload.operationId) {
+      setError('Có lượt sao khác chưa hoàn tất. Đóng và mở lại để thử cùng lượt.');
+      return;
+    }
+    savePendingStars(payload.classId, { kind: 'adjust', payload, className: scope.name });
     busyRef.current = true;
     setBusy(true);
     setLocked(true);
@@ -78,7 +89,7 @@ export default function ClassStarAdjustButton({ currentClass, semester, disabled
     try {
       const result = await adjustClassStars(payload);
       applyResult(result);
-      pendingRequests.delete(payload.classId);
+      clearPendingStars(payload.classId);
       requestRef.current = null;
       setStatus(`${result.amount > 0 ? 'Đã cộng' : 'Đã trừ'} sao lớp ${scope.name}: ${result.changedCount}/${result.studentCount} học sinh thay đổi, tổng ${Math.abs(result.totalChange)} sao.`);
       setOpen(false);
@@ -88,7 +99,7 @@ export default function ClassStarAdjustButton({ currentClass, semester, disabled
       // the ID because the response may have been lost after a successful save.
       const rejected = err.status >= 400 && err.status < 500;
       if (rejected) {
-        pendingRequests.delete(payload.classId);
+        clearPendingStars(payload.classId);
         requestRef.current = null;
         setLocked(false);
       }
@@ -106,6 +117,7 @@ export default function ClassStarAdjustButton({ currentClass, semester, disabled
         title={count ? `Cộng/trừ sao cho toàn bộ ${count} học sinh lớp ${currentClass.name}` : 'Lớp chưa có học sinh'}>
         <Users size={16} aria-hidden="true" /> Cộng/trừ cả lớp
       </button>
+      <ClassStarExtraControls currentClass={currentClass} semester={semester} disabled={disabled || busy || open} />
       {status && <p className="class-stars-status" role="status">{status}</p>}
       <dialog ref={dialogRef} className="class-stars-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
         onCancel={event => { if (busyRef.current) event.preventDefault(); else setOpen(false); }}

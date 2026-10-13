@@ -1,5 +1,5 @@
 import { sendJson, parseJsonBody } from './helpers.js';
-import { adjustClassStars } from '../services/classStarAdjustment.js';
+import { adjustClassStars, getLatestClassStarBatch, undoClassStars, readClassStarGroups, saveClassStarGroups } from '../services/classStarAdjustment.js';
 import {
   awardStar,
   adjustStars,
@@ -10,7 +10,19 @@ import {
 } from '../db.js';
 
 export async function tryHandleGamification(req, res, ctx) {
-  const { pathname, method } = ctx;
+  const { pathname, method, url } = ctx;
+
+  if (['/api/gamification/stars/latest-batch', '/api/gamification/stars/undo-batch', '/api/gamification/stars/groups'].includes(pathname)) {
+    try {
+      if (pathname.endsWith('/latest-batch') && method === 'GET') return sendJson(res, 200, getLatestClassStarBatch(url.searchParams.get('classId')));
+      if (pathname.endsWith('/undo-batch') && method === 'POST') return sendJson(res, 200, undoClassStars(await parseJsonBody(req)));
+      if (pathname.endsWith('/groups') && method === 'GET') return sendJson(res, 200, readClassStarGroups(url.searchParams.get('classId')));
+      if (pathname.endsWith('/groups') && method === 'POST') return sendJson(res, 200, saveClassStarGroups(await parseJsonBody(req)));
+      return sendJson(res, 405, { error: 'Phương thức không được hỗ trợ.' });
+    } catch (error) {
+      return sendJson(res, error.statusCode || 500, { error: error.statusCode ? error.message : 'Không thể xử lý sao/nhóm. Hãy thử lại.' });
+    }
+  }
 
   if (pathname === '/api/gamification/stars/class-adjust' && method === 'POST') {
     try {

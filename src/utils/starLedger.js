@@ -98,3 +98,8 @@ export async function changeStars(opts = {}) {
 export async function adjustClassStars(payload) {
   return apiClient.post('/api/gamification/stars/class-adjust', payload);
 }
+
+export const getLatestClassStarBatch = classId => apiClient.get(`/api/gamification/stars/latest-batch?classId=${encodeURIComponent(classId)}`);
+export const undoClassStars = payload => apiClient.post('/api/gamification/stars/undo-batch', payload);
+export const readClassStarGroups = classId => apiClient.get(`/api/gamification/stars/groups?classId=${encodeURIComponent(classId)}`);
+export const saveClassStarGroups = payload => apiClient.post('/api/gamification/stars/groups', payload);
