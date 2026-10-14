@@ -10,6 +10,7 @@ import KnowledgeTug from './arcade/KnowledgeTug';
 import SecretPictureGame from './arcade/SecretPictureGame';
 import { activityKey, stringList, studentId, useActivityState } from './activityState';
 import './ClassroomActivities.css';
+import './arcade/ReferenceGames.css';
 
 const games = [
   { id: 'gifts', name: 'Hộp quà kỳ diệu', tagline: '12 món quà, nhiều điều bất ngờ', icon: Gift },

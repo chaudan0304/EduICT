@@ -4,18 +4,22 @@ import confetti from 'canvas-confetti';
 import ClassStarExtraControls from '../../ClassStars/ClassStarExtraControls';
 import { soundEffects } from '../../../utils/audio';
 import { currentQuestion, TEAM_COLORS } from './arcadeState';
+import { isQuiz, readQuiz } from './referenceContent';
 
 export function ArcadeSetup({ game, title, description, rules, children, onStart, illustration }) {
   const config = game.config;
+  const quiz = isQuiz(config.mode) ? readQuiz(config.quizQuestions) : null;
   return <div className="arcade-preparation">
     <section className="arcade-setup-copy"><span className="arcade-eyebrow">SẴN SÀNG CHƠI CÙNG LỚP</span><h3>{title}</h3><p>{description}</p>{illustration && <div className="arcade-setup-art">{illustration}</div>}<ol>{rules.map(rule => <li key={rule}>{rule}</li>)}</ol><p className="arcade-small">Tự chia đều học sinh tham gia vào các tổ khi bắt đầu. Thầy cô có thể tổ chức trả lời ngay tại chỗ.</p></section>
     <section className="arcade-settings" aria-label="Thiết lập ván chơi"><fieldset disabled={game.busy}>
-      <div className="arcade-setting-row"><label>Cách chơi<select value={config.mode} onChange={event => game.setConfig({ ...config, mode: event.target.value })}><option value="luck">Chơi nhanh · May mắn</option><option value="questions">Trả lời câu hỏi / nhiệm vụ</option></select></label>
+      <div className="arcade-setting-row"><label>Cách chơi<select value={config.mode} onChange={event => game.setConfig({ ...config, mode: event.target.value })}><option value="luck">Chơi nhanh · May mắn</option><option value="questions">Hỏi miệng · Thầy cô xác nhận</option>{game.kind === 'puzzle' && <option value="quiz">Trắc nghiệm · Chọn đáp án</option>}{game.kind === 'tug' && <option value="race">Thi đua · Hai bảng đáp án</option>}</select></label>
         <label>Số tổ<select value={config.teamCount} disabled={game.kind === 'tug'} onChange={event => game.setConfig({ ...config, teamCount: Number(event.target.value) })}>{(game.kind === 'tug' ? [2] : game.kind === 'puzzle' ? [1, 2, 3, 4] : [2, 3, 4]).map(n => <option key={n} value={n}>{n === 1 ? 'Cả lớp cùng chơi' : `${n} tổ`}</option>)}</select></label></div>
       <div className="arcade-team-fields">{config.names.slice(0, config.teamCount).map((name, i) => <label key={i}>Tên tổ {i + 1}<input maxLength={32} value={name} onChange={event => game.setConfig({ ...config, names: config.names.map((old, index) => index === i ? event.target.value : old) })} /></label>)}</div>
       {children}
       {config.mode === 'questions' && <details className="arcade-question-editor"><summary>Soạn câu hỏi và gợi ý trả lời</summary><label>Mỗi dòng: Câu hỏi | Gợi ý đáp án<textarea rows={5} maxLength={12000} value={config.questions} onChange={event => game.setConfig({ ...config, questions: event.target.value })} /></label><p>Đọc tối đa 24 dòng đầu. Để trống nếu thầy cô muốn hỏi miệng.</p></details>}
-    </fieldset><button type="button" className="btn btn-primary arcade-start" disabled={game.busy || game.startDisabled} onClick={onStart}><Play size={19} />{game.busy ? 'Chuẩn bị xuất phát…' : 'Bắt đầu ván chơi'}</button></section>
+      {quiz && <details className="arcade-question-editor"><summary>Bộ trắc nghiệm · {quiz.questions.length} câu</summary><label>Mỗi dòng: Câu hỏi | Đáp án A | Đáp án B | Đáp án C | B<textarea rows={6} maxLength={20000} value={config.quizQuestions} onChange={event => game.setConfig({ ...config, quizQuestions: event.target.value })} /></label><p>2–4 lựa chọn; chữ cái cuối dòng là đáp án đúng. Tối đa 24 câu. Thầy cô có thể sửa ngay tại đây.</p></details>}
+      {quiz?.errors.length > 0 && <p className="arcade-error" role="alert">{quiz.errors[0]}</p>}
+    </fieldset><button type="button" className="btn btn-primary arcade-start" disabled={game.busy || game.startDisabled || Boolean(quiz?.errors.length)} onClick={onStart}><Play size={19} />{game.busy ? 'Chuẩn bị xuất phát…' : 'Bắt đầu ván chơi'}</button></section>
   </div>;
 }
 
@@ -26,7 +30,7 @@ export function Countdown({ motion }) {
 
 export function Scoreboard({ round }) {
   return <div className="arcade-scoreboard" aria-label="Điểm trong ván chơi">{round.teams.map((team, i) => <div key={i} className={`arcade-team-score${round.turn === i && !round.finished ? ' is-turn' : ''}`} style={{ '--team-color': TEAM_COLORS[i] }}>
-    <span className="arcade-team-dot" /><div><strong>{team.name}</strong><small>{round.finished ? round.winners.includes(i) ? 'Về đích!' : 'Cảm ơn các bạn' : round.turn === i ? 'Đến lượt tổ mình' : `${team.ids.length} học sinh`}{team.boost ? ' · Hộp tiếp ×2' : ''}</small></div><b>{team.score}<small>điểm</small></b></div>)}</div>;
+    <span className="arcade-team-dot" /><div><strong>{team.name}</strong><small>{round.finished ? round.winners.includes(i) ? 'Về đích!' : 'Cảm ơn các bạn' : round.mode === 'race' ? 'Cùng tranh tài' : round.turn === i ? 'Đến lượt tổ mình' : `${team.ids.length} học sinh`}{team.boost ? ' · Hộp tiếp ×2' : ''}</small></div><b>{team.score}<small>điểm</small></b></div>)}</div>;
 }
 
 export function ChallengeCard({ round, busy, onCorrect, onMiss, onChangeQuestion }) {
@@ -34,9 +38,15 @@ export function ChallengeCard({ round, busy, onCorrect, onMiss, onChangeQuestion
   const question = currentQuestion(round);
   return <section className="arcade-challenge" aria-label="Câu hỏi của lượt này"><div className="arcade-challenge-heading"><span><HelpCircle size={16} />Thử thách của {round.teams[round.turn].name}</span><span>Câu {round.prompt + 1}</span></div>
     <h4>{question.question}</h4>
-    {question.answer && <><button type="button" className="arcade-text-button" disabled={busy} onClick={() => setAnswerShown(previous => !previous)}>{answerShown ? 'Ẩn gợi ý đáp án' : 'Hiện gợi ý đáp án'}</button>{answerShown && <p className="arcade-answer">{question.answer}</p>}</>}
-    <div className="arcade-challenge-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={onCorrect}><Check size={17} />Đúng · Tiếp tục</button><button type="button" className="btn btn-outline" disabled={busy} onClick={onMiss}><X size={17} />Chưa đúng · Đổi lượt</button><button type="button" className="arcade-text-button" disabled={busy} onClick={onChangeQuestion}>Đổi câu hỏi</button></div>
+    {question.options ? <QuizAnswers question={question} disabled={busy} onChoose={index => index === question.correct ? onCorrect() : onMiss()} /> : <>
+      {question.answer && <><button type="button" className="arcade-text-button" disabled={busy} onClick={() => setAnswerShown(previous => !previous)}>{answerShown ? 'Ẩn gợi ý đáp án' : 'Hiện gợi ý đáp án'}</button>{answerShown && <p className="arcade-answer">{question.answer}</p>}</>}
+      <div className="arcade-challenge-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={onCorrect}><Check size={17} />Đúng · Tiếp tục</button><button type="button" className="btn btn-outline" disabled={busy} onClick={onMiss}><X size={17} />Chưa đúng · Đổi lượt</button></div></>}
+    <button type="button" className="arcade-text-button" disabled={busy} onClick={onChangeQuestion}>Đổi câu hỏi</button>
   </section>;
+}
+
+export function QuizAnswers({ question, disabled, onChoose }) {
+  return <div className="arcade-quiz-answers">{question.options.map((option, index) => <button type="button" key={index} disabled={disabled} onClick={() => onChoose(index)}><b>{'ABCD'[index]}</b><span>{option}</span></button>)}</div>;
 }
 
 export function RoundControls({ game, participants = [] }) {
