@@ -4,6 +4,8 @@
 .arcade-quiz-answers button:disabled { opacity: .6; }
 .arcade-quiz-answers b { display: grid; place-items: center; background: var(--bg-main); border-radius: 6px; width: 26px; height: 26px; flex-shrink: 0; color: var(--primary); }
 .arcade-picture-tiles.has-four { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); }
+.arcade-picture-tile:disabled:not(.is-uncovered) { opacity: 1; cursor: default; }
+.arcade-picture-tiles .arcade-picture-tile.is-chosen { box-shadow: inset 0 0 0 5px #ffdd85; }
 .arcade-picture-tiles.has-four .tile-color-0 { background: #b84a60; }.arcade-picture-tiles.has-four .tile-color-1 { background: #2d78b4; }.arcade-picture-tiles.has-four .tile-color-2 { background: #28826b; }.arcade-picture-tiles.has-four .tile-color-3 { background: #956620; }
 .arcade-race-layout { grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); }
 .arcade-race-layout.is-complete { grid-template-columns: minmax(0,1fr); }
@@ -14,7 +16,7 @@
 .arcade-race-panels { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
 .arcade-race-panels > section { border: 1px solid var(--team-color); border-top-width: 4px; border-radius: 12px; padding: 10px; min-width: 0; background: var(--bg-main); }
 .arcade-race-panels h4 { margin: 2px 0; color: var(--team-color); font-size: 14px; overflow-wrap: anywhere; }.arcade-race-panels p { font-size: 11px; line-height: 1.6; }
-.arcade-race-panels .arcade-quiz-answers { margin: 10px 0 0; }.arcade-race-panels .arcade-quiz-answers button { padding: 8px; font-size: 12px; gap: 7px; }
+.arcade-race-panels .arcade-quiz-answers { margin: 10px 0 0; }.arcade-race-panels .arcade-quiz-answers button { padding: 8px 10px; min-height: 52px; font-size: 14px; gap: 7px; }
 .class-activity-hub .class-activity-tabs { grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); }
 .tab-process .class-activity-tab-icon { background: #fff0cf; color: #925e15; }.tab-dragon .class-activity-tab-icon { background: #e9e6fa; color: #6852a2; }
 .process-train-preview { display: flex; align-items: center; gap: 10px; margin: 24px 0; font-size: 55px; }.process-train-preview span { display: grid; place-items: center; width: 58px; height: 54px; background: #fff; border: 2px solid #87c5cb; border-bottom: 6px solid #65a6b5; border-radius: 10px; font-size: 22px; color: #317285; font-weight: 800; }
@@ -28,8 +30,18 @@
 .process-pool { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 22px 0 0; min-height: 70px; align-items: center; }.process-pool button { flex: 1 1 200px; max-width: 360px; min-height: 65px; padding: 14px; border: 1px solid #5087a1; border-bottom: 4px solid #5087a1; border-radius: 12px; background: #fff; color: #254f68; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; line-height: 1.6; }
 .process-pool button:hover { background: #e4f4fc; }.process-pool p { font-size: 13px; }.process-controls { display: flex; flex-wrap: wrap; gap: 10px; }.process-controls .btn { font-size: 13px; }
 .process-stage.is-departing .process-track { animation: process-departure .9s ease-out; }
+.dragon-layout { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(280px,1fr); gap: 18px; }
+.dragon-stage { padding: 24px; border: 1px solid #cce4d3; border-radius: 20px; background: #f0f9ef; color: #2b5d4d; text-align: center; }.dragon-stage.is-noisy { background: #fff7e8; border-color: #e7cea2; }
+.dragon-stage h3 { font-size: 27px; line-height: 1.4; margin: 12px 0; }.dragon-stage > p { font-size: 13px; line-height: 1.7; }.dragon-illustration { display: block; height: 235px; max-width: 100%; margin: 0 auto; }.dragon-illustration.is-awake { animation: dragon-stir 1.2s ease-in-out infinite; }
+.dragon-meter-label { display: flex; justify-content: space-between; font-size: 12px; margin: 18px auto 6px; max-width: 450px; }.dragon-stage meter { display: block; width: 100%; max-width: 450px; height: 24px; margin: auto; }
+.dragon-progress { margin: 16px auto; max-width: 450px; font-size: 12px; }.dragon-progress progress { display: block; width: 100%; height: 10px; margin-top: 8px; accent-color: #4a9785; }
+.dragon-milestones { display: inline-flex; gap: 9px; align-items: center; border: 1px solid #d8ba6c; border-radius: 12px; background: #fff2bf; padding: 12px 20px; color: #6f531a; font-size: 13px; }.dragon-milestones strong { font-size: 25px; }
+.dragon-settings h3 { font-size: 17px; margin: 0 0 18px; }.dragon-settings > label { margin: 14px 0; }.dragon-settings input[type=range] { accent-color: var(--primary); padding: 0; border: 0; }.dragon-settings > .btn { justify-content: center; width: 100%; font-size: 12px; }.dragon-settings .class-stars-trigger { white-space: normal; }
+.class-activity-hub.is-focused .dragon-illustration { height: clamp(140px,24dvh,240px); }.class-activity-hub.is-focused .dragon-stage { padding: 18px; }
+@keyframes dragon-stir { 0%,100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } }
 @keyframes process-departure { from { transform: translateX(-18px); opacity: .5; } to { transform: translateX(0); opacity: 1; } }
 .class-activity-hub.is-focused .class-activity-tab { gap: 8px; padding: 8px 10px; }.class-activity-hub.is-focused .class-activity-tab strong { font-size: 13px; }
 @media(max-width:1000px) { .arcade-race-layout { grid-template-columns: minmax(0,1fr); }.arcade-race-layout .arcade-tug-scene { height: 175px; }.class-activity-hub .class-activity-tabs { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media(max-width:600px) { .class-activity-hub .class-activity-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); }.arcade-race-panels { grid-template-columns: minmax(0,1fr); } }
 @media(max-width:600px) { .process-stage { padding: 14px; }.process-track { align-items: start; gap: 8px; }.process-engine { font-size: 36px; }.process-carriages { grid-template-columns: minmax(0,1fr); }.process-carriage { min-height: 95px!important; }.process-pool button { flex-basis: 100%; }.process-controls .btn { flex: 1 1 160px; justify-content: center; } }
+@media(max-width:800px) { .dragon-layout { grid-template-columns: minmax(0,1fr); }.dragon-stage { padding: 16px; }.dragon-stage h3 { font-size: 23px; } }

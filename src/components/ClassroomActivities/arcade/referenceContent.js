@@ -27,7 +27,8 @@ export function readQuiz(text) {
   text.split('\n').forEach((line, index) => {
     if (!line.trim()) return;
     const parts = line.split('|').map(part => part.trim());
-    const correct = 'ABCD'.indexOf(parts.at(-1)?.toUpperCase());
+    const letter = parts.at(-1)?.toUpperCase();
+    const correct = /^[A-D]$/.test(letter) ? 'ABCD'.indexOf(letter) : -1;
     const options = parts.slice(1, -1);
     if (parts.length < 4 || parts.length > 6 || !parts[0] || options.some(option => !option) || correct < 0 || correct >= options.length) {
       errors.push(`Dòng ${index + 1}: cần câu hỏi, 2–4 lựa chọn và chữ cái đáp án đúng.`); return;

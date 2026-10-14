@@ -22,6 +22,7 @@ const { createStudentReportPdfExporter } = require('./studentReportPdf.cjs');
 const { createPresentationWindow } = require('./presentationWindow.cjs');
 const { createPresentationHost } = require('./presentationHost.cjs');
 const { isAllowedExternalUrl, isAllowedNavigation } = require('./security.cjs');
+const { installClassroomPermissions } = require('./classroomPermissions.cjs');
 const { createPowerPointBridge, createPowerShellRunner } = require('../native/powerpointBridge.cjs');
 const { createLinkedPresentations } = require('../native/linkedPresentations.cjs');
 const { runMigration } = require('../migration/legacyMigration.cjs');
@@ -248,10 +249,7 @@ async function boot() {
   const handlers = createIpcHandlers({ dialog, getWindow: () => mainWindow, bridge, linkedPresentations, presentationWindow, presentationHost, exportStudentReportPdf, logger });
   registerIpc({ ipcMain, handlers, backendOrigin: backend.origin, logger });
 
-  // Từ chối mọi yêu cầu quyền trình duyệt trừ nhóm an toàn tối thiểu.
-  const ALLOWED_PERMISSIONS = new Set(['fullscreen', 'clipboard-sanitized-write']);
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) =>
-    callback(ALLOWED_PERMISSIONS.has(permission)));
+  installClassroomPermissions({ session: session.defaultSession, dialog, getWindow: () => mainWindow, origin: backend.origin });
 
   powerMonitor.on('suspend', () => sendLifecycle('suspend'));
   powerMonitor.on('resume', () => sendLifecycle('resume'));

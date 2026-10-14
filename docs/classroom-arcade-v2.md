@@ -1,5 +1,7 @@
 # Sân chơi lớp học — đợt 1
 
+> Có bản tích hợp tiếp theo với trắc nghiệm, đoàn tàu quy trình và rồng ngủ. Xem [hướng dẫn mới](classroom-reference-games.md).
+
 Ngày triển khai: 14/10/2026. Nhánh: `codex/classroom-arcade-v2`.
 
 ## Mở trò chơi

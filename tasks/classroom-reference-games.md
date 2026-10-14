@@ -9,3 +9,8 @@ Nguồn: tệp HTML người dùng đính kèm. Chuyển logic và nội dung ph
 4. Tích hợp chung trong thanh chọn trò chơi, tiết học và trình chiếu. Thưởng sao học sinh luôn cần giáo viên xác nhận.
 
 Build/lint theo từng phần. Không thêm/chạy test tự động hoặc phát sinh giao dịch sao. Xem bố cục bằng trình duyệt, không bật micro thật. Không tạo EXE trong yêu cầu này.
+
+## Kết quả
+- Hoàn tất cả bốn phần trên, giữ công cụ cũ và bổ sung hướng dẫn tại `docs/classroom-reference-games.md`.
+- Build/lint từng phần đạt; cú pháp shell desktop hợp lệ. Còn cảnh báo kích thước chunk của ứng dụng.
+- Đã xem bốn giao diện trên trình duyệt cục bộ; chưa thử micro/Electron, giao dịch sao, hết ván hoặc thiết bị di động.

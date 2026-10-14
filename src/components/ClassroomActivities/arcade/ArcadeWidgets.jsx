@@ -29,7 +29,7 @@ export function Countdown({ motion }) {
 }
 
 export function Scoreboard({ round }) {
-  return <div className="arcade-scoreboard" aria-label="Điểm trong ván chơi">{round.teams.map((team, i) => <div key={i} className={`arcade-team-score${round.turn === i && !round.finished ? ' is-turn' : ''}`} style={{ '--team-color': TEAM_COLORS[i] }}>
+  return <div className="arcade-scoreboard" aria-label="Điểm trong ván chơi">{round.teams.map((team, i) => <div key={i} className={`arcade-team-score${(round.mode === 'race' || round.turn === i) && !round.finished ? ' is-turn' : ''}`} style={{ '--team-color': TEAM_COLORS[i] }}>
     <span className="arcade-team-dot" /><div><strong>{team.name}</strong><small>{round.finished ? round.winners.includes(i) ? 'Về đích!' : 'Cảm ơn các bạn' : round.mode === 'race' ? 'Cùng tranh tài' : round.turn === i ? 'Đến lượt tổ mình' : `${team.ids.length} học sinh`}{team.boost ? ' · Hộp tiếp ×2' : ''}</small></div><b>{team.score}<small>điểm</small></b></div>)}</div>;
 }
 

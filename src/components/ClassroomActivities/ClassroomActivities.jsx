@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Gift, Puzzle, Swords, TrainFront, Volume2, VolumeX, Users, Maximize2, Minimize2 } from 'lucide-react';
+import { Gift, Puzzle, Swords, TrainFront, MoonStar, Volume2, VolumeX, Users, Maximize2, Minimize2 } from 'lucide-react';
 import ActivityRoster from './ActivityRoster';
 import GiftBoxes from './GiftBoxes';
 import ClassroomTrain from './ClassroomTrain';
@@ -9,6 +9,7 @@ import MagicGifts from './arcade/MagicGifts';
 import KnowledgeTug from './arcade/KnowledgeTug';
 import SecretPictureGame from './arcade/SecretPictureGame';
 import ProcessTrain from './arcade/ProcessTrain';
+import SleepingDragon from './arcade/SleepingDragon';
 import { activityKey, stringList, studentId, useActivityState } from './activityState';
 import './ClassroomActivities.css';
 import './arcade/ReferenceGames.css';
@@ -18,6 +19,7 @@ const games = [
   { id: 'tug', name: 'Kéo co kiến thức', tagline: 'Hai tổ cùng tranh tài', icon: Swords },
   { id: 'puzzle', name: 'Lật ảnh bí mật', tagline: 'Mở mảnh ghép, đoán điều bí ẩn', icon: Puzzle },
   { id: 'process', name: 'Đoàn tàu quy trình', tagline: 'Lắp đúng toa, nhớ đúng bước', icon: TrainFront },
+  { id: 'dragon', name: 'Rồng ngủ trật tự', tagline: 'Nói nhỏ, cùng giữ rồng ngủ', icon: MoonStar },
 ];
 const utilities = [{ id: 'caller', name: 'Hộp quà gọi tên' }, { id: 'train', name: 'Chuyến tàu chia nhóm' }, { id: 'treasure', name: 'Bản đồ nhiệm vụ' }];
 const normalize = (value, initial) => ({ selectedIds: Array.isArray(value?.selectedIds) ? stringList(value.selectedIds) : initial.selectedIds,
@@ -72,6 +74,7 @@ function ActivitiesForClass({ currentClass, soundEnabled = true, embedded = fals
       {state.game === 'tug' && <KnowledgeTug {...gameProps} />}
       {state.game === 'puzzle' && <SecretPictureGame {...gameProps} />}
       {state.game === 'process' && <ProcessTrain {...gameProps} />}
+      {state.game === 'dragon' && <SleepingDragon {...gameProps} />}
       {state.game === 'caller' && <GiftBoxes {...gameProps} />}
       {state.game === 'train' && <ClassroomTrain {...gameProps} />}
       {state.game === 'treasure' && <TreasureMap {...gameProps} />}
