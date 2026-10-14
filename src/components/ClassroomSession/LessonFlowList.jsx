@@ -1,16 +1,7 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import DialogService from '../../services/DialogService';
 import {
-  Play,
-  CheckCircle2, 
-  SkipForward, 
-  ArrowUp, 
-  ArrowDown, 
-  Copy, 
-  Trash2, 
   Plus, 
-  Edit3, 
-  Check, 
   X,
   Layers,
   Sparkles
@@ -18,6 +9,8 @@ import {
 import { ACTIVITY_TYPES } from './sessionStorage';
 import { fetchLessonsApi } from '../LessonPresentation/lessonStorage';
 import AiLessonFlowModal from '../AI/AiLessonFlowModal';
+import LessonFlowActivityCard from './LessonFlowActivityCard';
+import './LessonFlowList.css';
 
 export default function LessonFlowList({
   activities = [],
@@ -25,12 +18,12 @@ export default function LessonFlowList({
   onSelectActivity,
   onUpdateActivities,
   _isSessionRunning,
-  session = null,
   lessonId = null
 }) {
   const [editingIndex, setEditingIndex] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', duration: 5, type: 'ACTIVITY', description: '' });
   const [showAddForm, setShowAddForm] = useState(false);
+  const addFormId = useId();
   const [newActivity, setNewActivity] = useState({
     type: 'ACTIVITY',
     title: 'Luyện tập & Thực hành phòng máy',
@@ -200,64 +193,30 @@ export default function LessonFlowList({
   };
 
   const totalPlannedMins = activities.reduce((acc, a) => acc + (Number(a.duration_minutes || a.durationMinutes) || 0), 0);
+  const completedCount = activities.filter(activity => activity.status === 'COMPLETED').length;
 
   return (
-    <div style={{
-      background: 'var(--surface-card)',
-      border: '1px solid var(--surface-border)',
-      borderRadius: 'var(--radius-xl)',
-      padding: '1.25rem',
-      boxShadow: 'var(--shadow-sm)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '1rem'
-    }}>
-      {/* Header Flow */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <div>
-          <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-            <Layers size={20} color="var(--primary)" />
-            <span>Tiến Trình Tiết Học (Lesson Flow)</span>
-          </div>
-          <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-            Tổng thời lượng dự kiến: <strong>{totalPlannedMins} phút</strong> • {activities.length} hoạt động
-          </p>
+    <section className="lesson-flow" aria-label="Tiến trình tiết học">
+      <header className="lesson-flow-header">
+        <div className="lesson-flow-header-copy">
+          <h2><Layers size={20} aria-hidden="true" />Tiến trình tiết học</h2>
+          <p><strong>{totalPlannedMins} phút</strong> dự kiến · {activities.length} hoạt động</p>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setIsAiFlowOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              borderColor: 'rgba(2, 132, 199, 0.4)',
-              color: '#0284c7',
-              background: 'rgba(2, 132, 199, 0.08)'
-            }}
-            title="Trợ Giảng AI đề xuất tiến trình 35 phút chuẩn phòng máy"
-          >
-            <Sparkles size={14} color="#0284c7" />
-            <span>🎯 AI Đề Xuất</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setShowAddForm(prev => !prev)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-          >
-            {showAddForm ? <X size={15} /> : <Plus size={15} />}
-            <span>{showAddForm ? 'Đóng' : 'Thêm Hoạt Động'}</span>
+        <div className="lesson-flow-header-actions">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setIsAiFlowOpen(true)} title="AI đề xuất tiến trình tiết học"><Sparkles size={15} />AI đề xuất</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAddForm(prev => !prev)} aria-expanded={showAddForm} aria-controls={addFormId}>
+            {showAddForm ? <X size={15} /> : <Plus size={15} />}{showAddForm ? 'Đóng' : 'Thêm hoạt động'}
           </button>
         </div>
+      </header>
+      <div className="lesson-flow-progress">
+        <progress value={completedCount} max={Math.max(activities.length, 1)} aria-label={`Đã hoàn thành ${completedCount}/${activities.length} hoạt động`} />
+        <span>{completedCount}/{activities.length} đã xong</span>
       </div>
 
       {/* Form Thêm Hoạt Động Nhanh */}
       {showAddForm && (
-        <form onSubmit={handleAddActivity} style={{
+        <form id={addFormId} onSubmit={handleAddActivity} style={{
           background: 'var(--surface-secondary)',
           border: '1px solid var(--surface-border)',
           borderRadius: 'var(--radius-lg)',
@@ -302,12 +261,13 @@ export default function LessonFlowList({
             })}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.6rem' }}>
+          <div className="lesson-flow-new-fields">
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+              <label htmlFor={`${addFormId}-title`} style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
                 Tiêu đề hoạt động (*)
               </label>
               <input
+                id={`${addFormId}-title`}
                 type="text"
                 className="input-field"
                 value={newActivity.title}
@@ -316,10 +276,11 @@ export default function LessonFlowList({
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+              <label htmlFor={`${addFormId}-duration`} style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
                 Thời gian (phút)
               </label>
               <input
+                id={`${addFormId}-duration`}
                 type="number"
                 min="1"
                 max="60"
@@ -341,242 +302,18 @@ export default function LessonFlowList({
         </form>
       )}
 
-      {/* Danh Sách Các Hoạt Động (Activities List) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '52vh', overflowY: 'auto' }}>
-        {activities.map((act, index) => {
-          const isCurrent = index === currentActivityIndex;
-          const typeInfo = ACTIVITY_TYPES[act.type] || ACTIVITY_TYPES.ACTIVITY;
-          const isEditing = editingIndex === index;
-
-          const duration = act.duration_minutes || act.durationMinutes || 5;
-
-          return (
-            <div
-              key={act.id || index}
-              style={{
-                background: isCurrent 
-                  ? 'rgba(2, 132, 199, 0.08)' 
-                  : (act.status === 'COMPLETED' ? 'var(--surface-secondary)' : 'var(--surface-card)'),
-                border: isCurrent 
-                  ? '2px solid var(--primary)' 
-                  : '1px solid var(--surface-border)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '0.75rem 1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '0.75rem',
-                transition: 'all 0.2s ease',
-                opacity: act.status === 'SKIPPED' ? 0.6 : 1
-              }}
-            >
-              {/* Bên trái: Số thứ tự, Icon & Tiêu đề */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                {/* Thứ tự */}
-                <div style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background: isCurrent ? 'var(--primary)' : 'var(--surface-secondary)',
-                  color: isCurrent ? '#fff' : 'var(--text-muted)',
-                  fontSize: '0.8125rem',
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  {index + 1}
-                </div>
-
-                {/* Nội dung hoạt động */}
-                {isEditing ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={editForm.title}
-                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                      style={{ flex: 1 }}
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      max="60"
-                      className="input-field"
-                      value={editForm.duration}
-                      onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })}
-                      style={{ width: 70 }}
-                    />
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => saveEditing(index)}>
-                      <Check size={14} />
-                    </button>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingIndex(null)}>
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '1.1rem' }}>{typeInfo.icon}</span>
-                      <span style={{
-                        fontSize: '0.9375rem',
-                        fontWeight: 700,
-                        color: isCurrent ? 'var(--primary)' : 'var(--text-main)',
-                        textDecoration: act.status === 'COMPLETED' ? 'line-through' : 'none'
-                      }}>
-                        {act.title}
-                      </span>
-
-                      {/* Trạng thái tag */}
-                      {act.status === 'IN_PROGRESS' && (
-                        <span style={{
-                          fontSize: '0.6875rem',
-                          fontWeight: 800,
-                          background: '#10b981',
-                          color: '#fff',
-                          padding: '0.1rem 0.45rem',
-                          borderRadius: 'var(--radius-full)'
-                        }}>
-                          ĐANG HỌC
-                        </span>
-                      )}
-                      {act.status === 'COMPLETED' && (
-                        <span style={{
-                          fontSize: '0.6875rem',
-                          fontWeight: 700,
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10b981',
-                          padding: '0.1rem 0.45rem',
-                          borderRadius: 4
-                        }}>
-                          ✓ Xong
-                        </span>
-                      )}
-                      {act.status === 'SKIPPED' && (
-                        <span style={{
-                          fontSize: '0.6875rem',
-                          fontWeight: 600,
-                          background: 'rgba(148, 163, 184, 0.15)',
-                          color: '#64748b',
-                          padding: '0.1rem 0.45rem',
-                          borderRadius: 4
-                        }}>
-                          Bỏ qua
-                        </span>
-                      )}
-                    </div>
-
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                      ⏱️ {duration} phút • {typeInfo.label}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Bên phải: Nút điều khiển hoạt động */}
-              {!isEditing && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  {/* Bắt đầu hoạt động này */}
-                  <button
-                    type="button"
-                    className={`btn btn-sm ${isCurrent ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => handleSetStatus(index, 'IN_PROGRESS')}
-                    title="Bắt đầu hoạt động này"
-                    style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
-                  >
-                    <Play size={13} />
-                    <span>{isCurrent ? 'Đang chạy' : 'Bắt đầu'}</span>
-                  </button>
-
-                  {/* Hoàn thành */}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => handleSetStatus(index, 'COMPLETED')}
-                    title="Đánh dấu hoàn thành"
-                    style={{
-                      padding: '0.25rem 0.5rem',
-                      color: act.status === 'COMPLETED' ? '#10b981' : 'var(--text-muted)',
-                      borderColor: act.status === 'COMPLETED' ? '#10b981' : 'var(--surface-border)'
-                    }}
-                  >
-                    <CheckCircle2 size={14} />
-                  </button>
-
-                  {/* Bỏ qua */}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => handleSetStatus(index, 'SKIPPED')}
-                    title="Bỏ qua hoạt động này"
-                    style={{ padding: '0.25rem 0.5rem', color: '#64748b' }}
-                  >
-                    <SkipForward size={14} />
-                  </button>
-
-                  {/* Di chuyển lên */}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => handleMoveUp(index)}
-                    disabled={index === 0}
-                    style={{ padding: '0.25rem 0.4rem', opacity: index === 0 ? 0.3 : 1 }}
-                    title="Chuyển lên trên"
-                  >
-                    <ArrowUp size={13} />
-                  </button>
-
-                  {/* Di chuyển xuống */}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => handleMoveDown(index)}
-                    disabled={index === activities.length - 1}
-                    style={{ padding: '0.25rem 0.4rem', opacity: index === activities.length - 1 ? 0.3 : 1 }}
-                    title="Chuyển xuống dưới"
-                  >
-                    <ArrowDown size={13} />
-                  </button>
-
-                  {/* Nhân bản */}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => handleDuplicate(index)}
-                    title="Nhân bản hoạt động này"
-                    style={{ padding: '0.25rem 0.4rem' }}
-                  >
-                    <Copy size={13} />
-                  </button>
-
-                  {/* Sửa */}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => startEditing(index)}
-                    title="Chỉnh sửa hoạt động"
-                    style={{ padding: '0.25rem 0.4rem' }}
-                  >
-                    <Edit3 size={13} />
-                  </button>
-
-                  {/* Xóa */}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => handleDelete(index)}
-                    title="Xóa hoạt động"
-                    style={{ padding: '0.25rem 0.4rem', color: '#ef4444' }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <ol className="lesson-flow-list">
+        {activities.map((activity, index) => <LessonFlowActivityCard
+          key={activity.id || index} activity={activity} index={index} count={activities.length}
+          isCurrent={index === currentActivityIndex}
+          typeInfo={ACTIVITY_TYPES[activity.type] || ACTIVITY_TYPES.ACTIVITY}
+          isEditing={editingIndex === index} editForm={editForm} onEditChange={setEditForm}
+          onSave={saveEditing} onCancelEdit={() => setEditingIndex(null)} onStartEdit={startEditing}
+          onSetStatus={handleSetStatus} onMoveUp={handleMoveUp} onMoveDown={handleMoveDown}
+          onDuplicate={handleDuplicate} onDelete={handleDelete}
+        />)}
+      </ol>
+      {!activities.length && <p className="lesson-flow-empty">Chưa có hoạt động. Thêm hoạt động hoặc dùng AI để chuẩn bị tiến trình.</p>}
 
       {/* Modal AI Đề Xuất Tiến Trình */}
       {isAiFlowOpen && (
@@ -591,6 +328,6 @@ export default function LessonFlowList({
           }}
         />
       )}
-    </div>
+    </section>
   );
 }

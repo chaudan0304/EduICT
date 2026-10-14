@@ -663,12 +663,7 @@ export default function SessionDashboard({
       />
 
       {/* 3. Khu vực chính 2 cột: Cột trái Lesson Flow • Cột phải Bảng học sinh tương tác */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(340px, 1fr) minmax(400px, 1.35fr)',
-        gap: '1.5rem',
-        alignItems: 'start'
-      }}>
+      <div className="session-teaching-grid">
         {/* Cột trái: Tiến trình bài học (Lesson Flow) */}
         <LessonFlowList
           activities={activities}
