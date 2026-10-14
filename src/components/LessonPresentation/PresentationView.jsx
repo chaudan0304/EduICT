@@ -1082,7 +1082,7 @@ export default function PresentationView({
           )}
 
           {/* Quick Quiz củng cố */}
-          {currentClass && <button type="button" className="btn class-activity-presentation-trigger" onClick={() => openTool(setShowActivitiesModal)} title="Hộp quà, Chuyến tàu và Bản đồ kho báu">🎁 Trò chơi</button>}
+          {currentClass && <button type="button" className="btn class-activity-presentation-trigger" onClick={() => openTool(setShowActivitiesModal)} title="Hộp quà kỳ diệu, Kéo co kiến thức và Lật ảnh bí mật">🎁 Trò chơi</button>}
           <button
             onClick={() => openTool(setShowQuizModal)}
             className="btn"
