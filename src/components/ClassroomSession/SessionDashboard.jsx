@@ -526,7 +526,15 @@ export default function SessionDashboard({
   };
 
   // 8. Cập nhật danh sách activities
-  const handleUpdateActivities = async (newActivities) => {
+  const handleUpdateActivities = async (newActivities, { resetSelection = false } = {}) => {
+    if (resetSelection) {
+      await saveActivitiesApi(session.id, newActivities, { allowLocalFallback: false });
+      setActivities(newActivities);
+      setCurrentActivityIndex(0);
+      setActivityRemainingSec((Number(newActivities[0]?.duration_minutes) || 5) * 60);
+      activityTimerAnchorRef.current = null;
+      return;
+    }
     setActivities(newActivities);
     await saveActivitiesApi(session.id, newActivities);
   };
@@ -671,6 +679,7 @@ export default function SessionDashboard({
           onSelectActivity={handleSelectActivity}
           onUpdateActivities={handleUpdateActivities}
           isSessionRunning={isRunning}
+          lessonId={session.lesson_id || session.lessonId || null}
         />
 
         {/* Cột phải: Bảng tương tác học sinh & cộng sao */}

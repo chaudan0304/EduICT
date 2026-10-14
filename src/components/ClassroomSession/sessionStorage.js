@@ -1,5 +1,6 @@
 // Service layer kết nối API SQLite và Fallback LocalStorage cho Classroom Sessions
 import StorageService from '../../services/StorageService';
+import apiClient from '../../services/apiClient';
 
 export const ACTIVITY_TYPES = {
   WARMUP: {
@@ -377,7 +378,8 @@ export async function deleteSessionApi(sessionId) {
   return { success: true };
 }
 
-export async function saveActivitiesApi(sessionId, activities) {
+export async function saveActivitiesApi(sessionId, activities, { allowLocalFallback = true } = {}) {
+  if (!allowLocalFallback) return apiClient.put(`/api/sessions/${encodeURIComponent(sessionId)}/activities`, { activities });
   try {
     const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/activities`, {
       method: 'PUT',

@@ -51,11 +51,12 @@ export async function generateQuestionsApi({ lessonId, count = 5, difficulty = '
   return data; // { success: true, data: { questions: [...] }, isCached }
 }
 
-export async function generateLessonFlowApi({ lessonId, durationMinutes = 35 }) {
+export async function generateLessonFlowApi({ lessonId, durationMinutes = 35, signal }) {
   const res = await fetch('/api/ai/generate-lesson-flow', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lessonId, durationMinutes })
+    body: JSON.stringify({ lessonId, durationMinutes }),
+    signal
   });
   const data = await res.json();
   if (!res.ok || !data.success) {

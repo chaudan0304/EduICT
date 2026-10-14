@@ -320,11 +320,11 @@ export default function LessonFlowList({
         <AiLessonFlowModal
           isOpen={isAiFlowOpen}
           onClose={() => setIsAiFlowOpen(false)}
-          lesson={lessonsList.find(l => l.id === lessonId) || null}
+          lesson={lessonsList.find(l => String(l.id) === String(lessonId)) || null}
           lessons={lessonsList}
-          onApplyFlow={(newActs) => {
-            onUpdateActivities(newActs);
-            if (onSelectActivity) onSelectActivity(0);
+          currentActivityCount={activities.length}
+          onApplyFlow={async (newActs) => {
+            await onUpdateActivities(newActs, { resetSelection: true });
           }}
         />
       )}
