@@ -437,12 +437,14 @@ export function initSchema(db) {
       reason TEXT NOT NULL,
       source TEXT NOT NULL,
       session_id TEXT,
+      requested_amount INTEGER,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id, class_id) REFERENCES students(id, class_id) ON DELETE CASCADE
     );
   `);
 
   // Bảng 2 Phân Hệ Gamification: Rewards Catalog (Danh mục phần thưởng)
+  if (!db.prepare('PRAGMA table_info(star_transactions)').all().some(column => column.name === 'requested_amount')) db.exec('ALTER TABLE star_transactions ADD COLUMN requested_amount INTEGER;');
   db.exec(`
     CREATE TABLE IF NOT EXISTS rewards (
       id TEXT PRIMARY KEY,

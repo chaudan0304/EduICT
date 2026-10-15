@@ -19,8 +19,8 @@ export function awardStar(transactionData) {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO star_transactions (id, student_id, class_id, amount, reason, source, session_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO star_transactions (id, student_id, class_id, amount, reason, source, session_id, requested_amount)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   const updateStmt = db.prepare(`
@@ -31,7 +31,7 @@ export function awardStar(transactionData) {
 
   try {
     db.exec('BEGIN TRANSACTION');
-    stmt.run(id, studentId, classId, amount, reason, source, sessionId || null);
+    stmt.run(id, studentId, classId, amount, reason, source, sessionId || null, amount);
     updateStmt.run(amount, studentId, classId);
     
     // Fetch updated balance
@@ -65,8 +65,8 @@ export function adjustStars(transactionData) {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO star_transactions (id, student_id, class_id, amount, reason, source, session_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO star_transactions (id, student_id, class_id, amount, reason, source, session_id, requested_amount)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const updateStmt = db.prepare(`
@@ -76,8 +76,11 @@ export function adjustStars(transactionData) {
   `);
 
   try {
-    db.exec('BEGIN TRANSACTION');
-    stmt.run(id, studentId, classId, amt, reason, source, sessionId || null);
+    db.exec('BEGIN IMMEDIATE');
+    const before = db.prepare('SELECT stars FROM students WHERE id = ? AND class_id = ?').get(studentId, classId);
+    if (!before) throw Object.assign(new Error('Không tìm thấy học sinh trong lớp.'), { statusCode: 404 });
+    const actualAmount = Math.max(0, Number(before.stars || 0) + amt) - Number(before.stars || 0);
+    stmt.run(id, studentId, classId, actualAmount, reason, source, sessionId || null, amt);
     updateStmt.run(amt, studentId, classId);
 
     const balance = db.prepare('SELECT stars FROM students WHERE id = ? AND class_id = ?').get(studentId, classId);
