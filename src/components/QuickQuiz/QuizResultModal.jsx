@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   X, 
@@ -6,10 +6,7 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   RotateCcw, 
-  Award, 
   TrendingUp, 
-  HelpCircle,
-  Lightbulb,
   Sparkles,
   Loader2
 } from 'lucide-react';
@@ -24,6 +21,8 @@ export default function QuizResultModal({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiError, setAiError] = useState(null);
+  const summarySessionId = summaryData?.session_id || summaryData?.id;
+  useEffect(() => { setAiAnalysis(null); setAiError(null); }, [summarySessionId]);
   if (!isOpen || !summaryData) return null;
 
   const {
@@ -80,8 +79,9 @@ export default function QuizResultModal({
     setAiLoading(true);
     setAiError(null);
     try {
-      if (!summaryData.id) throw new Error('Phiên quiz chưa được lưu nên chưa thể phân tích.');
-      const res = await analyzeQuizApi(summaryData.id);
+      const sessionId = summaryData.session_id || summaryData.id;
+      if (!sessionId || summaryData.saved === false) throw new Error('Phiên quiz chưa được lưu nên chưa thể phân tích.');
+      const res = await analyzeQuizApi(sessionId);
       setAiAnalysis(res.data);
     } catch (err) {
       console.error('[AI Quiz Analysis] Lỗi:', err);
@@ -392,7 +392,7 @@ export default function QuizResultModal({
                   >
                     <span style={{ fontWeight: 800, color: '#f59e0b' }}>#{idx + 1}</span>
                     <span style={{ fontWeight: 600 }}>{st.name}</span>
-                    <span style={{ color: '#10b981', fontWeight: 800 }}>+{st.count}⭐</span>
+                    <span style={{ color: '#10b981', fontWeight: 800 }}>{st.count} câu đúng</span>
                   </div>
                 ))}
               </div>

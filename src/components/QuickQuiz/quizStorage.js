@@ -266,12 +266,7 @@ export async function createQuizSessionApi(sessionPayload) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn('API createQuizSession lỗi, tạo phiên offline:', err);
-    return {
-      ...sessionPayload,
-      id: `quiz_sess_${Date.now()}`,
-      created_at: new Date().toISOString()
-    };
+    throw new Error(`Chưa tạo được phiên đố vui trên máy chủ: ${err.message}`);
   }
 }
 
@@ -298,7 +293,11 @@ export async function saveQuizResultsApi(sessionId, resultsPayload) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn('API saveQuizResults lỗi:', err);
-    return { success: true, offline: true };
+    throw new Error(`Chưa lưu được kết quả đố vui: ${err.message}`);
   }
+}
+
+export function applyQuizBalances(students, balances = []) {
+  const byId = new Map(balances.map(item => [String(item.studentId), item.newBalance]));
+  return students.map(student => byId.has(String(student.id)) ? { ...student, stars: byId.get(String(student.id)) } : student);
 }

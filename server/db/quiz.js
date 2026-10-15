@@ -349,7 +349,7 @@ export function saveQuizResults(sessionId, resultsPayload) {
   const db = getDatabase();
 
   // Nạp phiên để CHẤM ĐIỂM PHÍA SERVER (không tin số liệu đúng/sai & sao do client gửi)
-  const session = db.prepare('SELECT id, mode, class_id, star_reward_per_correct FROM quiz_sessions WHERE id = ?;').get(sessionId);
+  const session = db.prepare('SELECT id, mode, class_id, classroom_session_id, star_reward_per_correct FROM quiz_sessions WHERE id = ?;').get(sessionId);
   if (!session) {
     const nf = new Error(`Không tìm thấy phiên đố vui ${sessionId}`);
     nf.statusCode = 404;
@@ -369,11 +369,16 @@ export function saveQuizResults(sessionId, resultsPayload) {
     validStudentIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ?;').all(session.class_id).map(s => s.id));
   }
   const rawSR = Array.isArray(resultsPayload.student_results) ? resultsPayload.student_results : [];
-  const studentResults = rawSR.filter(sr => hasQ(sr.quiz_question_id) && (validStudentIds === null || validStudentIds.has(sr.student_id)));
-  let accuracySum = 0, scoredQuestions = 0, studentStarsTotal = 0;
+  const studentResults = [...new Map(rawSR.filter(sr => hasQ(sr.quiz_question_id) && ['CORRECT', 'WRONG', 'NOT_ANSWERED'].includes(sr.status) && (validStudentIds === null || validStudentIds.has(sr.student_id))).map(sr => [`${sr.quiz_question_id}:${sr.student_id}`, sr])).values()];
+  let accuracySum = 0, scoredQuestions = 0;
 
-  db.exec('BEGIN TRANSACTION;');
+  db.exec('BEGIN IMMEDIATE;');
   try {
+    if (db.prepare('SELECT status FROM quiz_sessions WHERE id = ?').get(sessionId).status === 'COMPLETED') {
+      db.exec('COMMIT;');
+      const balances = db.prepare('SELECT id AS studentId, stars AS newBalance FROM students WHERE class_id = ?').all(session.class_id);
+      return { ...getQuizSessionById(sessionId), balances };
+    }
     const insertResultStmt = db.prepare(`
       INSERT OR REPLACE INTO quiz_results (
         id, quiz_session_id, quiz_question_id, distribution,
@@ -381,7 +386,7 @@ export function saveQuizResults(sessionId, resultsPayload) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
     `);
 
-    const resultsList = Array.isArray(resultsPayload.results) ? resultsPayload.results : [];
+    const resultsList = [...new Map((Array.isArray(resultsPayload.results) ? resultsPayload.results : []).map(r => [r.quiz_question_id, r])).values()];
     for (const r of resultsList) {
       if (!hasQ(r.quiz_question_id)) continue; // chỉ ghi câu hỏi thuộc phiên này
       const correctIdx = correctIndexByQ[r.quiz_question_id];
@@ -396,7 +401,7 @@ export function saveQuizResults(sessionId, resultsPayload) {
         totalResponses = correctCount + wrongCount;
       } else {
         for (const k of Object.keys(distObj)) {
-          const n = Number(distObj[k]) || 0; totalResponses += n;
+          const n = Math.max(0, Math.floor(Number(distObj[k]) || 0)); totalResponses += n;
           if (Number(k) === correctIdx) correctCount += n; else wrongCount += n;
         }
       }
@@ -418,7 +423,6 @@ export function saveQuizResults(sessionId, resultsPayload) {
 
       for (const sr of studentResults) {
         const starsEarned = sr.status === 'CORRECT' ? starReward : 0;
-        studentStarsTotal += starsEarned;
         const srId = sr.id || `qsr_${sessionId}_${sr.quiz_question_id}_${sr.student_id}`;
         insertStudentStmt.run(
           srId,
@@ -433,11 +437,29 @@ export function saveQuizResults(sessionId, resultsPayload) {
       }
     }
 
-    // Tổng kết: accuracy do server tính; sao student-mode do server tính, class-mode giữ số client (thưởng tập thể)
+    // Complete results and confirmed ledger awards in the same transaction.
     const serverAvgAccuracy = scoredQuestions > 0 ? Math.round(accuracySum / scoredQuestions) : null;
-    const totalStars = session.mode === 'STUDENT'
-      ? studentStarsTotal
-      : (resultsPayload.total_stars_awarded !== undefined ? Number(resultsPayload.total_stars_awarded) : null);
+    let totalStars = 0;
+    const balances = [];
+    if (resultsPayload.status === 'COMPLETED' && resultsPayload.award_stars === true && resultsPayload.confirmed === true && session.class_id && starReward > 0) {
+      const amounts = new Map();
+      if (session.mode === 'STUDENT') {
+        for (const sr of studentResults) if (sr.status === 'CORRECT') amounts.set(sr.student_id, (amounts.get(sr.student_id) || 0) + starReward);
+      } else if (serverAvgAccuracy >= 70) {
+        for (const id of validStudentIds || []) amounts.set(id, starReward);
+      }
+      const insertAward = db.prepare('INSERT OR IGNORE INTO star_transactions (id,student_id,class_id,amount,reason,source,session_id) VALUES (?,?,?,?,?,?,?)');
+      for (const [studentId, amount] of amounts) {
+        const inserted = insertAward.run(`QUIZ:${sessionId}:${studentId}`, studentId, session.class_id, amount, 'Thưởng Quick Quiz đã xác nhận', 'QUICK_QUIZ', session.classroom_session_id || sessionId);
+        if (inserted.changes) {
+          db.prepare('UPDATE students SET stars = COALESCE(stars,0) + ? WHERE id = ? AND class_id = ?').run(amount, studentId, session.class_id);
+          totalStars += amount;
+          if (session.classroom_session_id) db.prepare(`INSERT INTO student_participation (id,session_id,student_id,badge_type,stars_awarded,note)
+            VALUES (?,?,?,'STAR',?,?)`).run(`QUIZ:${sessionId}:${studentId}`, session.classroom_session_id, studentId, amount, 'Thưởng Quick Quiz đã xác nhận');
+        }
+        balances.push({ studentId, newBalance: db.prepare('SELECT stars FROM students WHERE id = ? AND class_id = ?').get(studentId, session.class_id).stars });
+      }
+    }
     if (serverAvgAccuracy !== null || totalStars !== null || resultsPayload.status) {
       const updateStmt = db.prepare(`
         UPDATE quiz_sessions SET
@@ -457,7 +479,7 @@ export function saveQuizResults(sessionId, resultsPayload) {
     }
 
     db.exec('COMMIT;');
-    return getQuizSessionById(sessionId);
+    return { ...getQuizSessionById(sessionId), balances };
   } catch (err) {
     db.exec('ROLLBACK;');
     throw err;

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { applyQuizBalances } from '../QuickQuiz/quizStorage';
+import React, { useState, useEffect, useRef } from 'react';
 import DialogService from '../../services/DialogService';
-import { Bell, AlertTriangle, Flag, Clock } from 'lucide-react';
+import { Flag, Clock } from 'lucide-react';
 import SessionHeader from './SessionHeader';
 import SessionTimerDisplay from './SessionTimerDisplay';
 import LessonFlowList from './LessonFlowList';
@@ -15,16 +16,16 @@ import {
   saveActivitiesApi, 
   addSessionEventApi, 
   addStudentParticipationApi,
-  setStoredActiveSessionId 
+  setStoredActiveSessionId,
+  fetchSessionDetailFromApi
 } from './sessionStorage';
 import { soundEffects } from '../../utils/audio';
-import { awardStars, changeStars, applyNewBalance } from '../../utils/starLedger';
+import { changeStars, applyNewBalance } from '../../utils/starLedger';
 import { 
   getSlotById, 
   getActiveTeachingSlot, 
   calculatePeriodRemainingSec, 
   getCurrentPeriodStatus, 
-  formatTimeCountdown 
 } from '../../utils/timetable';
 import CreateQuizModal from '../QuickQuiz/CreateQuizModal';
 import QuizPlayer from '../QuickQuiz/QuizPlayer';
@@ -216,6 +217,14 @@ export default function SessionDashboard({
   // Master Timer Interval — Timestamp-based để chống drift
   const isRunning = session.status === 'RUNNING';
   const isPaused = session.status === 'PAUSED';
+  const clockValues = useRef({ session: sessionRemainingSec, activity: activityRemainingSec });
+  useEffect(() => { clockValues.current = { session: sessionRemainingSec, activity: activityRemainingSec }; }, [sessionRemainingSec, activityRemainingSec]);
+
+  const resetActivityClock = seconds => {
+    const remaining = Math.max(0, seconds);
+    activityTimerAnchorRef.current = isRunning ? { anchorTime: Date.now(), anchorRemaining: remaining } : null;
+    setActivityRemainingSec(remaining);
+  };
 
   useEffect(() => {
     let timerId = null;
@@ -224,14 +233,14 @@ export default function SessionDashboard({
       if (!isTimetableSynced && !sessionTimerAnchorRef.current) {
         sessionTimerAnchorRef.current = {
           anchorTime: Date.now(),
-          anchorRemaining: sessionRemainingSec
+          anchorRemaining: clockValues.current.session
         };
       }
       // Khởi tạo anchor cho activity timer
       if (!activityTimerAnchorRef.current) {
         activityTimerAnchorRef.current = {
           anchorTime: Date.now(),
-          anchorRemaining: activityRemainingSec
+          anchorRemaining: clockValues.current.activity
         };
       }
 
@@ -482,9 +491,7 @@ export default function SessionDashboard({
     setActivities(updated);
     setCurrentActivityIndex(nextIdx);
     const nextActSec = (updated[nextIdx]?.duration_minutes || updated[nextIdx]?.durationMinutes || 5) * 60;
-    setActivityRemainingSec(nextActSec);
-    // Reset activity timer anchor for timestamp-based tracking
-    activityTimerAnchorRef.current = null;
+    resetActivityClock(nextActSec);
     await saveActivitiesApi(session.id, updated);
     await addSessionEventApi(session.id, {
       eventType: 'ACTIVITY_STARTED',
@@ -501,9 +508,7 @@ export default function SessionDashboard({
     const prevIdx = currentActivityIndex - 1;
     setCurrentActivityIndex(prevIdx);
     const prevActSec = (activities[prevIdx]?.duration_minutes || activities[prevIdx]?.durationMinutes || 5) * 60;
-    setActivityRemainingSec(prevActSec);
-    // Reset activity timer anchor
-    activityTimerAnchorRef.current = null;
+    resetActivityClock(prevActSec);
   };
 
   // 7. Chọn hoạt động bất kỳ từ danh sách flow
@@ -511,7 +516,7 @@ export default function SessionDashboard({
     setCurrentActivityIndex(index);
     const target = activities[index];
     const targetSec = (target?.duration_minutes || target?.durationMinutes || 5) * 60;
-    setActivityRemainingSec(targetSec);
+    resetActivityClock(targetSec);
     if (target && target.status === 'PENDING') {
       const nowIso = new Date().toISOString();
       const updated = activities.map((act, idx) => {
@@ -531,8 +536,7 @@ export default function SessionDashboard({
       await saveActivitiesApi(session.id, newActivities, { allowLocalFallback: false });
       setActivities(newActivities);
       setCurrentActivityIndex(0);
-      setActivityRemainingSec((Number(newActivities[0]?.duration_minutes) || 5) * 60);
-      activityTimerAnchorRef.current = null;
+      resetActivityClock((Number(newActivities[0]?.duration_minutes) || 5) * 60);
       return;
     }
     setActivities(newActivities);
@@ -541,18 +545,19 @@ export default function SessionDashboard({
 
   // 9. Điều chỉnh thời gian hoạt động (+30s, +1p, Reset)
   const handleAdjustActivityTime = (secDelta) => {
-    setActivityRemainingSec(prev => prev + secDelta);
-    setSessionRemainingSec(prev => prev + secDelta);
-    // Reset anchors to account for adjustment
-    sessionTimerAnchorRef.current = null;
-    activityTimerAnchorRef.current = null;
+    resetActivityClock(activityRemainingSec + secDelta);
+    if (isTimetableSynced) setExtraMinutes(previous => previous + secDelta / 60);
+    else {
+      const remaining = Math.max(0, sessionRemainingSec + secDelta);
+      sessionTimerAnchorRef.current = isRunning ? { anchorTime: Date.now(), anchorRemaining: remaining } : null;
+      setSessionRemainingSec(remaining);
+    }
     if (soundEnabled) soundEffects.playTick();
   };
 
   const handleResetActivityTimer = () => {
     const actSec = (currentActivity?.duration_minutes || currentActivity?.durationMinutes || 5) * 60;
-    setActivityRemainingSec(actSec);
-    activityTimerAnchorRef.current = null;
+    resetActivityClock(actSec);
     if (soundEnabled) soundEffects.playTick();
   };
 
@@ -831,54 +836,13 @@ export default function SessionDashboard({
                 type: 'QUIZ_COMPLETED',
                 description: `Hoàn thành Quick Quiz: ${summaryPayload.title} (${summaryPayload.total_questions} câu, Độ chính xác: ${summaryPayload.average_accuracy}%, +${summaryPayload.total_stars_awarded}⭐)`
               });
+              const refreshed = await fetchSessionDetailFromApi(session.id);
+              if (refreshed?.participation) setParticipationRecords(refreshed.participation);
             } catch (err) {
               console.error('Lỗi ghi nhận sự kiện quiz vào session:', err);
             }
           }}
-          onAwardStars={async (starsMap) => {
-            if (!onUpdateStudents || !currentClass?.students) return;
-            const classId = currentClass.id;
-            const entries = Object.entries(starsMap || {}).filter(([, n]) => Number(n) > 0);
-            if (entries.length === 0) return;
-
-            const balances = {};
-            await Promise.all(entries.map(async ([sid, n]) => {
-              const add = Number(n);
-              const student = currentClass.students.find(s => String(s.id) === String(sid));
-              try {
-                const nb = await awardStars({
-                  studentId: sid,
-                  classId,
-                  amount: add,
-                  reason: 'Thưởng Quick Quiz',
-                  source: 'QUICK_QUIZ',
-                  sessionId: session.id,
-                });
-                if (typeof nb === 'number') balances[String(sid)] = nb;
-              } catch (e) {
-                console.error('Lỗi cộng sao Quick Quiz:', e);
-              }
-              // Ghi participation log cho tổng kết tiết (không đụng tới số dư sao)
-              const partRecord = {
-                id: `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-                session_id: session.id,
-                student_id: sid,
-                student_name: student?.name || '',
-                activity_id: currentActivity?.id || null,
-                badge_type: 'STAR',
-                stars_awarded: add,
-                note: `Thưởng ${add} ⭐ từ Quick Quiz`,
-                created_at: new Date().toISOString()
-              };
-              setParticipationRecords(prev => [partRecord, ...prev]);
-              addStudentParticipationApi(session.id, partRecord);
-            }));
-
-            const updated = currentClass.students.map(s =>
-              balances[String(s.id)] !== undefined ? { ...s, stars: balances[String(s.id)] } : s
-            );
-            onUpdateStudents(updated);
-          }}
+          onBalancesChanged={balances => { if (balances.length) onUpdateStudents?.(applyQuizBalances(currentClass?.students || [], balances)); }}
         />
       )}
 

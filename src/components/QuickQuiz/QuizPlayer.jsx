@@ -13,14 +13,16 @@ import {
   Zap
 } from 'lucide-react';
 import { soundEffects } from '../../utils/audio';
-import { DIFFICULTIES } from './quizStorage';
+import { DIFFICULTIES, saveQuizResultsApi } from './quizStorage';
+import DialogService from '../../services/DialogService';
+import { scoreQuestion } from './quizScoring';
 
 export default function QuizPlayer({
   quizSession,
   students = [],
   onClose,
   onCompleteQuiz,
-  onAwardStars = null
+  onBalancesChanged = null
 }) {
   const questions = quizSession?.questions || [];
   const totalQuestions = questions.length;
@@ -29,7 +31,7 @@ export default function QuizPlayer({
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
 
   // Timer cho mỗi câu
-  const initialTime = quizSession?.time_per_question || 20;
+  const initialTime = quizSession?.time_per_question ?? 20;
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [isTimerRunning, setIsTimerRunning] = useState(initialTime > 0);
 
@@ -38,6 +40,11 @@ export default function QuizPlayer({
 
   // Dữ liệu kết quả của toàn bộ các câu: Map<questionId, { distribution, correct_count, wrong_count, accuracy_rate }>
   const [resultsByQuestion, setResultsByQuestion] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const finishingRef = useRef(false);
+  const latestActionsRef = useRef(null);
+  const awardConfirmationRef = useRef(null);
 
   // Dữ liệu ghi nhận từng học sinh theo từng câu (Mode 2 - Student Mode): Map<questionId, Map<studentId, 'CORRECT'|'WRONG'|'NOT_ANSWERED'>>
   const [studentMarksByQuestion, setStudentMarksByQuestion] = useState({});
@@ -49,9 +56,11 @@ export default function QuizPlayer({
   const timerRef = useRef(null);
   const endTimeRef = useRef(null);
   const revealRef = useRef(null); // giữ handleRevealAnswer mới nhất để timer gọi khi hết giờ
+  const timeLeftRef = useRef(initialTime);
 
   // Reset timer & load dữ liệu khi đổi câu hỏi
   useEffect(() => {
+    timeLeftRef.current = initialTime;
     setIsAnswerRevealed(false);
     if (initialTime > 0) {
       setTimeLeft(initialTime);
@@ -65,6 +74,7 @@ export default function QuizPlayer({
     if (currentQ) {
       const savedRes = resultsByQuestion[currentQ.id];
       if (savedRes && savedRes.distribution) {
+        setIsTimerRunning(false);
         setClassCounts(savedRes.distribution);
         setIsAnswerRevealed(true);
       } else {
@@ -75,19 +85,21 @@ export default function QuizPlayer({
 
   // Bộ đếm ngược thời gian (timestamp-based)
   useEffect(() => {
-    if (!isTimerRunning || timeLeft <= 0) {
+    if (!isTimerRunning || timeLeftRef.current <= 0) {
       endTimeRef.current = null;
       return;
     }
 
-    endTimeRef.current = Date.now() + timeLeft * 1000;
+    endTimeRef.current = Date.now() + timeLeftRef.current * 1000;
 
     timerRef.current = setInterval(() => {
       const now = Date.now();
       const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000));
       
-      setTimeLeft(prev => {
-        if (remaining === prev) return prev;
+      const prev = timeLeftRef.current;
+      if (remaining === prev) return;
+      timeLeftRef.current = remaining;
+      setTimeLeft(remaining);
         
         if (remaining <= 5 && remaining > 0 && isSoundEnabled && remaining < prev) {
           soundEffects.playTick();
@@ -99,8 +111,6 @@ export default function QuizPlayer({
           if (isSoundEnabled) soundEffects.playBuzzer();
           if (revealRef.current) revealRef.current(); // hết giờ -> tự hiện đáp án (auto-submit)
         }
-        return remaining;
-      });
     }, 200);
 
     return () => clearInterval(timerRef.current);
@@ -109,6 +119,8 @@ export default function QuizPlayer({
 
   // Mode 1: Thay đổi số lượng cho 1 phương án
   const handleClassCountChange = (optIdx, val) => {
+    if (finishingRef.current) return;
+    awardConfirmationRef.current = null;
     setClassCounts(prev => ({
       ...prev,
       [optIdx]: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0)
@@ -117,6 +129,8 @@ export default function QuizPlayer({
 
   // Mode 1: Bấm nhanh 1-chạm vào đáp án số đông (ví dụ cả lớp chọn B)
   const handleSetMajority = (optIdx) => {
+    if (finishingRef.current) return;
+    awardConfirmationRef.current = null;
     const totalStudents = students.length || 32;
     const newCounts = { 0: 0, 1: 0, 2: 0, 3: 0 };
     newCounts[optIdx] = totalStudents;
@@ -125,7 +139,9 @@ export default function QuizPlayer({
 
   // Mode 2: Ghi nhận đánh dấu cho một học sinh
   const handleToggleStudentMark = (studentId, status) => {
+    if (finishingRef.current) return;
     if (!currentQ) return;
+    awardConfirmationRef.current = null;
     setStudentMarksByQuestion(prev => {
       const qMarks = { ...(prev[currentQ.id] || {}) };
       qMarks[studentId] = status;
@@ -135,16 +151,19 @@ export default function QuizPlayer({
 
   // Mode 2: Chọn nhanh "Tất cả Đúng" hoặc "Đặt lại"
   const handleBatchStudentMarks = (status) => {
+    if (finishingRef.current) return;
     if (!currentQ) return;
     const qMarks = {};
     students.forEach(s => {
       qMarks[s.id] = status;
     });
+    awardConfirmationRef.current = null;
     setStudentMarksByQuestion(prev => ({ ...prev, [currentQ.id]: qMarks }));
   };
 
   // Hiện đáp án đúng
   const handleRevealAnswer = useCallback(() => {
+    if (finishingRef.current) return;
     if (!currentQ) return;
     setIsAnswerRevealed(true);
     setIsTimerRunning(false);
@@ -153,54 +172,16 @@ export default function QuizPlayer({
       soundEffects.playStarDing();
     }
 
-    // Tính toán số liệu thống kê cho câu hỏi này
-    const isStudentMode = quizSession.mode === 'STUDENT';
-    let correctCount = 0;
-    let wrongCount = 0;
-    let totalResponses = 0;
-
-    if (isStudentMode) {
-      const qMarks = studentMarksByQuestion[currentQ.id] || {};
-      students.forEach(s => {
-        const mark = qMarks[s.id];
-        if (mark === 'CORRECT') correctCount++;
-        else if (mark === 'WRONG') wrongCount++;
-      });
-      totalResponses = correctCount + wrongCount;
-    } else {
-      // Class mode
-      const counts = classCounts;
-      const cIdx = currentQ.correct_index ?? 0;
-      correctCount = Number(counts[cIdx]) || 0;
-      Object.keys(counts).forEach(k => {
-        const num = Number(counts[k]) || 0;
-        totalResponses += num;
-        if (Number(k) !== cIdx) {
-          wrongCount += num;
-        }
-      });
-    }
-
-    const accuracyRate = totalResponses > 0 ? Math.round((correctCount / totalResponses) * 100) : 0;
-
-    setResultsByQuestion(prev => ({
-      ...prev,
-      [currentQ.id]: {
-        quiz_question_id: currentQ.id,
-        distribution: classCounts,
-        total_responses: totalResponses,
-        correct_count: correctCount,
-        wrong_count: wrongCount,
-        accuracy_rate: accuracyRate
-      }
-    }));
-  }, [currentQ, isSoundEnabled, quizSession?.mode, studentMarksByQuestion, students, classCounts]);
+    const result = scoreQuestion(currentQ, quizSession.mode, students, studentMarksByQuestion[currentQ.id], classCounts);
+    setResultsByQuestion(previous => ({ ...previous, [currentQ.id]: result }));
+  }, [currentQ, isSoundEnabled, quizSession, studentMarksByQuestion, students, classCounts]);
 
   // Luôn giữ tham chiếu mới nhất của handleRevealAnswer cho bộ đếm giờ gọi khi hết giờ
   useEffect(() => { revealRef.current = handleRevealAnswer; }, [handleRevealAnswer]);
 
   // Sang câu hỏi tiếp theo
   const handleNextQuestion = () => {
+    if (finishingRef.current) return;
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
@@ -210,97 +191,107 @@ export default function QuizPlayer({
 
   // Quay lại câu trước
   const handlePrevQuestion = () => {
+    if (finishingRef.current) return;
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
     }
   };
 
   // Kết thúc phiên Quiz
-  const handleFinishQuiz = () => {
-    // Tính toán kết quả tổng kết toàn bộ quiz
-    const allResults = Object.values(resultsByQuestion);
-    const completedCount = allResults.length;
-    let totalAccuracy = 0;
-    let totalCorrect = 0;
-    let totalWrong = 0;
+  const handleFinishQuiz = async () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    setIsSaving(true); setSaveError(''); setIsTimerRunning(false);
+    try {
+      // Tính toán kết quả tổng kết toàn bộ quiz
+      const finalResults = { ...resultsByQuestion };
+      if (currentQ) finalResults[currentQ.id] = scoreQuestion(currentQ, quizSession.mode, students, studentMarksByQuestion[currentQ.id], classCounts);
+      const allResults = Object.values(finalResults);
+      const completedCount = allResults.length;
+      let totalAccuracy = 0;
 
-    allResults.forEach(r => {
-      totalAccuracy += (r.accuracy_rate || 0);
-      totalCorrect += (r.correct_count || 0);
-      totalWrong += (r.wrong_count || 0);
-    });
-
-    const averageAccuracy = completedCount > 0 ? Math.round(totalAccuracy / completedCount) : 0;
-    const starRewardRate = quizSession.star_reward_per_correct ?? 1;
-
-    // Chuẩn bị danh sách kết quả học sinh (nếu có Mode 2)
-    const studentResultsList = [];
-    let totalStarsAwarded = 0;
-
-    if (quizSession.mode === 'STUDENT' && students.length > 0) {
-      // Tính sao cho từng em
-      const starsEarnedByStudent = {};
-      Object.entries(studentMarksByQuestion).forEach(([qId, marksMap]) => {
-        Object.entries(marksMap).forEach(([sId, status]) => {
-          if (status === 'CORRECT') {
-            starsEarnedByStudent[sId] = (starsEarnedByStudent[sId] || 0) + starRewardRate;
-          }
-          const std = students.find(s => s.id === sId);
-          studentResultsList.push({
-            quiz_question_id: qId,
-            student_id: sId,
-            student_name: std?.name || '',
-            status: status,
-            stars_earned: status === 'CORRECT' ? starRewardRate : 0
-          });
-        });
+      allResults.forEach(r => {
+        totalAccuracy += (r.accuracy_rate || 0);
       });
 
-      // Thưởng sao thực tế vào hệ thống nếu có callback
-      if (onAwardStars && Object.keys(starsEarnedByStudent).length > 0) {
-        onAwardStars(starsEarnedByStudent);
+      const averageAccuracy = completedCount > 0 ? Math.round(totalAccuracy / completedCount) : 0;
+      const starRewardRate = quizSession.star_reward_per_correct ?? 1;
+
+      // Chuẩn bị danh sách kết quả học sinh (nếu có Mode 2)
+      const studentResultsList = [];
+      let totalStarsAwarded = 0;
+
+      if (quizSession.mode === 'STUDENT' && students.length > 0) {
+        // Tính sao cho từng em
+        const starsEarnedByStudent = {};
+        Object.entries(studentMarksByQuestion).forEach(([qId, marksMap]) => {
+          Object.entries(marksMap).forEach(([sId, status]) => {
+            if (status === 'CORRECT') {
+              starsEarnedByStudent[sId] = (starsEarnedByStudent[sId] || 0) + starRewardRate;
+            }
+            const std = students.find(s => s.id === sId);
+            studentResultsList.push({
+              quiz_question_id: qId,
+              student_id: sId,
+              student_name: std?.name || '',
+              status: status,
+              stars_earned: status === 'CORRECT' ? starRewardRate : 0
+            });
+          });
+        });
+
+        totalStarsAwarded = Object.values(starsEarnedByStudent).reduce((a, b) => a + b, 0);
+      } else {
+        // Class mode: Thưởng sao tập thể nếu đạt tỷ lệ cao
+        if (averageAccuracy >= 70 && starRewardRate > 0) {
+          totalStarsAwarded = starRewardRate * students.length;
+        }
       }
 
-      totalStarsAwarded = Object.values(starsEarnedByStudent).reduce((a, b) => a + b, 0);
-    } else {
-      // Class mode: Thưởng sao tập thể nếu đạt tỷ lệ cao
-      if (averageAccuracy >= 70 && starRewardRate > 0) {
-        totalStarsAwarded = starRewardRate * (students.length || 30);
+      if (isSoundEnabled) {
+        soundEffects.playVictory();
       }
-    }
 
-    if (isSoundEnabled) {
-      soundEffects.playVictory();
-    }
-
-    onCompleteQuiz({
-      session_id: quizSession.id,
-      title: quizSession.title,
-      total_questions: totalQuestions,
-      average_accuracy: averageAccuracy,
-      total_correct: totalCorrect,
-      total_wrong: totalWrong,
-      total_stars_awarded: totalStarsAwarded,
-      results: allResults,
-      student_results: studentResultsList
-    });
+      if (awardConfirmationRef.current === null) awardConfirmationRef.current = totalStarsAwarded > 0 && await DialogService.confirmAsync(`Lưu kết quả và thưởng ${totalStarsAwarded} sao theo kết quả đố vui? Chọn Hủy để chỉ lưu kết quả, không thưởng sao.`);
+      const saved = await saveQuizResultsApi(quizSession.id, {
+        status: 'COMPLETED', completed_at: new Date().toISOString(), results: allResults, student_results: studentResultsList,
+        award_stars: awardConfirmationRef.current, confirmed: awardConfirmationRef.current
+      });
+      onBalancesChanged?.(saved.balances || []);
+      onCompleteQuiz({
+        session_id: quizSession.id,
+        title: quizSession.title,
+        total_questions: totalQuestions,
+        average_accuracy: saved.average_accuracy ?? averageAccuracy,
+        total_correct: (saved.results || []).reduce((sum, result) => sum + result.correct_count, 0),
+        total_wrong: (saved.results || []).reduce((sum, result) => sum + result.wrong_count, 0),
+        total_stars_awarded: saved.total_stars_awarded || 0,
+        saved: true,
+        results: saved.results || allResults,
+        student_results: saved.student_results || studentResultsList
+      });
+    } catch (error) { setSaveError(error.message); }
+    finally { finishingRef.current = false; setIsSaving(false); }
   };
+
+  useEffect(() => { latestActionsRef.current = { reveal: handleRevealAnswer, next: handleNextQuestion, previous: handlePrevQuestion }; });
 
   // Xử lý phím tắt bàn phím chuẩn máy chiếu
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (finishingRef.current) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault();
         if (!isAnswerRevealed) {
-          handleRevealAnswer();
+          latestActionsRef.current?.reveal();
         } else {
-          handleNextQuestion();
+          latestActionsRef.current?.next();
         }
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        handlePrevQuestion();
+        latestActionsRef.current?.previous();
       } else if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
@@ -317,7 +308,7 @@ export default function QuizPlayer({
   const diffInfo = DIFFICULTIES.find(d => d.id === currentQ.difficulty);
 
   return (
-    <div style={{
+    <div aria-busy={isSaving} style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -331,6 +322,8 @@ export default function QuizPlayer({
       userSelect: 'none',
       overflow: 'hidden'
     }}>
+      {saveError && <div role="alert" style={{ padding: '1rem', background: '#7f1d1d', color: 'white' }}>{saveError} Kết quả vẫn được giữ tại đây. <button type="button" className="btn btn-primary" onClick={handleFinishQuiz} disabled={isSaving}>Thử lưu lại</button></div>}
+      {isSaving && <div role="status" style={{ padding: '0.5rem 1rem' }}>Đang lưu kết quả và số sao đã xác nhận…</div>}
       {/* 1. Top Header: Tên Quiz, Tiến độ, Nút âm thanh, Đóng */}
       <div style={{
         padding: '0.85rem 2rem',
@@ -400,6 +393,7 @@ export default function QuizPlayer({
 
           <button
             onClick={onClose}
+            disabled={isSaving}
             style={{
               background: 'rgba(239, 68, 68, 0.2)',
               border: '1px solid rgba(239, 68, 68, 0.4)',
@@ -797,7 +791,7 @@ export default function QuizPlayer({
       }}>
         <button
           onClick={handlePrevQuestion}
-          disabled={currentIndex === 0}
+          disabled={currentIndex === 0 || isSaving}
           className="btn btn-secondary"
           style={{
             padding: '0.6rem 1.25rem',
@@ -838,6 +832,7 @@ export default function QuizPlayer({
 
         <button
           onClick={handleNextQuestion}
+          disabled={isSaving}
           className="btn btn-primary"
           style={{
             padding: '0.6rem 1.5rem',

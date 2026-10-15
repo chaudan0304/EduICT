@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, 
   Play, 
@@ -6,8 +6,6 @@ import {
   Users, 
   UserCheck,
   Search,
-  CheckSquare,
-  CheckCircle2,
   Check,
   ListChecks,
   Sliders,
@@ -22,14 +20,16 @@ import {
   createQuizSessionApi
 } from './quizStorage';
 
+const EMPTY_LIST = Object.freeze([]);
+
 export default function CreateQuizModal({
   isOpen,
   onClose,
   onStartQuiz,
   currentClass,
-  availableLessons = [],
+  availableLessons = EMPTY_LIST,
   preselectedLesson = null,
-  preselectedQuestions = [],
+  preselectedQuestions = EMPTY_LIST,
   sessionId = null
 }) {
   const [title, setTitle] = useState('');
@@ -62,6 +62,7 @@ export default function CreateQuizModal({
   const [starReward, setStarReward] = useState(1);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isPreparing, setIsPreparing] = useState(false);
+  const initializedSetup = useRef(null);
 
   // Nạp toàn bộ ngân hàng câu hỏi khi mở modal
   useEffect(() => {
@@ -88,7 +89,10 @@ export default function CreateQuizModal({
 
   // Cập nhật tiêu đề và câu hỏi được chọn sẵn
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) { initializedSetup.current = null; return; }
+    const setup = JSON.stringify([currentClass?.id, preselectedLesson?.id, preselectedQuestions.map(q => q.id)]);
+    if (initializedSetup.current === setup) return;
+    initializedSetup.current = setup;
 
     if (preselectedQuestions && preselectedQuestions.length > 0) {
       setCreationMode('MANUAL');
@@ -269,7 +273,7 @@ export default function CreateQuizModal({
       };
 
       const createdSession = await createQuizSessionApi(sessionPayload);
-      onStartQuiz(createdSession);
+      onStartQuiz({ ...createdSession, sound_enabled: soundEnabled });
       onClose();
     } catch (err) {
       console.error('Lỗi tạo phiên quiz:', err);
@@ -788,7 +792,7 @@ export default function CreateQuizModal({
                   </strong>
                 </div>
                 <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                  Giáo viên đánh dấu từng em ✅ Đúng / ❌ Sai / — Chưa trả lời. Học sinh trả lời đúng được cộng ngay sao ⭐ vào hệ thống.
+                  Giáo viên đánh dấu từng em ✅ Đúng / ❌ Sai / — Chưa trả lời. Sao được ghi sau khi xác nhận lúc kết thúc quiz.
                 </p>
               </div>
             </div>

@@ -1,3 +1,4 @@
+import { applyQuizBalances } from '../QuickQuiz/quizStorage';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   ChevronLeft, 
@@ -1577,23 +1578,7 @@ export default function PresentationView({
             setQuizSummary(summary);
             setIsQuizResultOpen(true);
           }}
-          onAwardStars={async (starsMap) => {
-            if (!onUpdateStudents || !currentClass?.students) return;
-            const classId = currentClass.id;
-            const entries = Object.entries(starsMap || {}).filter(([, n]) => Number(n) > 0);
-            if (entries.length === 0) return;
-            const balances = {};
-            await Promise.all(entries.map(async ([sid, n]) => {
-              try {
-                const nb = await awardStars({ studentId: sid, classId, amount: Number(n), reason: 'Thưởng Quick Quiz', source: 'QUICK_QUIZ' });
-                if (typeof nb === 'number') balances[String(sid)] = nb;
-              } catch (e) { console.error('Lỗi cộng sao Quick Quiz:', e); }
-            }));
-            const updated = currentClass.students.map(s =>
-              balances[String(s.id)] !== undefined ? { ...s, stars: balances[String(s.id)] } : s
-            );
-            onUpdateStudents(updated);
-          }}
+          onBalancesChanged={balances => { if (balances.length) onUpdateStudents?.(applyQuizBalances(currentClass?.students || [], balances)); }}
         />
       )}
 
