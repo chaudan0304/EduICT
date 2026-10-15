@@ -1,5 +1,16 @@
 # Lịch sử thay đổi
 
+## 1.11.1 — 15/10/2026
+
+- Chặn lưu danh sách học sinh cũ giữa web/desktop; thao tác sửa ghi chú, điểm danh không ghi đè số sao từ sổ cái. Lỗi lưu được báo trên giao diện.
+- Kiểm tra ID và đường dẫn trước khi dọn phiên nhập PowerPoint; mọi backend dùng chung khóa COM và không đóng PowerPoint khi còn bài khác đang mở.
+- Backup gồm ảnh trò chơi, checksum tệp và giữ ảnh mới khi khôi phục backup cũ. Restore/rollback bị chặn khi backend khác đang dùng kho dữ liệu.
+- Quiz từ slide, tiết học và màn hình Đố vui đều lưu trước khi báo hoàn tất. Thưởng sao có xác nhận, ghi cùng giao dịch kết quả và chống cộng lặp khi thử lưu lại.
+- Sửa chế độ chọn câu ngẫu nhiên, giữ tiêu đề quiz, phím Space/Arrow, mã phiên phân tích AI, đồng hồ sau chuyển bước/chỉnh giờ và tùy chọn không giới hạn thời gian.
+- Nhật ký trừ sao cá nhân lưu thay đổi thực tế và giữ số yêu cầu riêng. Timeout Gemini dừng chờ có tín hiệu hủy, không tự gửi lại yêu cầu đã hết hạn.
+
+Chi tiết sửa và ranh giới kiểm chứng: docs/project-audit-fixes-1.11.1.md.
+
 ## 1.11.0 — 15/10/2026
 
 - Web và desktop trên máy cá nhân có thể dùng chung SQLite, tệp bài học và thiết lập AI; đã sao lưu và chuyển dữ liệu web làm nguồn chính trên máy này.
