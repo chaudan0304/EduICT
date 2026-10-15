@@ -191,7 +191,7 @@ finally {
         try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($presentation) | Out-Null } catch {}
     }
     if ($null -ne $ppt) {
-        try { $ppt.Quit() } catch {}
+        try { if ($ppt.Presentations.Count -eq 0) { $ppt.Quit() } } catch {}
         try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($ppt) | Out-Null } catch {}
     }
     [System.GC]::Collect()

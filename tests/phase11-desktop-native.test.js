@@ -263,11 +263,12 @@ describe('Phase 11: Desktop Native Layer + Desktop Bridge', () => {
     assert.ok(!/stack secret|C:\\x/.test(JSON.stringify(r)), 'không lộ chi tiết kỹ thuật');
 
     const garbage = createPowerPointBridge({ platform: 'win32', runner: async () => 'rác', uploadsDir: uploads });
-    assert.equal((await garbage.getStatus()).code, 'POWERPOINT_CONTROL_FAILED');
+    assert.deepEqual(await garbage.getStatus(), { ok: true, running: false, slideShowActive: false });
+    assert.equal((await garbage.openPowerPoint(p)).code, 'POWERPOINT_CONTROL_FAILED');
     const notInstalled = createPowerPointBridge({ platform: 'win32', runner: async () => ({ ok: false, code: 'POWERPOINT_NOT_INSTALLED' }), uploadsDir: uploads });
     assert.equal((await notInstalled.openPowerPoint(p)).code, 'POWERPOINT_NOT_INSTALLED');
     const unknown = createPowerPointBridge({ platform: 'win32', runner: async () => ({ ok: false, code: 'WEIRD' }), uploadsDir: uploads });
-    assert.equal((await unknown.getStatus()).code, 'POWERPOINT_CONTROL_FAILED');
+    assert.equal((await unknown.openPowerPoint(p)).code, 'POWERPOINT_CONTROL_FAILED');
     assert.equal((await notInstalled.goToSlide(0)).code, 'INVALID_SLIDE_INDEX');
     assert.equal((await notInstalled.goToSlide('1')).code, 'INVALID_SLIDE_INDEX');
     assert.equal((await notInstalled.openPowerPoint('C:/Windows/notepad.exe')).code, 'INVALID_PRESENTATION_PATH');
@@ -279,7 +280,7 @@ describe('Phase 11: Desktop Native Layer + Desktop Bridge', () => {
       runner: createPowerShellRunner({ spawnImpl: () => { throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' }); } }),
       uploadsDir: uploads,
     });
-    assert.equal((await realRunnerBridge.getStatus()).ok, false);
+    assert.equal((await realRunnerBridge.openPowerPoint(p)).ok, false);
   });
 
   test('11. PresentationService gọi bridge đúng contract', async () => {
@@ -492,7 +493,8 @@ describe('Phase 11: Desktop Native Layer + Desktop Bridge', () => {
     const main = fs.readFileSync(path.join(REPO, 'desktop', 'main', 'main.cjs'), 'utf8');
     assert.match(main, /setWindowOpenHandler/);
     assert.match(main, /will-navigate/);
-    assert.match(main, /setPermissionRequestHandler/);
+    assert.match(main, /installClassroomPermissions/);
+    assert.match(fs.readFileSync(path.join(REPO, 'desktop', 'main', 'classroomPermissions.cjs'), 'utf8'), /setPermissionRequestHandler/);
     assert.match(main, /isTrustedSender|registerIpc/);
   });
 

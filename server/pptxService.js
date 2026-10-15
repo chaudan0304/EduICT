@@ -60,7 +60,6 @@ export function getComLockStats() {
 // Phase 12: khóa LIÊN-TIẾN-TRÌNH (desktop runtime). Renderer (backend) và Desktop Bridge (Electron main) cùng
 // điều khiển PowerPoint.Application → dùng chung khóa tệp trong <data>/locks. Web runtime: không dùng (giữ nguyên).
 function runWithCrossProcessLock(fn) {
-  if (String(process.env.EDUICT_RUNTIME || '').trim().toLowerCase() !== 'desktop') return fn();
   const { withPowerPointLock } = requireCjs('./services/powerpointLock.cjs');
   return withPowerPointLock(pathService.getLocksDir(), fn, { owner: 'renderer' });
 }
@@ -88,6 +87,7 @@ export function initUploadDirectories() {
 // Xóa an toàn thư mục
 export function removeDirectorySafe(dirPath) {
   try {
+    assertUploadSubdirectory(dirPath);
     if (fs.existsSync(dirPath)) {
       fs.rmSync(dirPath, { recursive: true, force: true });
     }
@@ -96,6 +96,23 @@ export function removeDirectorySafe(dirPath) {
     console.warn('Không thể xóa thư mục:', dirPath, err.message);
     return false;
   }
+}
+
+function assertUploadSubdirectory(dirPath) {
+  const resolved = path.resolve(dirPath);
+  const inside = (root, target) => { const relative = path.relative(root, target); return relative && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative); };
+  const root = [PRESENTATIONS_DIR, TEMP_DIR, CACHE_DIR].find(base => inside(path.resolve(base), resolved));
+  if (!root || (fs.existsSync(resolved) && !inside(fs.realpathSync(root), fs.realpathSync(resolved)))) {
+    throw Object.assign(new Error('Đường dẫn thao tác nằm ngoài thư mục được quản lý.'), { statusCode: 400 });
+  }
+  return resolved;
+}
+
+function importSessionDirectory(tempId) {
+  if (typeof tempId !== 'string' || !/^tmp_\d{10,17}_[a-z0-9]{1,12}$/.test(tempId)) {
+    throw Object.assign(new Error('Mã phiên nhập PowerPoint không hợp lệ.'), { statusCode: 400 });
+  }
+  return assertUploadSubdirectory(path.join(TEMP_DIR, tempId));
 }
 
 // Xóa thư mục lưu trữ bài trình chiếu của một lesson
@@ -955,9 +972,10 @@ export async function processPptxUploadPreview({ originalName, buffer }) {
 
 // Xác nhận lưu bài học đã import: Chuyển file từ temp sang thư mục chính thức
 export async function commitImportedPptx(tempId, lessonId) {
+  const tempSessionDir = importSessionDirectory(tempId);
+  if (typeof lessonId !== 'string' || !/^[a-zA-Z0-9_-]{1,150}$/.test(lessonId)) throw Object.assign(new Error('Mã bài học không hợp lệ.'), { statusCode: 400 });
   initUploadDirectories();
 
-  const tempSessionDir = path.join(TEMP_DIR, tempId);
   if (!fs.existsSync(tempSessionDir)) {
     throw new Error('Phiên import tạm thời đã hết hạn hoặc không tồn tại. Vui lòng thử import lại.');
   }
@@ -1020,8 +1038,7 @@ export async function commitImportedPptx(tempId, lessonId) {
 // Hủy bỏ phiên import tạm thời
 export function cancelImportSession(tempId) {
   if (!tempId) return;
-  const safeId = path.basename(tempId);
-  const tempSessionDir = path.join(TEMP_DIR, safeId);
+  const tempSessionDir = importSessionDirectory(tempId);
   removeDirectorySafe(tempSessionDir);
 }
 

@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { getDatabasePath } from './pathService.js';
 import * as pathService from './pathService.js';
 import { getDatabase, closeConnection } from '../db/connection.js';
+import databaseAccess from './databaseAccess.cjs';
 
 function getBackupDir() {
   return pathService.ensureDir(pathService.getBackupDir());
@@ -24,6 +25,7 @@ function copyDirSync(src, dest) {
   if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
+    if (entry.isSymbolicLink()) throw new Error('Không sao lưu/khôi phục liên kết tệp ngoài kho dữ liệu.');
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) copyDirSync(srcPath, destPath);
@@ -82,23 +84,19 @@ export async function createBackup() {
     } catch(e) {}
 
 
-    let fileCount = 0;
-    const presentationsSrc = path.join(pathService.getUploadsDir(), 'presentations');
-    const presentationsDest = path.join(tmpDir, 'files', 'presentations');
-    if (fs.existsSync(presentationsSrc)) {
-      copyDirSync(presentationsSrc, presentationsDest);
-      const countFiles = (dir) => {
-        let count = 0;
-        if (!fs.existsSync(dir)) return 0;
-        const items = fs.readdirSync(dir, { withFileTypes: true });
-        for (const item of items) {
-          if (item.isDirectory()) count += countFiles(path.join(dir, item.name));
-          else count++;
-        }
-        return count;
-      };
-      fileCount = countFiles(presentationsDest);
-    }
+    const filesDir = path.join(tmpDir, 'files');
+    copyDirSync(pathService.getUploadsDir(), filesDir);
+    const filesChecksums = {};
+    const hashFiles = async directory => {
+      if (!fs.existsSync(directory)) return;
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        const file = path.join(directory, entry.name);
+        if (entry.isDirectory()) await hashFiles(file);
+        else filesChecksums[path.relative(filesDir, file).split(path.sep).join('/')] = await calculateFileChecksum(file);
+      }
+    };
+    await hashFiles(filesDir);
+    const fileCount = Object.keys(filesChecksums).length;
 
     const dbChecksum = await calculateFileChecksum(dbBackupPath);
     const manifest = {
@@ -109,6 +107,8 @@ export async function createBackup() {
       schoolYear: schoolYear,
       fileCount: fileCount,
       databaseChecksum: dbChecksum,
+      uploadsComplete: true,
+      filesChecksums,
       stats
     };
 
@@ -156,6 +156,15 @@ export async function verifyBackup(backupId) {
   
   const dbChecksum = await calculateFileChecksum(dbPath);
   if (dbChecksum !== manifest.databaseChecksum) throw new Error('BACKUP_CORRUPTED: Database checksum mismatch');
+  if (manifest.uploadsComplete === true) {
+    if (!manifest.filesChecksums || typeof manifest.filesChecksums !== 'object' || Array.isArray(manifest.filesChecksums)) throw new Error('BACKUP_CORRUPTED: Missing file checksums');
+    const root = path.resolve(targetDir, 'files');
+    for (const [relative, expected] of Object.entries(manifest.filesChecksums)) {
+      const file = path.resolve(root, relative);
+      if (!relative || relative.includes('\\') || !file.startsWith(root + path.sep) || !/^[a-f0-9]{64}$/.test(expected)) throw new Error('BACKUP_CORRUPTED: Invalid file manifest');
+      if (!fs.existsSync(file) || !fs.realpathSync(file).startsWith(fs.realpathSync(root) + path.sep) || await calculateFileChecksum(file) !== expected) throw new Error('BACKUP_CORRUPTED: File checksum mismatch');
+    }
+  }
   
   let integrityOk = false;
   try {
@@ -172,7 +181,7 @@ export async function verifyBackup(backupId) {
 }
 
 export async function restoreBackup(backupId) {
-  await verifyBackup(backupId);
+  const verified = await verifyBackup(backupId);
   
   const targetDir = path.join(getBackupDir(), backupId);
   const dbBackupPath = path.join(targetDir, 'database.sqlite');
@@ -183,37 +192,42 @@ export async function restoreBackup(backupId) {
   const safetyBackupId = `EduMaster-Safety-${Date.now()}`;
   const safetyDir = path.join(getBackupDir(), safetyBackupId);
   
-  try {
-    fs.mkdirSync(safetyDir, { recursive: true });
-    const currentDb = getDatabase();
-    currentDb.exec(`VACUUM INTO '${path.join(safetyDir, 'database.sqlite')}'`);
-    if (fs.existsSync(uploadsPath)) copyDirSync(uploadsPath, path.join(safetyDir, 'files'));
-  } catch (err) {
-    throw new Error(`RESTORE_FAILED: Cannot create safety backup: ${err.message}`);
-  }
-  
-  try {
-    closeConnection();
-    
-    fs.rmSync(currentDbPath, { force: true });
-    if (fs.existsSync(`${currentDbPath}-wal`)) fs.rmSync(`${currentDbPath}-wal`, { force: true });
-    if (fs.existsSync(`${currentDbPath}-shm`)) fs.rmSync(`${currentDbPath}-shm`, { force: true });
-    
-    fs.copyFileSync(dbBackupPath, currentDbPath);
-    
-    if (fs.existsSync(uploadsPath)) fs.rmSync(uploadsPath, { recursive: true, force: true });
-    if (fs.existsSync(filesBackupPath)) copyDirSync(filesBackupPath, uploadsPath);
-    
-    return { success: true, requireRestart: true };
-  } catch (err) {
+  return databaseAccess.withDatabaseMaintenance(currentDbPath, () => {
     try {
-      if (fs.existsSync(currentDbPath)) fs.rmSync(currentDbPath, { force: true });
-      fs.copyFileSync(path.join(safetyDir, 'database.sqlite'), currentDbPath);
-      if (fs.existsSync(uploadsPath)) fs.rmSync(uploadsPath, { recursive: true, force: true });
-      copyDirSync(path.join(safetyDir, 'files'), uploadsPath);
-    } catch(e2) {
-      throw new Error(`RESTORE_ROLLBACK_FAILED: System corrupted. Please manually restore from ${safetyDir}`);
+      fs.mkdirSync(safetyDir, { recursive: true });
+      const currentDb = getDatabase();
+      currentDb.exec(`VACUUM INTO '${path.join(safetyDir, 'database.sqlite').replaceAll("'", "''")}'`);
+      if (fs.existsSync(uploadsPath)) copyDirSync(uploadsPath, path.join(safetyDir, 'files'));
+    } catch (err) {
+      throw new Error(`RESTORE_FAILED: Cannot create safety backup: ${err.message}`);
     }
-    throw new Error(`RESTORE_FAILED: ${err.message}`);
-  }
+  
+    try {
+      closeConnection();
+    
+      fs.rmSync(currentDbPath, { force: true });
+      if (fs.existsSync(`${currentDbPath}-wal`)) fs.rmSync(`${currentDbPath}-wal`, { force: true });
+      if (fs.existsSync(`${currentDbPath}-shm`)) fs.rmSync(`${currentDbPath}-shm`, { force: true });
+    
+      fs.copyFileSync(dbBackupPath, currentDbPath);
+    
+      // Backups before uploadsComplete only contain presentations. Keep newer assets.
+      const restoreFilesTarget = verified.manifest.uploadsComplete ? uploadsPath : path.join(uploadsPath, 'presentations');
+      if (path.resolve(uploadsPath) !== path.resolve(pathService.getAppDataDir(), 'uploads')) throw new Error('INVALID_UPLOADS_PATH');
+      if (fs.existsSync(restoreFilesTarget)) fs.rmSync(restoreFilesTarget, { recursive: true, force: true });
+      if (fs.existsSync(filesBackupPath)) copyDirSync(filesBackupPath, uploadsPath);
+    
+      return { success: true, requireRestart: true };
+    } catch (err) {
+      try {
+        if (fs.existsSync(currentDbPath)) fs.rmSync(currentDbPath, { force: true });
+        fs.copyFileSync(path.join(safetyDir, 'database.sqlite'), currentDbPath);
+        if (fs.existsSync(uploadsPath)) fs.rmSync(uploadsPath, { recursive: true, force: true });
+        copyDirSync(path.join(safetyDir, 'files'), uploadsPath);
+      } catch(e2) {
+        throw new Error(`RESTORE_ROLLBACK_FAILED: System corrupted. Please manually restore from ${safetyDir}`);
+      }
+      throw new Error(`RESTORE_FAILED: ${err.message}`);
+    }
+  });
 }

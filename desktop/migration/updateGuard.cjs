@@ -13,6 +13,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createSafetyBackup, verifySafetyBackup, DB_NAME } = require('./legacyMigration.cjs');
+const { withDatabaseMaintenance } = require('../../server/services/databaseAccess.cjs');
 
 const VERSION_STATE_FILE = 'version-state.json';
 
@@ -74,18 +75,20 @@ function restoreDatabaseFromBackup({ backup, dataDir, logger = { info() {}, warn
   if (!fs.existsSync(src)) return { ok: false, code: 'BACKUP_MISSING' };
   const keep = `${dst}.failed-update-${Date.now()}`;
   try {
-    if (fs.existsSync(dst)) fs.renameSync(dst, keep);
-    for (const ext of ['-wal', '-shm']) {
-      if (fs.existsSync(`${dst}${ext}`)) fs.renameSync(`${dst}${ext}`, `${keep}${ext}`);
-    }
-    fs.copyFileSync(src, dst);
-    const wal = path.join(backup.dir, 'database.sqlite-wal');
-    if (fs.existsSync(wal)) fs.copyFileSync(wal, `${dst}-wal`);
-    logger.warn(`[update] đã khôi phục CSDL từ ${backup.backupId} (bản lỗi giữ tại ${path.basename(keep)}).`);
-    return { ok: true, keptFailedCopy: keep };
+    return withDatabaseMaintenance(dst, () => {
+      if (fs.existsSync(dst)) fs.renameSync(dst, keep);
+      for (const ext of ['-wal', '-shm']) {
+        if (fs.existsSync(`${dst}${ext}`)) fs.renameSync(`${dst}${ext}`, `${keep}${ext}`);
+      }
+      fs.copyFileSync(src, dst);
+      const wal = path.join(backup.dir, 'database.sqlite-wal');
+      if (fs.existsSync(wal)) fs.copyFileSync(wal, `${dst}-wal`);
+      logger.warn(`[update] đã khôi phục CSDL từ ${backup.backupId} (bản lỗi giữ tại ${path.basename(keep)}).`);
+      return { ok: true, keptFailedCopy: keep };
+    });
   } catch (err) {
     logger.error(`[update] khôi phục CSDL thất bại: ${err.message}`);
-    return { ok: false, code: 'RESTORE_FAILED', message: err.message };
+    return { ok: false, code: err.code || 'RESTORE_FAILED', message: err.message };
   }
 }
 

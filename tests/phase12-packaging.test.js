@@ -306,7 +306,8 @@ describe('Phase 12: Desktop Installer', () => {
     assert.equal(readJson('package.json').scripts.dev, 'vite');
     // Web mode không phụ thuộc electron-builder / desktop/.
     const comLock = read('server', 'pptxService.js');
-    assert.match(comLock, /EDUICT_RUNTIME[\s\S]{0,80}'desktop'\) return fn\(\)/);
+    assert.match(comLock, /withPowerPointLock\(pathService\.getLocksDir\(\)/);
+    assert.doesNotMatch(comLock, /EDUICT_RUNTIME[^\n]*return fn\(\)/, 'web và desktop phải cùng lấy khóa COM');
   });
 
   test('19. Desktop Mode được giữ nguyên các ràng buộc bảo mật Phase 11 (STATIC)', () => {
@@ -643,10 +644,11 @@ describe('Phase 12: Desktop Installer', () => {
     const lockDir = tmp('locks');
     // (a) hai bridge KHÁC NHAU, cùng lockDir → không bao giờ chạy chồng nhau.
     let active = 0; let maxActive = 0;
-    const runner = async () => { active += 1; maxActive = Math.max(maxActive, active); await sleep(80); active -= 1; return { ok: true }; };
+    const runner = async action => { active += 1; maxActive = Math.max(maxActive, active); await sleep(80); active -= 1; return action === 'Open' ? { ok: true, opened: true, openedByApp: true } : { ok: true }; };
     const { uploadsDir } = makePresentations();
     const a = createPowerPointBridge({ platform: 'win32', runner, uploadsDir, lockDir });
     const b = createPowerPointBridge({ platform: 'win32', runner, uploadsDir, lockDir });
+    await Promise.all([a.openPowerPoint('/uploads/presentations/les1/original.pptx'), b.openPowerPoint('/uploads/presentations/les1/original.pptx')]);
     await Promise.all([a.getStatus(), b.getStatus(), a.nextSlide(), b.nextSlide(), a.getStatus(), b.getStatus()]);
     assert.equal(maxActive, 1);
     // (b) liên-tiến-trình thật: tiến trình con giữ khóa 700ms.
@@ -665,8 +667,9 @@ describe('Phase 12: Desktop Installer', () => {
     const stale = await lockMod.acquire(lockDir, { acquireTimeoutMs: 2000 });
     stale.release();
     // (d) khóa đang bị giữ bởi tiến trình sống → quá hạn trả POWERPOINT_BUSY (bridge không treo).
+    const busy = createPowerPointBridge({ platform: 'win32', runner, uploadsDir, lockDir, lockOptions: { acquireTimeoutMs: 250 } });
+    await busy.openPowerPoint('/uploads/presentations/les1/original.pptx');
     const held = await lockMod.acquire(lockDir);
-    const busy = createPowerPointBridge({ platform: 'win32', runner: async () => ({ ok: true }), uploadsDir, lockDir, lockOptions: { acquireTimeoutMs: 250 } });
     const res = await busy.getStatus();
     assert.equal(res.ok, false);
     assert.equal(res.code, 'POWERPOINT_BUSY');
@@ -679,17 +682,21 @@ describe('Phase 12: Desktop Installer', () => {
   test('42. Đóng presentation chỉ trong vùng presentations của EduMaster (UNIT)', async () => {
     const { uploadsDir } = makePresentations();
     const seen = [];
-    const b = createPowerPointBridge({ platform: 'win32', uploadsDir, runner: async (a, p) => { seen.push({ a, p }); return { ok: true, closed: true }; } });
+    const b = createPowerPointBridge({ platform: 'win32', uploadsDir, runner: async (a, p) => { seen.push({ a, p }); return a === 'Open' ? { ok: true, opened: true, openedByApp: true } : { ok: true, closed: true }; } });
+    await b.openPowerPoint('/uploads/presentations/les1/original.pptx');
+    seen.length = 0;
     const res = await b.closePowerPoint();
     assert.equal(res.closed, true);
     assert.equal(seen[0].a, 'Close');
     assert.equal(seen[0].p.allowedRoot, path.join(uploadsDir, 'presentations'));
+    assert.equal(seen[0].p.path, path.join(uploadsDir, 'presentations', 'les1', 'original.pptx'));
   });
 
   test('43. PowerPoint thoát sạch khi không còn bài nào (STATIC — smoke thật chạy riêng)', () => {
     const ps1 = read('desktop', 'native', 'powerpoint-bridge.ps1');
     assert.match(ps1, /Presentations\.Count -eq 0\) \{ \$app\.Quit\(\) \}/);
-    assert.match(ps1, /StartsWith\(\$root/, 'chỉ đóng file thuộc vùng presentations');
+    assert.match(ps1, /\$p\.FullName -ieq \$PptxPath/, 'chỉ chọn đúng file đã được bridge xác thực');
+    assert.match(ps1, /if \(\$null -ne \$pres\) \{[\s\S]*?\$pres\.Close\(\)/, 'đóng presentation đã chọn, không đóng tất cả file đang mở');
     assert.match(ps1, /Open\(\$full, -1, 0, -1\)/, 'mở READ-ONLY');
   });
 
