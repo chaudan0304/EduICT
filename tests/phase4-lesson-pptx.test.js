@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import crypto from 'node:crypto';
+
 
 // ============================================================
 // PHASE 4 — LESSON LIBRARY + LESSON MANAGEMENT + POWERPOINT
@@ -20,7 +20,7 @@ process.env.EDUICT_DB_PATH = path.join(tmpDir, `phase4_test_${Date.now()}.sqlite
 
 // Dynamic import sau khi set env
 const { initSchema } = await import('../server/db/schema.js');
-const { getDatabase, getDatabasePath } = await import('../server/db/connection.js');
+const { getDatabase } = await import('../server/db/connection.js');
 const {
   getAllLessons,
   getLessonById,
@@ -29,7 +29,6 @@ const {
   deleteLesson,
   duplicateLesson,
   getLessonByFileHash,
-  saveLessonSlides,
   syncLessonOverallRenderStatus,
   extractLessonSortKey,
   sortLessonsList
@@ -44,7 +43,7 @@ after(() => {
   try {
     db.close();
     fs.rmSync(tmpDir, { recursive: true, force: true });
-  } catch (e) {}
+  } catch {}
 });
 
 // ============================================================

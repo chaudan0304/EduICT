@@ -78,7 +78,7 @@ export default function DuplicateComparisonModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, data?.lesson?.id, data?.matchedLesson?.id]);
+  }, [isOpen, data?.lesson, data?.matchedLesson]);
 
   // Số lượng cặp slide tối đa
   const maxSlides = Math.max(lessonSlides.length, matchedSlides.length);

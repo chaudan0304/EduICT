@@ -51,7 +51,7 @@ export function listBackups() {
             fileCount: manifest.fileCount,
             sizeBytes: stat.size
           });
-        } catch (e) {}
+        } catch {}
       }
     }
   }
@@ -81,7 +81,7 @@ export async function createBackup() {
       stats.students = db.prepare("SELECT COUNT(*) as c FROM students").get().c;
       stats.lessons = db.prepare("SELECT COUNT(*) as c FROM lessons").get().c;
       stats.questions = db.prepare("SELECT COUNT(*) as c FROM question_bank").get().c;
-    } catch(e) {}
+    } catch {}
 
 
     const filesDir = path.join(tmpDir, 'files');
@@ -224,7 +224,7 @@ export async function restoreBackup(backupId) {
         fs.copyFileSync(path.join(safetyDir, 'database.sqlite'), currentDbPath);
         if (fs.existsSync(uploadsPath)) fs.rmSync(uploadsPath, { recursive: true, force: true });
         copyDirSync(path.join(safetyDir, 'files'), uploadsPath);
-      } catch(e2) {
+      } catch {
         throw new Error(`RESTORE_ROLLBACK_FAILED: System corrupted. Please manually restore from ${safetyDir}`);
       }
       throw new Error(`RESTORE_FAILED: ${err.message}`);

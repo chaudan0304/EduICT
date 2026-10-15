@@ -3,7 +3,7 @@
  * Prompt sinh câu hỏi trắc nghiệm & câu hỏi ôn tập chuẩn Question Bank EduICT
  */
 
-export function buildQuestionGenerationPrompt({ lessonTitle, grade, topic, slidesContent, instructions = '', count = 5, difficulty = 'mixed', types = ['MULTIPLE_CHOICE'] }) {
+export function buildQuestionGenerationPrompt({ lessonTitle, grade, topic, slidesContent, instructions = '', count = 5, difficulty = 'mixed' }) {
   return `Bạn là một chuyên gia khảo thí và Trợ Giảng AI cho môn Tin học Tiểu học (Chương trình GDPT 2018).
 Nhiệm vụ của bạn là tạo ra ${count} câu hỏi chất lượng cao dựa trên nội dung bài học được cung cấp.
 

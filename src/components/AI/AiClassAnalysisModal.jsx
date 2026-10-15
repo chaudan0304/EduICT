@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import useAiAnalysis from './useAiAnalysis';
 import { 
-  Sparkles, 
   X, 
   Users, 
   CheckCircle2, 
@@ -19,41 +19,9 @@ export default function AiClassAnalysisModal({
   onClose,
   currentClass
 }) {
-  const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState(null);
-  const [error, setError] = useState(null);
-  const [isCached, setIsCached] = useState(false);
-
-  useEffect(() => {
-    if (isOpen && currentClass?.id) {
-      handleRunAnalysis();
-    } else if (!isOpen) {
-      setAnalysis(null);
-      setError(null);
-    }
-  }, [isOpen, currentClass?.id]);
-
-  const handleRunAnalysis = async () => {
-    if (!currentClass?.id) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await analyzeClassApi(currentClass.id);
-      setAnalysis(res.data);
-      setIsCached(!!res.isCached);
-    } catch (err) {
-      console.error('[AI Class Analysis] Lỗi:', err);
-      let msg = err.message || 'Không thể phân tích lớp học.';
-      if (err.errorCode === 'AI_NOT_CONFIGURED') {
-        msg = 'Trợ giảng AI chưa được cấu hình GEMINI_API_KEY trong file .env.';
-      } else if (err.errorCode === 'AI_RATE_LIMIT') {
-        msg = 'Gemini đang quá tải hoặc đạt giới hạn gọi. Vui lòng thử lại sau.';
-      }
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { loading, analysis, error, isCached, handleRunAnalysis } = useAiAnalysis(
+    isOpen, currentClass?.id, analyzeClassApi, 'Không thể phân tích lớp học.'
+  );
 
   if (!isOpen || !currentClass) return null;
 

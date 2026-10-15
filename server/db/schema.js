@@ -227,31 +227,31 @@ export function initSchema(db) {
   // Bổ sung cột liên kết lesson_id vào classroom_sessions nếu chưa có
   try {
     db.exec(`ALTER TABLE classroom_sessions ADD COLUMN lesson_id TEXT;`);
-  } catch (e) {
+  } catch {
     // Cột lesson_id đã tồn tại
   }
 
   // Bổ sung các cột cho tính năng Import PowerPoint (.pptx) nếu chưa có
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN type TEXT DEFAULT 'native';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_name TEXT;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_path TEXT;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN online_embed_url TEXT DEFAULT '';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN onedrive_drive_id TEXT DEFAULT '';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN onedrive_item_id TEXT DEFAULT '';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN thumbnail_url TEXT;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN slide_count INTEGER DEFAULT 0;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN file_hash TEXT;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_size INTEGER DEFAULT 0;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_filename TEXT;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN similarity_status TEXT DEFAULT 'unique';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN similarity_score REAL DEFAULT 0;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN duplicate_of_id TEXT;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN content_fingerprint TEXT;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE students ADD COLUMN dob TEXT;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE classes ADD COLUMN good_scores TEXT DEFAULT '[]';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE students ADD COLUMN eval_hk1 TEXT DEFAULT 'T';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE students ADD COLUMN eval_hk2 TEXT DEFAULT 'T';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN type TEXT DEFAULT 'native';`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_name TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_path TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN online_embed_url TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN onedrive_drive_id TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN onedrive_item_id TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN thumbnail_url TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN slide_count INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN file_hash TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_file_size INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN source_filename TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN similarity_status TEXT DEFAULT 'unique';`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN similarity_score REAL DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN duplicate_of_id TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN content_fingerprint TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE students ADD COLUMN dob TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE classes ADD COLUMN good_scores TEXT DEFAULT '[]';`); } catch {}
+  try { db.exec(`ALTER TABLE students ADD COLUMN eval_hk1 TEXT DEFAULT 'T';`); } catch {}
+  try { db.exec(`ALTER TABLE students ADD COLUMN eval_hk2 TEXT DEFAULT 'T';`); } catch {}
   // Backfill 1 lần: chép ĐGTX cũ (eval_regular) sang CẢ 2 học kỳ; chốt bằng app_settings để không ghi đè chỉnh sửa về sau
   try {
     const _bf = db.prepare("SELECT value FROM app_settings WHERE key = 'eval_split_backfilled';").get();
@@ -259,26 +259,26 @@ export function initSchema(db) {
       db.exec("UPDATE students SET eval_hk1 = eval_regular, eval_hk2 = eval_regular WHERE eval_regular IS NOT NULL AND eval_regular <> '';");
       db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('eval_split_backfilled', '1');").run();
     }
-  } catch (e) {}
+  } catch {}
 
   // Bổ sung các cột theo dõi trạng thái kết xuất slide chi tiết (per-slide render status)
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN error_code TEXT DEFAULT '';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN error_message TEXT DEFAULT '';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN render_attempts INTEGER DEFAULT 0;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN slide_number INTEGER;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN render_path TEXT DEFAULT '';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN thumbnail_path TEXT DEFAULT '';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN attempts INTEGER DEFAULT 0;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN rendered_at TEXT DEFAULT '';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN render_status TEXT DEFAULT 'ready';`); } catch {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN error_code TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN error_message TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN render_attempts INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN slide_number INTEGER;`); } catch {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN render_path TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN thumbnail_path TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN attempts INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE lesson_slides ADD COLUMN rendered_at TEXT DEFAULT '';`); } catch {}
 
   // Bổ sung các cột phân tầng Import và Render cho bảng lessons
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN import_status TEXT DEFAULT 'IMPORTED';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN render_progress REAL DEFAULT 0;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN thumbnail_path TEXT DEFAULT '';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN total_slides INTEGER DEFAULT 0;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN rendered_slides INTEGER DEFAULT 0;`); } catch (e) {}
-  try { db.exec(`ALTER TABLE lessons ADD COLUMN failed_slides INTEGER DEFAULT 0;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN import_status TEXT DEFAULT 'IMPORTED';`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN render_progress REAL DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN thumbnail_path TEXT DEFAULT '';`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN total_slides INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN rendered_slides INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE lessons ADD COLUMN failed_slides INTEGER DEFAULT 0;`); } catch {}
 
   // Chỉ mục tối ưu cho module Lesson
   db.exec(`
@@ -424,8 +424,8 @@ export function initSchema(db) {
   `);
 
   // Migration: Bổ sung cột source cho question_bank nếu chưa có
-  try { db.exec(`ALTER TABLE question_bank ADD COLUMN source TEXT DEFAULT 'MANUAL';`); } catch (e) {}
-  try { db.exec(`ALTER TABLE question_bank ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE question_bank ADD COLUMN source TEXT DEFAULT 'MANUAL';`); } catch {}
+  try { db.exec(`ALTER TABLE question_bank ADD COLUMN is_deleted INTEGER DEFAULT 0;`); } catch {}
 
   // Bảng 1 Phân Hệ Gamification: Star Transactions (Lịch sử sao)
   db.exec(`

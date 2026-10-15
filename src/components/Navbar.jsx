@@ -13,7 +13,6 @@ import {
   Upload, 
   RefreshCw, 
   Monitor, 
-  CheckCircle2, 
   AlertCircle, 
   FileCode2, 
   FileText, 
@@ -58,15 +57,11 @@ export default function Navbar({
   onSelectClass, 
   onAddClass, 
   onDeleteClass, 
-  onRestoreClasses, 
   onBatchImportSuccess, 
   isProjector, 
   onToggleProjector, 
   soundEnabled, 
   onToggleSound, 
-  isSidebarCollapsed, 
-  onToggleSidebar, 
-  activeTab, 
   onSelectTab, 
   currentSchoolYear = '2026 - 2027',
   availableSchoolYears = ['2025 - 2026', '2026 - 2027'],
@@ -111,7 +106,7 @@ export default function Navbar({
     if (showAddModal) {
       onRefreshStats?.();
     }
-  }, [showAddModal]);
+  }, [showAddModal, onRefreshStats]);
 
   // Mở modal Import Excel từ modal Thêm & Quản lý lớp
   const handleOpenImportExcel = (targetYear = null) => {
@@ -140,33 +135,11 @@ export default function Navbar({
     fetchAiStatus().then(st => setAiStatus(st));
   }, []);
 
-  // Khối lớp đang chọn lọc trên thanh điều hướng ('all' hoặc 1 | 2 | 3 | 4 | 5)
-  const [selectedGradeFilter, setSelectedGradeFilter] = useState(() => {
-    return currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
-  });
-
-  // Lọc danh sách lớp theo khối
-  const classesInSelectedGrade = useMemo(() => {
-    if (selectedGradeFilter === 'all') return classes;
-    return classes.filter(c => (c.grade || detectGradeFromName(c.name)) === Number(selectedGradeFilter));
-  }, [classes, selectedGradeFilter]);
-
   // Lọc danh sách lớp trong modal Quản lý lớp
   const modalFilteredClasses = useMemo(() => {
     if (modalGradeFilter === 'all') return classes;
     return classes.filter(c => (c.grade || detectGradeFromName(c.name)) === Number(modalGradeFilter));
   }, [classes, modalGradeFilter]);
-
-  // Đổi bộ lọc khối và tự động chọn lớp phù hợp
-  const handleFilterGradeChange = (grade) => {
-    setSelectedGradeFilter(grade);
-    if (grade !== 'all') {
-      const matchInGrade = classes.find(c => (c.grade || detectGradeFromName(c.name)) === Number(grade));
-      if (matchInGrade && matchInGrade.id !== currentClass?.id) {
-        onSelectClass(matchInGrade.id);
-      }
-    }
-  };
 
   const handleCreateClass = (e) => {
     e.preventDefault();
@@ -212,8 +185,6 @@ export default function Navbar({
   };
   const handleImportBackupFile = e => handleDataImport(e, 'JSON');
   const handleImportSqlScript = e => handleDataImport(e, 'SQL');
-
-  const currentGradeNum = currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
 
   return (
     <>

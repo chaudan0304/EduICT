@@ -7,7 +7,6 @@ import {
   BookOpen,
   Calendar,
   Clock,
-  Sparkles,
   Zap
 } from 'lucide-react';
 import { LESSON_FLOW_PRESETS } from './sessionStorage';

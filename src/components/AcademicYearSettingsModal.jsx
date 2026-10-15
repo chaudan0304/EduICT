@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Save, X, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Calendar, Save, X, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { saveAcademicYearSettings, calculateAcademicYear } from '../utils/storage';
 
 export default function AcademicYearSettingsModal({

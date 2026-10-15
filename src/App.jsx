@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import DialogService from './services/DialogService';
 import { onPresentationNavigate } from './services/PresentationWindowService';
 import StorageService from './services/StorageService';
@@ -120,12 +120,11 @@ export default function App() {
   };
 
   // Làm mới thống kê số lượng học sinh & lớp theo khối và toàn trường trực tiếp từ SQLite
-  const refreshStudentStats = async (schoolYear = null) => {
+  const loadStudentStats = useCallback(async (schoolYear) => {
     setIsLoadingStats(true);
     setStatsError(null);
     try {
-      const yearToFetch = schoolYear || currentSchoolYear;
-      const stats = await fetchStudentStatisticsFromSqlite(yearToFetch);
+      const stats = await fetchStudentStatisticsFromSqlite(schoolYear);
       if (stats) {
         setStudentStats(stats);
       }
@@ -135,7 +134,9 @@ export default function App() {
     } finally {
       setIsLoadingStats(false);
     }
-  };
+  }, []);
+  const refreshStudentStats = useCallback((schoolYear = null) =>
+    loadStudentStats(schoolYear || currentSchoolYear), [loadStudentStats, currentSchoolYear]);
 
   // Tải dữ liệu từ cơ sở dữ liệu file SQLite khi ứng dụng khởi động
   useEffect(() => {
@@ -152,15 +153,13 @@ export default function App() {
         if (sqliteClasses && Array.isArray(sqliteClasses) && sqliteClasses.length > 0) {
           setClasses(sqliteClasses);
           saveClasses(sqliteClasses);
-          const hasCurrent = sqliteClasses.some(c => c.id === currentClassId);
-          if (!hasCurrent && sqliteClasses[0]) {
-            setClassId(sqliteClasses[0].id);
-          }
+          setClassId(selectedId => sqliteClasses.some(c => c.id === selectedId)
+            ? selectedId : sqliteClasses[0].id);
           setDbStatus({ connected: true, dbFile: 'edumaster.sqlite' });
         } else {
           setDbStatus({ connected: true, dbFile: 'edumaster.sqlite' });
         }
-        await refreshStudentStats(activeYear);
+        await loadStudentStats(activeYear);
 
         // GIAI ĐOẠN 3 — Nạp hồ sơ giáo viên & thời khóa biểu đã lưu (nếu có),
         // ghi đè giá trị mặc định trong module timetable để theo dõi thời gian thực
@@ -191,7 +190,7 @@ export default function App() {
       }
     }
     initSqliteData();
-  }, []);
+  }, [loadStudentStats]);
 
   // Xử lý khi lưu cài đặt ngày bắt đầu năm học
   const handleSaveAcademicYearSettings = async (newSettings, newCurrentYear) => {
@@ -424,7 +423,7 @@ export default function App() {
           studentStats={studentStats}
           isLoadingStats={isLoadingStats}
           statsError={statsError}
-          onRefreshStats={() => refreshStudentStats(currentSchoolYear)}
+          onRefreshStats={refreshStudentStats}
           onSelectClass={setClassId}
           onAddClass={handleAddClass}
           onDeleteClass={handleDeleteClass}

@@ -1,5 +1,7 @@
 # Khắc phục báo cáo rà soát — EduICT 1.11.1
 
+> Đã có [đợt sửa tiếp theo 1.11.2](project-audit-followup-1.11.2.md): xử lý cảnh báo dependency/lint/bundle, lỗi bổ sung và chẩn đoán quyền cài NSIS. Nội dung bên dưới là kết quả tại thời điểm 1.11.1.
+
 Ngày 15/10/2026 · Nhánh `codex/fix-project-audit`.
 
 ## Đã sửa theo báo cáo

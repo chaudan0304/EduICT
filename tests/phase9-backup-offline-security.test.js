@@ -36,12 +36,12 @@ describe('Phase 9: Backup & Restore & Security', () => {
   after(() => {
     try {
       if (db) db.close();
-    } catch (e) {
+    } catch {
       // Ignored if already closed
     }
     try {
       if (fs.existsSync(TMP_ROOT)) fs.rmSync(TMP_ROOT, { recursive: true, force: true });
-    } catch(e) {}
+    } catch {}
   });
 
   test('Security: Cannot delete backup using path traversal', async () => {

@@ -5,10 +5,8 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   Sparkles, 
-  Calendar, 
   FileSpreadsheet, 
   Layers, 
-  Users, 
   ShieldCheck,
   AlertCircle
 } from 'lucide-react';

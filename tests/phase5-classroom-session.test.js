@@ -69,7 +69,7 @@ after(() => {
   try {
     db.close();
     fs.rmSync(tmpDir, { recursive: true, force: true });
-  } catch (_) { /* ok */ }
+  } catch { /* ok */ }
 });
 
 // ╔═══════════════════════════════════════════════════════╗

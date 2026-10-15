@@ -10,8 +10,7 @@ import {
   FileText,
   Search,
   ArrowRight,
-  Layers,
-  Sparkles
+  Layers
 } from 'lucide-react';
 import { getCurrentPeriodStatus, formatTimeCountdown } from '../../utils/timetable';
 import TimetableModal from './TimetableModal';

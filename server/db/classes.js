@@ -170,7 +170,7 @@ export function getAllClassesWithStudents(schoolYear = null) {
       if (c.good_scores) {
         goodScores = typeof c.good_scores === 'string' ? JSON.parse(c.good_scores) : c.good_scores;
       }
-    } catch (e) {
+    } catch {
       goodScores = [];
     }
     return {

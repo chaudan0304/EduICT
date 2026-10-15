@@ -59,13 +59,13 @@ function parseJsonOutput(rawText) {
     if (matchObj) {
       try {
         return JSON.parse(matchObj[0]);
-      } catch (e2) {}
+      } catch {}
     }
     const matchArr = text.match(/\[[\s\S]*\]/);
     if (matchArr) {
       try {
         return JSON.parse(matchArr[0]);
-      } catch (e3) {}
+      } catch {}
     }
     throw new Error(`JSON không hợp lệ: ${err.message}`);
   }

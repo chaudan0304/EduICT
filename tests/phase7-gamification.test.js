@@ -37,7 +37,7 @@ describe('Phase 7 - Gamification Engine', () => {
     try {
       if (fs.existsSync(TMP_DB)) fs.unlinkSync(TMP_DB);
       if (fs.existsSync(TMP_ROOT)) fs.rmdirSync(TMP_ROOT);
-    } catch(e) {}
+    } catch {}
   });
 
   test('Requirement 22: Gamification is a unified engine, Idempotency for stars', async () => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   Play, 
@@ -8,15 +8,13 @@ import {
   UserCheck, 
   CheckSquare, 
   Square,
-  Flame,
-  Award,
-  Users,
   Minimize2,
   X
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
 
 const getCurrentTimestamp = () => Date.now();
+const EMPTY_STUDENTS = [];
 
 // Bảng màu đa dạng cho các chú vịt
 const DUCK_COLORS = [
@@ -38,7 +36,9 @@ export default function DuckRace({
   soundEnabled,
   onMinimize = null
 }) {
-  const students = currentClass?.students || [];
+  const students = currentClass?.students || EMPTY_STUDENTS;
+  const rosterKey = JSON.stringify(students.map(s => [s.id, s.name]));
+  const participants = useMemo(() => JSON.parse(rosterKey).map(([id, name]) => ({ id, name })), [rosterKey]);
   
   // Danh sách ID học sinh tham gia đua
   const [selectedIds, setSelectedIds] = useState(() => (currentClass?.students || []).map(s => s.id));
@@ -57,19 +57,14 @@ export default function DuckRace({
   useEffect(() => {
     if (prevClassIdRef.current !== currentClass?.id) {
       prevClassIdRef.current = currentClass?.id;
-      if (students.length > 0) {
-        setSelectedIds(students.map(s => s.id));
-        setCalledHistory([]);
-        setSelectedWinner(null);
-      }
+      setSelectedIds(participants.map(s => s.id));
+      setGameState('idle');
+      setCalledHistory([]);
+      setSelectedWinner(null);
     }
-  }, [currentClass?.id, students]);
+  }, [currentClass?.id, participants]);
 
   // Bộ lọc nhanh danh sách đua
-  const handleSelectAll = () => {
-    setSelectedIds(students.map(s => s.id));
-  };
-
   const handleSelectLowScore = () => {
     // Chọn các bạn có điểm miệng < 7 hoặc chưa có điểm miệng
     const candidates = students.filter(s => {
@@ -106,11 +101,11 @@ export default function DuckRace({
 
   // Khởi tạo vịt đua bơi tự do trong dòng sông mở
   // Xếp hàng xuất phát so le 3 cột đẹp mắt trong vịnh xuất phát, 100% học sinh nhìn rõ tên không bị đè chữ
-  const initDucks = () => {
+  const initDucks = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const selectedStudents = students.filter(s => selectedIds.includes(s.id));
+    const selectedStudents = participants.filter(s => selectedIds.includes(s.id));
     const total = selectedStudents.length || 1;
     
     // Sông cao 440px: bờ trên y: 22, bờ dưới y: 418. Vùng bơi từ y: 48 đến y: 395 (chiều cao ~347px)
@@ -148,7 +143,7 @@ export default function DuckRace({
         finishTime: null,
       };
     });
-  };
+  }, [participants, selectedIds]);
 
   // Bắt đầu đua
   const startRace = () => {
@@ -323,7 +318,7 @@ export default function DuckRace({
   };
 
   // Vẽ nền dòng sông mở, bờ cỏ, gợn sóng, hoa sen, phao tiêu, vạch xuất phát & vạch đích
-  const drawRiver = (ctx, canvas, startLineX = 305, finishLineX, frame = 0, top3Leaders = []) => {
+  const drawRiver = useCallback((ctx, canvas, startLineX = 305, finishLineX, frame = 0, top3Leaders = []) => {
     // 1. Nền nước xanh biếc
     const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
     grad.addColorStop(0, '#38bdf8');
@@ -461,10 +456,10 @@ export default function DuckRace({
       ctx.fillText(text, pillX + 12, 21);
       ctx.restore();
     }
-  };
+  }, []);
 
   // Vẽ 1 chú vịt cùng nhãn tên và vương miện nếu dẫn đầu
-  const drawDuck = (ctx, duck, isLeader = false) => {
+  const drawDuck = useCallback((ctx, duck, isLeader = false) => {
     const bob = Math.sin(duck.bobOffset) * 2.5;
     const x = duck.x;
     const y = duck.y + bob;
@@ -572,7 +567,7 @@ export default function DuckRace({
     ctx.fillText(tagText, badgeX + 6, badgeY + 12);
 
     ctx.restore();
-  };
+  }, []);
 
   // Dừng hoặc đặt lại cuộc đua
   const resetRace = () => {
@@ -608,7 +603,7 @@ export default function DuckRace({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [selectedIds]);
+  }, [initDucks, drawRiver, drawDuck]);
 
   // Thưởng sao cho học sinh được gọi trả bài
   const rewardWinner = async (studentId, starsToAdd) => {

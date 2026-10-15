@@ -20,7 +20,6 @@ import SlideRenderer from './SlideRenderer';
 import { 
   SLIDE_TYPES, 
   SLIDE_LAYOUTS, 
-  INFORMATICS_TOPICS, 
   createDefaultSlide,
   saveLessonSlidesApi,
   updateLessonApi,

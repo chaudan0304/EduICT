@@ -58,7 +58,7 @@ export function normalizeVietnamese(str = '') {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[đĐ]/g, 'd')
     .toLowerCase()
-    .replace(/[_\-\(\)\[\]:.,]/g, ' ')
+    .replace(/[_\-()[\]:.,]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

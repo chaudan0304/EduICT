@@ -20,7 +20,7 @@ export function getAiGenerationCache(feature, inputHash) {
       ...row,
       result: JSON.parse(row.result_json)
     };
-  } catch (e) {
+  } catch {
     return null;
   }
 }

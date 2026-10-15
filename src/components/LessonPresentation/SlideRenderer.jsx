@@ -37,7 +37,9 @@ export default function SlideRenderer({
     setLocalSlide(slide);
     setImageError(false);
     setRetryError(null);
-  }, [slide?.id, slide?.order_index, slide?.image_url, slide?.render_status]);
+    setSelectedOption(null);
+    setIsAnswerRevealed(false);
+  }, [slide]);
 
   if (!slide) {
     return (

@@ -58,7 +58,7 @@ export default function SessionManager({
       setShowCreateModal(true);
       onClearAutoOpen?.();
     }
-  }, [autoOpenClassId, activeSession]);
+  }, [autoOpenClassId, activeSession, onClearAutoOpen]);
 
   // Nạp danh sách sessions khi component khởi tạo và tự động khôi phục tiết học chưa kết thúc
   useEffect(() => {

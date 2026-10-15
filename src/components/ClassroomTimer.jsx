@@ -4,10 +4,7 @@ import {
   Play, 
   Pause, 
   RotateCcw, 
-  Plus, 
-  Bell, 
-  Volume2, 
-  Clock 
+  Plus
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
 

@@ -4,9 +4,7 @@ import {
   Save, 
   HelpCircle, 
   CheckCircle2, 
-  BookOpen, 
   Lightbulb, 
-  Layers, 
   Eye
 } from 'lucide-react';
 import { 

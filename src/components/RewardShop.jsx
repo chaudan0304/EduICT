@@ -1,25 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import DialogService from '../services/DialogService';
 import {
-  ShieldCheck,
-  Users, 
-  MapPin, 
-  Award, 
-  Music, 
-  Gift, 
-  Star, 
-  RotateCcw,
-  CheckCircle2,
-  AlertCircle
+  Gift
 } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
+
+const EMPTY_STUDENTS = [];
 
 export default function RewardShop({ 
   currentClass, 
   onUpdateStudents, 
   soundEnabled 
 }) {
-  const students = currentClass?.students || [];
+  const students = currentClass?.students || EMPTY_STUDENTS;
 
   const [selectedStudentId, setSelectedStudentId] = useState(students[0]?.id || '');
   const [redeemLog, setRedeemLog] = useState([]);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { GraduationCap, ArrowRight, Clock, Sparkles, X } from 'lucide-react';
+import { GraduationCap, ArrowRight, Clock, X } from 'lucide-react';
 
 export default function NewSchoolYearDetectedModal({
   isOpen,

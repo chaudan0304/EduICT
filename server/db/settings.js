@@ -521,7 +521,7 @@ export function getDbRules() {
     try {
       const parsed = JSON.parse(row.value);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch (e) {}
+    } catch {}
   }
   saveDbRules(DEFAULT_CLASSROOM_RULES);
   return DEFAULT_CLASSROOM_RULES;
@@ -559,7 +559,7 @@ export function getDbTeacherProfile() {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         return { ...DEFAULT_TEACHER_PROFILE, ...parsed };
       }
-    } catch (e) {}
+    } catch {}
   }
   return { ...DEFAULT_TEACHER_PROFILE };
 }
@@ -648,7 +648,7 @@ export function getDbTimetable() {
     try {
       const parsed = JSON.parse(row.value);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-    } catch (e) {}
+    } catch {}
   }
   return null;
 }

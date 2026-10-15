@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
-  Star, 
   ArrowRight, 
-  Award, 
   X, 
   CheckCircle2, 
   AlertCircle,
@@ -50,8 +48,8 @@ export default function StarExchangeModal({
     setSuccessMsg('');
     if (maxPossiblePoints < 1) {
       setPointsToConvert(1);
-    } else if (pointsToConvert > maxPossiblePoints) {
-      setPointsToConvert(Math.max(1, maxPossiblePoints));
+    } else {
+      setPointsToConvert(points => Math.min(points, Math.max(1, maxPossiblePoints)));
     }
   }, [selectedStudentId, maxPossiblePoints]);
 

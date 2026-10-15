@@ -38,6 +38,7 @@
     "signAndEditExecutable": true
   },
   "nsis": {
+    "include": "build/installer.nsh",
     "oneClick": false,
     "perMachine": false,
     "allowElevation": true,

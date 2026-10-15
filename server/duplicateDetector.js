@@ -370,7 +370,7 @@ export function extractTitleFromSlide1Xml(xml = '') {
   // 1. Tìm dòng tiêu đề chính bắt đầu bằng "Bài X"
   for (let i = 0; i < validLines.length; i++) {
     const l = validLines[i];
-    const matchWithRest = l.text.match(/^(?:bài|bai)\s*(\d+[a-zA-Z]?)(?:\s*[:\-–—\.]\s*|\s+)(.*)$/i);
+    const matchWithRest = l.text.match(/^(?:bài|bai)\s*(\d+[a-zA-Z]?)(?:\s*[:\-–—.]\s*|\s+)(.*)$/i);
     const matchOnlyBai = l.text.match(/^(?:bài|bai)\s*(\d+[a-zA-Z]?)\s*$/i);
 
     if (matchWithRest) {
@@ -588,7 +588,7 @@ export function extractPptxContentFingerprint(buffer, originalName = '') {
       if (slide1Buffer) {
         suggestedTitle = extractTitleFromSlide1Xml(slide1Buffer.toString('utf8')) || '';
       }
-    } catch (err) {
+    } catch {
       // Bỏ qua lỗi decompress slide 1
     }
   }

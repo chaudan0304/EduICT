@@ -6,20 +6,12 @@ import {
   PlusCircle, 
   Search, 
   FileSpreadsheet, 
-  Sparkles, 
   Trophy, 
-  Calendar, 
-  User, 
   UserPlus,
   UserMinus,
   Users,
   Trash2, 
   Star, 
-  CheckCircle2, 
-  Heart,
-  TrendingUp,
-  Tag,
-  AlertTriangle,
   Edit2,
   Settings,
   RotateCcw,
@@ -27,9 +19,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   Plus,
-  Minus,
   Check,
-  Flame,
   Info,
   ArrowUpDown,
   ArrowUp,
@@ -43,7 +33,6 @@ import {
   resetClassroomRulesToDefault,
   fetchClassroomRulesFromSqlite,
   syncClassroomRulesToSqlite,
-  DEFAULT_CLASSROOM_RULES,
   sortStudentsVietnamese
 } from '../utils/storage';
 import { compareVietnameseNames } from '../utils/vietnameseSort';
@@ -63,7 +52,6 @@ export default function GoodScoresBoard({
   currentClass, 
   onUpdateStudents, 
   onUpdateGoodScores,
-  onOpenExchangeModal,
   soundEnabled 
 }) {
   const students = useMemo(() => currentClass?.students || [], [currentClass?.students]);
@@ -132,9 +120,8 @@ export default function GoodScoresBoard({
 
   // Khi danh sách học sinh thay đổi do đổi lớp, cập nhật lại học sinh mặc định trong form
   useEffect(() => {
-    if (students && students.length > 0 && !students.some(s => s.id === newRecord.studentId)) {
-      setNewRecord(prev => ({ ...prev, studentId: students[0].id }));
-    }
+    setNewRecord(prev => students.length > 0 && !students.some(s => s.id === prev.studentId)
+      ? { ...prev, studentId: students[0].id } : prev);
   }, [students]);
 
   // Modal tạo / chỉnh sửa nội quy

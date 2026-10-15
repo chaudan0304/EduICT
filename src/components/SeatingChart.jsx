@@ -34,13 +34,15 @@ import useMachineFaults from './MachineFaults/useMachineFaults';
 import MachineFaultPanel from './MachineFaults/MachineFaultPanel';
 import MachineFaultDialog from './MachineFaults/MachineFaultDialog';
 
+const EMPTY_STUDENTS = [];
+
 export default function SeatingChart({ 
   currentClass, 
   onUpdateStudents, 
   onUpdateGoodScores,
   soundEnabled 
 }) {
-  const students = currentClass?.students || [];
+  const students = currentClass?.students || EMPTY_STUDENTS;
   const grade = currentClass?.grade || detectGradeFromName(currentClass?.name) || 3;
   const isGrade1or2 = (grade === 1 || grade === 2);
 
@@ -73,7 +75,7 @@ export default function SeatingChart({
   const [dragOverDrawer, setDragOverDrawer] = useState(false);
 
   // Danh sách nội quy phòng máy phục vụ cộng/trừ nhanh
-  const rules = React.useMemo(() => getClassroomRules(), [activeMachineNum]);
+  const rules = getClassroomRules();
   const [quickRuleFeedback, setQuickRuleFeedback] = useState(null);
 
   // Thông báo thao tác xếp chỗ

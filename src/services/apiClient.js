@@ -36,32 +36,41 @@ async function request(method, url, body, options = {}) {
   const { timeout = DEFAULT_TIMEOUT, headers = {}, signal } = options;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
+  let timedOut = false;
+  const onAbort = () => controller.abort(signal.reason);
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener('abort', onAbort, { once: true });
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeout);
 
-  const init = { method, headers: { ...headers }, signal: signal || controller.signal };
+  const init = { method, headers: { ...headers }, signal: controller.signal };
   if (body !== undefined && body !== null) {
     init.headers['Content-Type'] = init.headers['Content-Type'] || 'application/json';
     init.body = typeof body === 'string' ? body : JSON.stringify(body);
   }
 
-  let res;
   try {
-    res = await fetch(url, init);
+    const res = await fetch(url, init);
+    const data = await parseBody(res);
+    if (!res.ok) {
+      const message = (data && data.error) || `Lỗi máy chủ (${res.status})`;
+      throw new ApiError(message, { status: res.status, data });
+    }
+    return data;
   } catch (err) {
-    clearTimeout(timer);
-    if (err && err.name === 'AbortError') {
+    if (err instanceof ApiError) throw err;
+    if (timedOut) {
       throw new ApiError(`Hết thời gian chờ máy chủ (${timeout}ms)`, { status: 0 });
     }
+    if (controller.signal.aborted) {
+      const aborted = new ApiError('Yêu cầu đã được hủy.', { status: 0 });
+      aborted.code = 'REQUEST_ABORTED';
+      throw aborted;
+    }
     throw new ApiError(err?.message || 'Không thể kết nối tới máy chủ', { status: 0 });
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
-  clearTimeout(timer);
-
-  const data = await parseBody(res);
-  if (!res.ok) {
-    const message = (data && data.error) || `Lỗi máy chủ (${res.status})`;
-    throw new ApiError(message, { status: res.status, data });
-  }
-  return data;
 }
 
 const apiClient = {

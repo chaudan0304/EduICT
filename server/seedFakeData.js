@@ -9,8 +9,8 @@
  * Cách chạy: node server/seedFakeData.js
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
+
+
 import { getDatabase, getDatabasePath } from './db.js';
 
 console.log('====================================================');

@@ -15,7 +15,6 @@ import {
 } from './db.js';
 import { 
   extractPptxContentFingerprint, 
-  calculateFileHash, 
   SIMILARITY_STATUS, 
   calculateSimilarity, 
   DUPLICATE_THRESHOLDS,
@@ -92,7 +91,7 @@ export function removeDirectorySafe(dirPath) {
       fs.rmSync(dirPath, { recursive: true, force: true });
     }
     return true;
-  } catch (err) {
+  } catch {
     console.warn('Không thể xóa thư mục:', dirPath, err.message);
     return false;
   }
@@ -148,7 +147,6 @@ export function logStageEvent({
   outputPath = '',
   outputSize = 0,
   exitCode = null,
-  stdout = '',
   stderr = '',
   inputPath = ''
 }) {
@@ -1165,7 +1163,7 @@ export function extractPptxMinimalMetadata(buffer, originalName = '') {
 /**
  * Trích xuất tiêu đề bài học từ slide 1 của buffer PPTX
  */
-export function extractSlide1Title(buffer, originalName = '') {
+export function extractSlide1Title(buffer) {
   try {
     let eocdOffset = -1;
     for (let i = buffer.length - 22; i >= 0; i--) {
@@ -1203,7 +1201,7 @@ export function extractSlide1Title(buffer, originalName = '') {
       pos += 46 + nameLen + extraLen + commentLen;
     }
     return null;
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -1474,7 +1472,7 @@ class PptxBackgroundQueue {
           import_status: 'IMPORTED'
         });
         syncLessonOverallRenderStatus(task.lessonId);
-      } catch (e) {}
+      } catch {}
     }
   }
 

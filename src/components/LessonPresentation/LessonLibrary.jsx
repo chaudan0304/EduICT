@@ -109,7 +109,7 @@ export default function LessonLibrary({
     if (selectedTopic !== 'all' && !validTopics.includes(selectedTopic)) {
       setSelectedTopic('all');
     }
-  }, [currentGrade]);
+  }, [currentGrade, selectedTopic]);
 
   // Load danh sách bài học theo Khối lớp đồng bộ từ Header
   useEffect(() => {

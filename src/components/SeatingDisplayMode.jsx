@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Maximize2, 
   Minimize2, 
@@ -22,12 +22,18 @@ export default function SeatingDisplayMode({
   machineStudentMap,
   brokenMachines = [],
   machineFaults = [],
-  teacherSide = 'right',
   initialPerspective = 'student',
   onClose
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [perspective, setPerspective] = useState(initialPerspective);
+
+  const handleExit = useCallback(() => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    } catch {}
+    onClose();
+  }, [onClose]);
 
   // Xử lý Fullscreen API khi mở và lắng nghe phím tắt Esc
   useEffect(() => {
@@ -61,7 +67,7 @@ export default function SeatingDisplayMode({
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [handleExit]);
 
   // Chuyển đổi trạng thái Fullscreen
   const toggleFullscreen = async () => {
@@ -76,16 +82,6 @@ export default function SeatingDisplayMode({
     } catch (err) {
       console.warn('Lỗi khi chuyển đổi chế độ toàn màn hình:', err);
     }
-  };
-
-  // Thoát chế độ trình chiếu và thoát Fullscreen nếu đang bật
-  const handleExit = () => {
-    try {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
-    } catch {}
-    onClose();
   };
 
   // Tính tổng số học sinh đã có chỗ ngồi

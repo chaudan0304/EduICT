@@ -31,7 +31,7 @@ describe('Phase 8: Gemini AI Integration', () => {
     try {
       if (fs.existsSync(TMP_DB)) fs.unlinkSync(TMP_DB);
       if (fs.existsSync(TMP_ROOT)) fs.rmdirSync(TMP_ROOT);
-    } catch(e) {}
+    } catch {}
   });
 
   test('AI config: Should handle disabled state correctly', async () => {

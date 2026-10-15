@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import useAiAnalysis from './useAiAnalysis';
 import { 
   Sparkles, 
   X, 
@@ -6,12 +7,10 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Loader2, 
-  Clock, 
   Tag, 
   HelpCircle,
   RotateCcw,
-  Layers,
-  ArrowRight
+  Layers
 } from 'lucide-react';
 import { analyzeLessonApi } from './aiService';
 import { updateLessonApi } from '../LessonPresentation/lessonStorage';
@@ -22,47 +21,12 @@ export default function AiLessonAnalysisModal({
   lesson,
   onOpenQuestionGen
 }) {
-  const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState(null);
-  const [error, setError] = useState(null);
-  const [isCached, setIsCached] = useState(false);
+  const { loading, analysis, error, isCached, handleRunAnalysis } = useAiAnalysis(
+    isOpen, lesson?.id, analyzeLessonApi, 'Không thể phân tích bài giảng.'
+  );
   const [isApplying, setIsApplying] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
-
-  useEffect(() => {
-    if (isOpen && lesson?.id) {
-      handleRunAnalysis();
-    } else {
-      setAnalysis(null);
-      setError(null);
-      setApplySuccess(false);
-    }
-  }, [isOpen, lesson?.id]);
-
-  const handleRunAnalysis = async () => {
-    if (!lesson?.id) return;
-    setLoading(true);
-    setError(null);
-    setApplySuccess(false);
-    try {
-      const res = await analyzeLessonApi(lesson.id);
-      setAnalysis(res.data);
-      setIsCached(!!res.isCached);
-    } catch (err) {
-      console.error('[AI Analysis] Lỗi:', err);
-      let msg = err.message || 'Không thể phân tích bài giảng.';
-      if (err.errorCode === 'AI_NOT_CONFIGURED') {
-        msg = 'Trợ giảng AI chưa được cấu hình GEMINI_API_KEY trong file .env.';
-      } else if (err.errorCode === 'AI_RATE_LIMIT') {
-        msg = 'Gemini đang quá tải hoặc đạt giới hạn lượt gọi (15 req/phút). Vui lòng thử lại sau giây lát.';
-      } else if (err.errorCode === 'AI_TIMEOUT') {
-        msg = 'AI phản hồi quá lâu (quá 45 giây). Vui lòng thử lại.';
-      }
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => { setApplySuccess(false); }, [isOpen, lesson?.id, analysis]);
 
   const handleApplyToLesson = async () => {
     if (!analysis || !lesson?.id) return;

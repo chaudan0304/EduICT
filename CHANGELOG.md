@@ -1,5 +1,16 @@
 # Lịch sử thay đổi
 
+## 1.11.2 — 15/10/2026
+
+- Nâng SheetJS lên 0.20.3 từ nguồn chính thức; giữ nhập XLS/XLSX và sửa hàm nhập bảng điểm thiếu bộ chuẩn hóa ngày sinh/giới tính.
+- Chỉ tải thư viện Excel khi nhập/xuất; giảm gói khởi động xuống khoảng 439 kB, hết cảnh báo bundle lớn.
+- Hủy yêu cầu và bỏ phản hồi AI cũ khi đổi bài/lớp hoặc đóng modal; sửa timeout HTTP khi có signal bên ngoài và khi đang đọc response body.
+- Vòng quay giữ lịch sử và danh sách loại trừ khi cập nhật sao; đổi sang lớp trống dừng đua vịt. Đổi slide đặt lại đáp án đang mở.
+- Dọn toàn bộ cảnh báo lint, sửa dependency hook và callback cũ mà không tắt quy tắc kiểm tra.
+- NSIS kiểm tra quyền ghi trước khi nâng cấp; cài im lặng thiếu quyền trả mã 5 và ghi installer.log, tránh kẹt ở bước gỡ bản cũ.
+
+Kiểm chứng và trạng thái cài trên máy: docs/project-audit-followup-1.11.2.md.
+
 ## 1.11.1 — 15/10/2026
 
 - Chặn lưu danh sách học sinh cũ giữa web/desktop; thao tác sửa ghi chú, điểm danh không ghi đè số sao từ sổ cái. Lỗi lưu được báo trên giao diện.

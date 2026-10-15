@@ -7,7 +7,6 @@ import {
   Upload, 
   Star, 
   Trash2, 
-  Award, 
   TrendingUp, 
   Users, 
   AlertCircle,
@@ -146,7 +145,7 @@ export default function Gradebook({
 
       return matchSearch && matchGender && matchEval;
     });
-  }, [students, searchTerm, genderFilter, evalFilter, isGrade1or2]);
+  }, [students, searchTerm, genderFilter, evalFilter]);
 
   // Cập nhật trường học sinh
   const handleUpdateStudentField = (studentId, field, value) => {

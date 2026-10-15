@@ -13,11 +13,12 @@ export async function fetchAiStatus() {
   return { enabled: false, configured: false, available: false, model: 'gemini-3.5-flash-lite' };
 }
 
-export async function analyzeLessonApi(lessonId) {
+export async function analyzeLessonApi(lessonId, { signal } = {}) {
   const res = await fetch('/api/ai/analyze-lesson', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lessonId })
+    body: JSON.stringify({ lessonId }),
+    signal,
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
@@ -82,11 +83,12 @@ export async function analyzeQuizApi(quizSessionId) {
   return data; // { success: true, data: { summary, strengths, weaknesses, recommendedReinforcement, recommendedMinutes } }
 }
 
-export async function analyzeClassApi(classId) {
+export async function analyzeClassApi(classId, { signal } = {}) {
   const res = await fetch('/api/ai/analyze-class', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ classId })
+    body: JSON.stringify({ classId }),
+    signal,
   });
   const data = await res.json();
   if (!res.ok || !data.success) {

@@ -26,7 +26,7 @@ export function handleUploadsRequest(req, res) {
     const decodedPath = decodeURIComponent(url.pathname);
     // Chuẩn hóa và loại bỏ path traversal
     const relativePath = decodedPath.replace(/^\/uploads\/?/, '');
-    const safePath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '');
+    const safePath = path.normalize(relativePath).replace(/^(\.\.[/\\])+/, '');
     const fullPath = path.join(UPLOADS_DIR, safePath);
 
     // Kiểm tra an toàn: đường dẫn phải nằm trong UPLOADS_DIR

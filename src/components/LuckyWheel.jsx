@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   Play, 
   RotateCcw, 
-  Award, 
   Star, 
   Sparkles, 
-  Check, 
   UserCheck, 
-  AlertCircle,
   Minimize2,
   X
 } from 'lucide-react';
@@ -19,6 +16,7 @@ const WHEEL_COLORS = [
   '#8b5cf6', '#f97316', '#14b8a6', '#e11d48', '#3b82f6',
   '#6366f1', '#0ea5e9', '#84cc16', '#d946ef', '#0284c7'
 ];
+const EMPTY_STUDENTS = [];
 
 export default function LuckyWheel({ 
   currentClass, 
@@ -26,7 +24,11 @@ export default function LuckyWheel({
   soundEnabled,
   onMinimize = null
 }) {
-  const students = currentClass?.students || [];
+  const students = currentClass?.students || EMPTY_STUDENTS;
+  // Star updates must preserve the queue and the list of pupils already called.
+  const rosterKey = JSON.stringify(students.map(s => [s.id, s.name, s.machineNumber]));
+  const roster = useMemo(() => JSON.parse(rosterKey).map(([id, name, machineNumber]) =>
+    ({ id, name, machineNumber })), [rosterKey]);
 
   // Danh sách học sinh trong vòng quay
   const [candidates, setCandidates] = useState([]);
@@ -35,6 +37,7 @@ export default function LuckyWheel({
   const [showWinnerPopup, setShowWinnerPopup] = useState(false);
   const [excludeWinners, setExcludeWinners] = useState(true);
   const [calledHistory, setCalledHistory] = useState([]);
+  const winnerDetails = students.find(s => s.id === selectedWinner?.id) || selectedWinner;
 
   const canvasRef = useRef(null);
   const currentAngleRef = useRef(0);
@@ -44,14 +47,18 @@ export default function LuckyWheel({
   const lastSoundTickAngleRef = useRef(0);
 
   useEffect(() => {
-    setCandidates(students);
+    setCandidates(roster);
+    setIsSpinning(false);
     setSelectedWinner(null);
     setShowWinnerPopup(false);
     setCalledHistory([]);
-  }, [currentClass?.id, students]);
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [currentClass?.id, roster]);
 
   // Vẽ vòng quay Canvas
-  const drawWheel = (angle) => {
+  const drawWheel = useCallback((angle) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -187,11 +194,11 @@ export default function LuckyWheel({
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2.5;
     ctx.stroke();
-  };
+  }, [candidates, isSpinning]);
 
   useEffect(() => {
     drawWheel(currentAngleRef.current);
-  }, [candidates, isSpinning]);
+  }, [drawWheel]);
 
   // Bắt đầu quay
   const startSpin = () => {
@@ -265,7 +272,7 @@ export default function LuckyWheel({
   };
 
   const handleResetWheel = () => {
-    setCandidates(students);
+    setCandidates(roster);
     setSelectedWinner(null);
     setShowWinnerPopup(false);
     setCalledHistory([]);
@@ -456,7 +463,7 @@ export default function LuckyWheel({
                 {selectedWinner.name}
               </h3>
               <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                {selectedWinner.machineNumber ? `Máy ${selectedWinner.machineNumber} • ` : (selectedWinner.id && !String(selectedWinner.id).startsWith('hs_') ? `Mã: ${selectedWinner.id} • ` : '')}Hiện có: {selectedWinner.stars || 0} ⭐
+                {winnerDetails.machineNumber ? `Máy ${winnerDetails.machineNumber} • ` : (selectedWinner.id && !String(selectedWinner.id).startsWith('hs_') ? `Mã: ${selectedWinner.id} • ` : '')}Hiện có: {winnerDetails.stars || 0} ⭐
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -608,13 +615,13 @@ export default function LuckyWheel({
             </h3>
 
             <div style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', marginBottom: '1.25rem', display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-              {selectedWinner.machineNumber && (
-                <span className="badge badge-primary">💻 Máy {selectedWinner.machineNumber}</span>
+              {winnerDetails.machineNumber && (
+                <span className="badge badge-primary">💻 Máy {winnerDetails.machineNumber}</span>
               )}
               {selectedWinner.id && !String(selectedWinner.id).startsWith('hs_') && (
                 <span className="badge badge-secondary">Mã: {selectedWinner.id}</span>
               )}
-              <span className="badge badge-amber">⭐ {selectedWinner.stars || 0} Sao</span>
+              <span className="badge badge-amber">⭐ {winnerDetails.stars || 0} Sao</span>
             </div>
 
             {/* Nút Tạm Ẩn Sang Góc & Cộng Sao */}

@@ -1,7 +1,7 @@
 // Phase 6 — Quick Quiz + Question Bank Tests
 // ═══════════════════════════════════════════════════════
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -22,7 +22,6 @@ const {
   createQuestion,
   getAllQuestions,
   deleteQuestion,
-  getQuestionById,
   createQuizSession,
   getQuizSessionById,
   saveQuizResults

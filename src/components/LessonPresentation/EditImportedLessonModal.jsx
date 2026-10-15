@@ -3,11 +3,10 @@ import {
   X, 
   Save, 
   FileText, 
-  Clock, 
   Layers, 
   AlertCircle 
 } from 'lucide-react';
-import { updateLessonApi, INFORMATICS_TOPICS, detectGradeFromFileName } from './lessonStorage';
+import { updateLessonApi, detectGradeFromFileName } from './lessonStorage';
 import { getTopicsByGrade, matchLessonTopic } from '../../data/ppctMapping';
 
 export default function EditImportedLessonModal({

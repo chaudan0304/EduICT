@@ -193,10 +193,10 @@ export function getLessonById(lessonId) {
       let parsedActivity = null;
       try {
         if (s.question_data) parsedQuestion = JSON.parse(s.question_data);
-      } catch (e) {}
+      } catch {}
       try {
         if (s.activity_data) parsedActivity = JSON.parse(s.activity_data);
-      } catch (e) {}
+      } catch {}
       const slideNum = s.slide_number || (s.order_index !== undefined ? s.order_index + 1 : idx + 1);
       return {
         ...s,
@@ -377,7 +377,7 @@ export function deleteLesson(lessonId) {
   try {
     const row = db.prepare('SELECT COUNT(*) as count FROM classroom_sessions WHERE lesson_id = ?;').get(lessonId);
     referencedSessionCount = row ? row.count : 0;
-  } catch (e) {
+  } catch {
     // Cột lesson_id có thể chưa tồn tại trong DB cũ — bỏ qua an toàn
   }
 
