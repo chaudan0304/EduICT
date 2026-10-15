@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import { loadSpreadsheet } from './loadSpreadsheet.js';
 import { exportFullDatabaseExcel } from '../services/FullDataExportService';
 import { compareVietnameseNames } from './vietnameseSort.js';
 
@@ -278,7 +278,8 @@ function isFooterOrSignatureRow(row) {
  * Đọc và parse toàn bộ file Excel (1 File = Nhiều Sheet = Nhiều Lớp)
  * Trả về preview đầy đủ của cả Workbook và từng Sheet
  */
-export function parseExcelWorkbook(file, existingClasses = []) {
+export async function parseExcelWorkbook(file, existingClasses = []) {
+  const XLSX = await loadSpreadsheet();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -508,7 +509,8 @@ export async function exportAllClassesToExcel() {
  * - 1B
  * - 2A
  */
-export function downloadSampleExcelTemplate() {
+export async function downloadSampleExcelTemplate() {
+  const XLSX = await loadSpreadsheet();
   const workbook = XLSX.utils.book_new();
 
   // 1. Sheet Hướng dẫn (HUONG_DAN)

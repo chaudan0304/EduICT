@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import { loadSpreadsheet } from '../utils/loadSpreadsheet.js';
 import apiClient from './apiClient';
 import { sortStudentsVietnamese } from '../utils/vietnameseSort';
 
@@ -43,6 +43,7 @@ function chunks(text) {
 }
 
 export async function exportFullDatabaseExcel({ preferredClassId } = {}) {
+  const XLSX = await loadSpreadsheet();
   const snapshot = await fetchFullDatabase();
   const workbook = XLSX.utils.book_new();
   const used = new Set();

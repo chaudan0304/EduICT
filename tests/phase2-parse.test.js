@@ -26,19 +26,48 @@ globalThis.FileReader = class {
 };
 
 const { parseExcelWorkbook, parseExcelDate, normalizeGender } = await import('../src/utils/excelImport.js');
+const { importFromExcel } = await import('../src/utils/storage.js');
 
 // Dựng 1 "file" Excel giả từ danh sách sheet [{ name, aoa }]
-function makeFile(sheetsSpec, fileName = 'test.xlsx') {
+function makeFile(sheetsSpec, fileName = 'test.xlsx', bookType = 'xlsx') {
   const wb = XLSX.utils.book_new();
   for (const s of sheetsSpec) {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s.aoa), s.name);
   }
-  const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  const out = XLSX.write(wb, { type: 'array', bookType });
   const u8 = out instanceof Uint8Array ? out : new Uint8Array(out);
   return { name: fileName, size: u8.byteLength, __data: u8 };
 }
 
 const HEADER = ['STT', 'Họ và tên', 'Ngày sinh', 'Giới tính'];
+
+test('Gradebook Excel import resolves date/gender helpers after lazy loading', async () => {
+  const file = makeFile([{ name: '3A', aoa: [HEADER,
+    [1, 'Đặng Thị Ánh', '02/09/2018', 'Nữ'],
+  ] }]);
+  const students = await new Promise((resolve, reject) => {
+    void importFromExcel(file, (error, result) => error ? reject(error) : resolve(result));
+  });
+  assert.equal(students[0].name, 'Đặng Thị Ánh');
+  assert.equal(students[0].dob, '02/09/2018');
+  assert.equal(students[0].gender, 'Nữ');
+});
+
+for (const [bookType, extension] of [['biff8', 'xls'], ['xlsx', 'xlsx']]) {
+  test(`SheetJS upgrade: ${extension} keeps Vietnamese names and birth dates`, async () => {
+    assert.equal(XLSX.version, '0.20.3');
+    const file = makeFile([{ name: '3A', aoa: [HEADER,
+      [1, 'Nguyễn Thị Ánh', '02/09/2018', 'Nữ'],
+      [2, 'Đặng Văn Bình', '21/11/2018', 'Nam'],
+    ] }], `test.${extension}`, bookType);
+    const result = await parseExcelWorkbook(file, []);
+    assert.equal(result.sheets[0].validRows, 2);
+    assert.deepEqual(result.sheets[0].students.map(s => [s.name, s.dob, s.gender]), [
+      ['Nguyễn Thị Ánh', '02/09/2018', 'Nữ'],
+      ['Đặng Văn Bình', '21/11/2018', 'Nam'],
+    ]);
+  });
+}
 
 test('P1 đa sheet: mỗi sheet là 1 lớp', async () => {
   const file = makeFile([

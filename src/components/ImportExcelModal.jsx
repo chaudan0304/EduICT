@@ -695,7 +695,10 @@ export default function ImportExcelModal({
                   <button 
                     type="button" 
                     className="btn btn-outline btn-sm"
-                    onClick={downloadSampleExcelTemplate}
+                    onClick={async () => {
+                      try { await downloadSampleExcelTemplate(); }
+                      catch (error) { setParseError(error.message || 'Không thể tải tệp mẫu Excel.'); }
+                    }}
                     style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
                   >
                     <Download size={15} /> Tải Excel Mẫu Chuẩn (.xlsx)

@@ -1,4 +1,5 @@
-import * as XLSX from 'xlsx';
+import { loadSpreadsheet } from './loadSpreadsheet.js';
+import { parseExcelDate, normalizeGender } from './excelImport';
 import StorageService from '../services/StorageService';
 import apiClient from '../services/apiClient';
 import { downloadDatabaseFile, exportFullDatabaseExcel } from '../services/FullDataExportService';
@@ -228,7 +229,10 @@ export async function exportToExcel(_students, _className, _grade = 3, classId) 
 }
 
 // Nhập danh sách học sinh từ Excel (Tương thích file vnEdu / SMAS)
-export function importFromExcel(file, callback) {
+export async function importFromExcel(file, callback) {
+  let XLSX;
+  try { XLSX = await loadSpreadsheet(); }
+  catch (error) { callback(error, null); return; }
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
@@ -264,6 +268,7 @@ export function importFromExcel(file, callback) {
       callback(err, null);
     }
   };
+  reader.onerror = () => callback(reader.error || new Error('Không thể đọc tệp Excel.'), null);
   reader.readAsArrayBuffer(file);
 }
 
