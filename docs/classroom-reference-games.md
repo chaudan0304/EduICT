@@ -2,6 +2,8 @@
 
 Ngày 14/10/2026 · Nhánh `codex/classroom-reference-games`.
 
+> Từ 1.11.0, thiết lập/tiến độ và ảnh riêng được lưu trên máy, dùng chung giữa web và desktop đã cấu hình. Xem [hướng dẫn dữ liệu chung](personal-local-sync.md).
+
 ## Phạm vi
 
 Chuyển phần nội dung và cách chơi trong HTML người dùng gửi sang React của EduICT. Dùng chung bộ chọn lớp, âm thanh, chế độ màn hình chơi và công cụ sao nhóm. Không nhúng trang HTML độc lập hoặc chạy mã từ nội dung người dùng.
@@ -15,7 +17,7 @@ Mở tại **Trò chơi lớp học**, hoặc nút **Trò chơi** trong tiết h
 - Nút **Dùng câu hỏi mẫu theo tranh** nạp bộ thiết bị hoặc thư mục. Chọn tranh không tự ghi đè bộ câu hỏi đang soạn.
 - Đúng mở mảnh và được đoán; sai đổi lượt và giữ mảnh đóng. Luật điểm và thưởng sao giữ theo [bộ sân chơi trước](classroom-arcade-v2.md).
 - Khi câu hỏi đang mở, chỉ hiện bảng trả lời. Các mảnh chưa mở luôn che kín ảnh, kể cả lúc bị khóa bấm, tránh quy tắc làm mờ nút của ứng dụng làm lộ tranh.
-- Ảnh riêng vẫn chỉ giữ trong bộ nhớ cửa sổ, không tải lên hoặc đưa vào SQL/SQLite.
+- Từ 1.11.0, ảnh riêng lưu trong uploads trên máy; SQLite lưu liên kết ảnh. Khi sao lưu ảnh cần giữ cả uploads, xem hướng dẫn dữ liệu chung ở trên.
 
 ## 2. Kéo co trắc nghiệm
 

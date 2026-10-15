@@ -10,6 +10,7 @@ const LAUNCHER_CONTROLLED_KEYS = new Set([
   'EDUICT_RUNTIME',
   'EDUICT_HOST',
   'EDUICT_API_BASE_URL',
+  'EDUICT_SHARED_LOCAL_DATA',
   'PORT',
 ]);
 
@@ -40,6 +41,8 @@ export function loadEnv(force = false) {
       }
     }
     console.log('[AI EnvLoader] Đã nạp cấu hình mới nhất từ .env (Mtime:', new Date(stats.mtimeMs).toLocaleTimeString(), ')');
+    // A local web pointer can redirect private settings to the desktop data folder.
+    if (pathService.getEnvPath() !== envPath) loadEnv(true);
   } catch (e) {
     console.warn('[AI EnvLoader] Không thể nạp .env:', e.message);
   }

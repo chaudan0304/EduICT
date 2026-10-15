@@ -1,4 +1,5 @@
 .arcade-quiz-answers { display: grid; gap: 9px; margin: 14px 0; }
+.activity-sync-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 auto 12px; padding: 10px 14px; border: 1px solid var(--surface-border); border-radius: 10px; background: var(--surface-card); color: var(--text-muted); font-size: 12px; line-height: 1.6; max-width: 1320px; }.activity-sync-status > span { flex: 1; min-width: 200px; }.activity-sync-status .btn { min-height: 34px; font-size: 11px; }.activity-sync-status.sync-conflict,.activity-sync-status.sync-offline { border-color: #bf8637; }
 .arcade-quiz-answers button { display: flex; gap: 10px; align-items: center; width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--surface-border); border-radius: 10px; background: var(--surface); color: var(--text-main); text-align: left; font: inherit; font-size: 13px; line-height: 1.5; cursor: pointer; }
 .arcade-quiz-answers button:hover:not(:disabled) { border-color: var(--primary); background: color-mix(in srgb,var(--primary) 7%,var(--surface)); }
 .arcade-quiz-answers button:disabled { opacity: .6; }

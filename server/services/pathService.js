@@ -60,7 +60,7 @@ function toUnpackedPath(p) {
 //  - DESKTOP runtime: <data>/settings/.env (cấu hình người dùng, KHÔNG nằm trong thư mục cài đặt/asar,
 //    không bao giờ được đóng gói vào installer).
 function getEnvPath() {
-  if (String(process.env.EDUICT_RUNTIME || '').trim().toLowerCase() === 'desktop') {
+  if (String(process.env.EDUICT_RUNTIME || '').trim().toLowerCase() === 'desktop' || process.env.EDUICT_SHARED_LOCAL_DATA === '1') {
     return path.join(getAppDataDir(), 'settings', '.env');
   }
   return path.join(getAppRoot(), '.env');

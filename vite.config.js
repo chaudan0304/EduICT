@@ -1,3 +1,4 @@
+import './server/ai/bootstrapEnv.js'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { sqliteApiPlugin } from './server/vite-sqlite-plugin.js'

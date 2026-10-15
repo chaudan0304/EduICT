@@ -15,7 +15,7 @@ export function getDatabase() {
   if (!dbInstance) {
     const dbPath = getDatabasePath();
     console.log(`[Database] Kết nối SQLite CSDL tại: ${dbPath}`);
-    dbInstance = new DatabaseSync(dbPath);
+    dbInstance = new DatabaseSync(dbPath, { timeout: 5000 });
     initSchema(dbInstance);
   }
   return dbInstance;

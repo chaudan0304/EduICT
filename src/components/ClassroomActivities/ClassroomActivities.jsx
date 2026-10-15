@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Gift, Puzzle, Swords, TrainFront, MoonStar, Volume2, VolumeX, Users, Maximize2, Minimize2 } from 'lucide-react';
 import ActivityRoster from './ActivityRoster';
@@ -10,6 +10,8 @@ import KnowledgeTug from './arcade/KnowledgeTug';
 import SecretPictureGame from './arcade/SecretPictureGame';
 import ProcessTrain from './arcade/ProcessTrain';
 import SleepingDragon from './arcade/SleepingDragon';
+import ActivitySyncProvider from './ActivitySyncProvider';
+import ActivitySyncContext from './ActivitySyncContext';
 import { activityKey, stringList, studentId, useActivityState } from './activityState';
 import './ClassroomActivities.css';
 import './arcade/ReferenceGames.css';
@@ -31,6 +33,8 @@ function ActivitiesForClass({ currentClass, soundEnabled = true, embedded = fals
   const panelId = useId();
   const [state, setState] = useActivityState(`${storageKey}:roster`, { selectedIds: students.map(studentId), game: 'gifts' }, normalize);
   const [busy, setBusy] = useState(false);
+  const { markBusy } = useContext(ActivitySyncContext);
+  const notifyBusy = useCallback(value => { markBusy(value); setBusy(value); }, [markBusy]);
   const [playing, setPlaying] = useState(false);
   const playDialog = useRef(null);
   const playTrigger = useRef(null);
@@ -38,7 +42,7 @@ function ActivitiesForClass({ currentClass, soundEnabled = true, embedded = fals
   const [localSound, setLocalSound] = useState(soundEnabled);
   const selectedIds = students.map(studentId).filter(id => state.selectedIds.includes(id));
   const participants = students.filter(student => selectedIds.includes(studentId(student)));
-  const gameProps = { storageKey, currentClass, participants, soundEnabled: soundEnabled && localSound, onBusyChange: setBusy };
+  const gameProps = { storageKey, currentClass, participants, soundEnabled: soundEnabled && localSound, onBusyChange: notifyBusy };
   useEffect(() => {
     const node = playDialog.current;
     if (playing && node && !node.open) node.showModal();
@@ -79,13 +83,13 @@ function ActivitiesForClass({ currentClass, soundEnabled = true, embedded = fals
       {state.game === 'train' && <ClassroomTrain {...gameProps} />}
       {state.game === 'treasure' && <TreasureMap {...gameProps} />}
     </div>
-    <footer className="class-activity-footnote">Tiến độ được giữ tạm theo lớp và ngày trong phiên đang mở. Sao đã xác nhận được lưu vào dữ liệu của lớp.</footer>
+    <footer className="class-activity-footnote">Thiết lập và tiến độ được lưu theo lớp trong dữ liệu chung trên máy. Điểm ván tách biệt với sao học sinh đã xác nhận.</footer>
   </div>;
   return playing && !embedded ? createPortal(<dialog ref={playDialog} className="class-activity-dialog is-playing" aria-label="Màn hình chơi lớp học" onCancel={event => { event.preventDefault(); setPlaying(false); }}>{content}</dialog>, document.body) : content;
 }
 
 export default function ClassroomActivities(props) {
   if (!props.currentClass) return <section className="class-activity-hub class-activity-empty"><Gift size={40} /><h2>Chọn lớp để bắt đầu trò chơi</h2><p>Danh sách người tham gia được lấy từ lớp bạn đang dạy.</p></section>;
-  return <ActivitiesForClass key={props.currentClass.id} {...props} />;
+  return <ActivitySyncProvider key={props.currentClass.id} classId={String(props.currentClass.id)}><ActivitiesForClass {...props} /></ActivitySyncProvider>;
 }
 

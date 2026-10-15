@@ -1,5 +1,14 @@
 # Lịch sử thay đổi
 
+## 1.11.0 — 15/10/2026
+
+- Web và desktop trên máy cá nhân có thể dùng chung SQLite, tệp bài học và thiết lập AI; đã sao lưu và chuyển dữ liệu web làm nguồn chính trên máy này.
+- Thiết lập, câu hỏi, tổ tham gia và tiến độ trò chơi lưu theo lớp, giữ qua lần mở lại và có trạng thái lưu/phát hiện xung đột giữa cửa sổ.
+- Ảnh lật mảnh ghép lưu cục bộ để hai bản cùng dùng; micro vẫn không ghi âm hoặc gửi âm thanh.
+- Bộ cài bao gồm sân chơi mới: hộp quà, kéo co trắc nghiệm, lật ảnh, đoàn tàu quy trình và rồng ngủ.
+
+Chi tiết: docs/personal-local-sync.md.
+
 ## 1.10.0 — 13/10/2026
 
 ### Quản lý máy lỗi

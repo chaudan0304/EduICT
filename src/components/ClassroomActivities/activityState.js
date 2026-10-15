@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import ActivitySyncContext from './ActivitySyncContext';
 
 const memory = new Map();
 export const studentId = student => String(student.id);
@@ -12,11 +13,15 @@ export const shuffle = items => {
   return copy;
 };
 export function activityKey(classId) {
-  const d = new Date();
-  return `eduict_activities_v1:${classId}:${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  return `eduict_activities_v2:${encodeURIComponent(String(classId))}`;
 }
-// IDs and teacher-entered tasks only. This temporary state is not a database backup.
+// Persisted by the provider in SQLite; the fallback supports isolated/older consumers.
 export function useActivityState(key, initial, normalize) {
+  const sync = useContext(ActivitySyncContext);
+  const definition = useRef({ initial, normalize });
+  useEffect(() => { definition.current = { initial, normalize }; }, [initial, normalize]);
+  const prefix = sync ? `${activityKey(sync.classId)}:` : '';
+  const slot = key.startsWith(prefix) ? key.slice(prefix.length) : key;
   const [state, setState] = useState(() => {
     try {
       const raw = sessionStorage.getItem(key);
@@ -24,9 +29,12 @@ export function useActivityState(key, initial, normalize) {
     } catch { return normalize(memory.get(key), initial); }
   });
   useEffect(() => {
+    if (sync) return;
     memory.set(key, state);
     try { sessionStorage.setItem(key, JSON.stringify(state)); } catch { /* Keep the current window usable. */ }
-  }, [key, state]);
-  return [state, setState];
+  }, [key, state, sync]);
+  const update = sync?.update;
+  const setSynced = useCallback(action => update(slot, action, definition.current.initial, definition.current.normalize), [update, slot]);
+  return sync ? [normalize(sync.states[slot], initial), setSynced] : [state, setState];
 }
 export const stringList = value => Array.isArray(value) ? value.filter(item => typeof item === 'string').slice(0, 300) : [];

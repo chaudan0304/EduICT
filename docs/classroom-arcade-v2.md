@@ -2,6 +2,8 @@
 
 > Có bản tích hợp tiếp theo với trắc nghiệm, đoàn tàu quy trình và rồng ngủ. Xem [hướng dẫn mới](classroom-reference-games.md).
 
+> Từ 1.11.0, dữ liệu trò chơi lưu bền theo lớp và dùng chung trên máy đã cấu hình; các mô tả lưu tạm của đợt 1 được thay bằng [cơ chế dữ liệu chung](personal-local-sync.md).
+
 Ngày triển khai: 14/10/2026. Nhánh: `codex/classroom-arcade-v2`.
 
 ## Mở trò chơi
