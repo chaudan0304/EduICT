@@ -13,6 +13,7 @@ import { buildLessonFlowPrompt } from './prompts/lessonFlowPrompt.js';
 import { buildQuizAnalysisPrompt } from './prompts/quizAnalysisPrompt.js';
 import { buildClassAnalysisPrompt } from './prompts/classAnalysisPrompt.js';
 import { getQuestionSource } from './questionSource.js';
+import { requestWithTimeout } from './requestTimeout.js';
 
 // In-memory rate limiter: Tối đa 15 requests / phút / client IP
 const requestHistory = new Map();
@@ -154,17 +155,11 @@ export async function callGeminiStructured({
       }
 
       // Tạo promise với timeout
-      const requestPromise = ai.models.generateContent({
+      const response = await requestWithTimeout(signal => ai.models.generateContent({
         model: currentModel,
         contents: promptText,
-        config
-      });
-
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('AI_TIMEOUT')), timeoutMs);
-      });
-
-      const response = await Promise.race([requestPromise, timeoutPromise]);
+        config: { ...config, abortSignal: signal }
+      }), timeoutMs);
       const duration = Date.now() - tStart;
 
       const rawText = typeof response.text === 'function' ? response.text() : (response.text || '');
@@ -211,14 +206,10 @@ export async function callGeminiStructured({
       }
 
       if (errMsg === 'AI_TIMEOUT') {
-        if (attempt <= maxRetries) {
-          await new Promise(r => setTimeout(r, 1500));
-          continue;
-        }
         return {
           success: false,
           errorCode: 'AI_TIMEOUT',
-          error: 'AI phản hồi quá lâu (quá 45 giây). Vui lòng thử lại.'
+          error: `AI phản hồi quá lâu (quá ${Math.round(timeoutMs / 1000)} giây). Đã dừng chờ và không tự gửi lại; vui lòng thử lại sau.`
         };
       }
 
