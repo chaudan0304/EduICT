@@ -50,6 +50,9 @@ export async function tryHandleClasses(req, res, ctx) {
   if (pathname === '/api/classes' && method === 'POST') {
     try {
       const body = await parseJsonBody(req);
+      if (Array.isArray(body.students) && getAllClassesWithStudents('all').some(c => c.id === body.id)) {
+        return sendJson(res, 409, { error: 'Cần cập nhật danh sách học sinh qua thao tác lưu có phiên bản. Hãy tải lại ứng dụng.' });
+      }
       saveOrUpdateClass(body);
       sendJson(res, 201, { success: true });
     } catch (err) {
@@ -89,8 +92,10 @@ export async function tryHandleClasses(req, res, ctx) {
     try {
       const body = await parseJsonBody(req);
       const studentsList = Array.isArray(body) ? body : (body.students || []);
-      saveStudentsForClass(classId, studentsList);
-      sendJson(res, 200, { success: true });
+      if (typeof body.expectedVersion !== 'string') return sendJson(res, 409, { error: 'Thiếu phiên bản danh sách lớp. Hãy tải lại ứng dụng trước khi lưu.' });
+      if (!getAllClassesWithStudents('all').some(c => c.id === classId)) return sendJson(res, 404, { error: 'Lớp học không còn tồn tại.' });
+      saveStudentsForClass(classId, studentsList, { expectedVersion: body.expectedVersion, preserveStars: true });
+      sendJson(res, 200, { success: true, classroom: getAllClassesWithStudents('all').find(c => c.id === classId) });
     } catch (err) {
       sendJson(res, err.statusCode || 500, { error: err.message });
     }

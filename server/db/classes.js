@@ -1,5 +1,14 @@
 import { getDatabase } from './connection.js';
 import { getCurrentSchoolYear, normalizeSchoolYear } from './settings.js';
+import { createHash } from 'node:crypto';
+
+// Stars belong to the ledger. Roster edits compare all other persisted fields.
+export function getStudentRosterVersion(classId, db = getDatabase()) {
+  const rows = db.prepare(`SELECT id, name, dob, gender, machine_number, attendance,
+    skill_mouse, skill_keyboard, skill_paint, eval_regular, eval_hk1, eval_hk2,
+    score_hk1, score_ck, note FROM students WHERE class_id = ? ORDER BY id`).all(classId);
+  return createHash('sha256').update(JSON.stringify(rows)).digest('hex');
+}
 
 // ==========================================================
 // THUẬT TOÁN SẮP XẾP DANH SÁCH HỌC SINH THEO THỨ TỰ A - Z
@@ -171,6 +180,7 @@ export function getAllClassesWithStudents(schoolYear = null) {
       subject: c.subject,
       schoolYear: c.school_year,
       goodScores: Array.isArray(goodScores) ? goodScores : [],
+      studentsVersion: getStudentRosterVersion(c.id, db),
       students: classStudents
     };
   });
@@ -216,11 +226,15 @@ export function deleteClassById(classId) {
 }
 
 // Cập nhật danh sách học sinh của 1 lớp (tự động sắp xếp A - Z chuẩn tiếng Việt)
-export function saveStudentsForClass(classId, studentsList) {
+export function saveStudentsForClass(classId, studentsList, { expectedVersion, preserveStars = false } = {}) {
   const db = getDatabase();
   const sortedList = Array.isArray(studentsList) ? [...studentsList].sort(compareVietnameseNames) : [];
-  db.exec('BEGIN TRANSACTION;');
+  db.exec('BEGIN IMMEDIATE;');
   try {
+    if (expectedVersion !== undefined && expectedVersion !== getStudentRosterVersion(classId, db)) {
+      throw Object.assign(new Error('Danh sách lớp đã thay đổi ở cửa sổ khác. Hãy tải lại lớp rồi thực hiện lại.'), { statusCode: 409 });
+    }
+    const balances = preserveStars ? new Map(db.prepare('SELECT id, stars FROM students WHERE class_id = ?').all(classId).map(s => [s.id, s.stars])) : new Map();
     // Delete only explicitly removed students. Updates must not cascade-delete
     // participation, reward redemptions or star transaction history.
     const retainedIds = new Set(sortedList.map(student => student.id));
@@ -251,7 +265,7 @@ export function saveStudentsForClass(classId, studentsList) {
         s.dob || '',
         s.gender || 'Nam',
         s.machineNumber !== undefined ? s.machineNumber : (s.machine_number || null),
-        Number(s.stars) || 0,
+        balances.has(s.id) ? balances.get(s.id) : Number(s.stars) || 0,
         s.attendance || 'present',
         s.skill_mouse || 'T',
         s.skill_keyboard || 'H',

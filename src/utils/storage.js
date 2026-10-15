@@ -384,36 +384,18 @@ export async function fetchClassesFromSqlite(schoolYear = null) {
 }
 
 export async function syncClassToSqlite(classData) {
-  try {
-    await fetch('/api/classes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(classData)
-    });
-  } catch (e) {
-    console.warn('Failed to sync class to SQLite:', e);
-  }
+  const { students: _students, ...metadata } = classData;
+  return apiClient.post('/api/classes', metadata);
 }
 
 export async function deleteClassFromSqlite(classId) {
-  try {
-    await fetch(`/api/classes/${classId}`, { method: 'DELETE' });
-  } catch (e) {
-    console.warn('Failed to delete class from SQLite:', e);
-  }
+  return apiClient.delete(`/api/classes/${encodeURIComponent(classId)}`);
 }
 
-export async function syncStudentsToSqlite(classId, students) {
-  try {
-    const sorted = sortStudentsVietnamese(students);
-    await fetch(`/api/classes/${classId}/students`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ students: sorted })
-    });
-  } catch (e) {
-    console.warn('Failed to sync students to SQLite:', e);
-  }
+export async function syncStudentsToSqlite(classId, students, expectedVersion) {
+  return apiClient.request('PUT', `/api/classes/${encodeURIComponent(classId)}/students`, {
+    students: sortStudentsVietnamese(students), expectedVersion
+  });
 }
 
 // Gọi API sắp xếp lại học sinh của tất cả các lớp trong SQLite theo thứ tự A - Z

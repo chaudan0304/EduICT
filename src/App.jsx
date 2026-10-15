@@ -10,6 +10,7 @@ import HomeDashboard from './components/HomeDashboard';
 import NewSchoolYearDetectedModal from './components/NewSchoolYearDetectedModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ClassStarContext } from './components/ClassStars/ClassStarContext';
+import useStudentUpdates from './hooks/useStudentUpdates';
 
 // Part F (Giai đoạn 1B) — Code splitting: các tab NẶNG tải theo yêu cầu (React.lazy).
 // Vỏ ứng dụng (Navbar/Sidebar/HomeDashboard/ClassroomTimer/modal năm học) giữ eager
@@ -49,6 +50,8 @@ import { setActiveTeacherInfo, setActiveTimetable } from './utils/timetable';
 
 export default function App() {
   const [classes, setClasses] = useState(() => getStoredClasses());
+  const [saveError, setSaveError] = useState('');
+  const persistStudents = useStudentUpdates(classes, setClasses, setSaveError);
   const [currentClassId, setClassId] = useState(() => getCurrentClassId());
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -244,16 +247,10 @@ export default function App() {
   const handleUpdateStudents = async (updatedStudents, targetClassId = null) => {
     const classIdToUpdate = targetClassId || currentClass?.id;
     if (!classIdToUpdate) return;
-    setClasses(prevClasses => {
-      return prevClasses.map(c => {
-        if (c.id === classIdToUpdate) {
-          return { ...c, students: updatedStudents };
-        }
-        return c;
-      });
-    });
-    await syncStudentsToSqlite(classIdToUpdate, updatedStudents);
+    const saved = await persistStudents(classIdToUpdate, updatedStudents);
+    if (!saved) return false;
     refreshStudentStats();
+    return true;
   };
 
   // Cập nhật sổ điểm tốt của lớp (đồng bộ cả LocalStorage và SQLite, hỗ trợ targetClassId cho Tiết dạy)
@@ -276,7 +273,7 @@ export default function App() {
       // The star ledger already saved the new balance. A merit-only update must
       // not send the stale roster captured before awarding stars.
       const { students: _students, ...classMetadata } = targetClass;
-      syncClassToSqlite({ ...classMetadata, goodScores: safeScores });
+      void syncClassToSqlite({ ...classMetadata, goodScores: safeScores }).catch(error => setSaveError(`Chưa lưu sổ điểm tốt: ${error.message}`));
     }
   };
 
@@ -291,9 +288,12 @@ export default function App() {
       schoolYear: newClassData.schoolYear || currentSchoolYear || '2026 - 2027',
       students: []
     };
-    setClasses(prev => [...prev, newClass]);
-    setClassId(newClass.id);
-    await syncClassToSqlite(newClass);
+    try {
+      await syncClassToSqlite(newClass);
+      const fresh = await fetchClassesFromSqlite(currentSchoolYear);
+      if (fresh) setClasses(fresh);
+      setClassId(newClass.id);
+    } catch (error) { setSaveError(`Chưa tạo được lớp: ${error.message}`); return; }
     refreshStudentStats(currentSchoolYear);
   };
 
@@ -339,16 +339,21 @@ export default function App() {
 
   // Phục hồi dữ liệu các lớp (đồng bộ toàn bộ lên SQLite)
   const handleRestoreClasses = async (newClasses) => {
-    setClasses(newClasses);
+    try {
+      const baseline = await fetchClassesFromSqlite('all');
+      if (!baseline) throw new Error('Không nạp được dữ liệu gốc để phục hồi an toàn.');
+      for (const c of newClasses) {
+        await syncClassToSqlite(c);
+        const current = (await fetchClassesFromSqlite('all'))?.find(item => item.id === c.id);
+        if (!current) throw new Error('Không nạp được lớp vừa lưu.');
+        await syncStudentsToSqlite(c.id, c.students || [], current.studentsVersion);
+      }
+      const fresh = await fetchClassesFromSqlite(currentSchoolYear);
+      if (fresh) setClasses(fresh);
+    } catch (error) { setSaveError(`Chưa phục hồi đủ dữ liệu: ${error.message}`); return; }
     if (newClasses && newClasses.length > 0) {
       setClassId(newClasses[0].id);
       setCurrentClassId(newClasses[0].id);
-    }
-    for (const c of newClasses) {
-      await syncClassToSqlite(c);
-      if (c.students && c.students.length > 0) {
-        await syncStudentsToSqlite(c.id, c.students);
-      }
     }
     refreshStudentStats(currentSchoolYear);
   };
@@ -368,10 +373,11 @@ export default function App() {
     );
 
     if (confirmed) {
+      try { await deleteClassFromSqlite(classIdToDelete); }
+      catch (error) { setSaveError(`Chưa xóa được lớp: ${error.message}`); return; }
       const remainingClasses = classes.filter(c => c.id !== classIdToDelete);
       setClasses(remainingClasses);
       saveClasses(remainingClasses);
-      await deleteClassFromSqlite(classIdToDelete);
       refreshStudentStats(currentSchoolYear);
       
       // Nếu xóa lớp đang chọn, chuyển sang lớp đầu tiên còn lại
@@ -445,6 +451,10 @@ export default function App() {
         {/* Main Content Area */}
         <ErrorBoundary title="Đã xảy ra sự cố khi tải nội dung chức năng">
           <main className="app-container" style={{ flex: 1, paddingTop: '1.25rem', width: '100%' }}>
+          {saveError && <div role="alert" className="error-message" style={{ padding: '1rem', marginBottom: '1rem' }}>
+            <strong>{saveError}</strong><p>Kiểm tra kết nối và thực hiện lại. Khi có xung đột, dữ liệu mới nhất của lớp đã được nạp lại nếu kết nối còn hoạt động.</p>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setSaveError('')}>Đã hiểu</button>
+          </div>}
           {/* Thanh thông báo nổi bật khi đang có tiết học chưa kết thúc (hiển thị ở mọi tab ngoài tab sessions) */}
           {activeTab !== 'sessions' && ongoingSession && ongoingSession.status !== 'COMPLETED' && (
             <div style={{
