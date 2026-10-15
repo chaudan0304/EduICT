@@ -19,8 +19,8 @@ export function awardStar(transactionData) {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO star_transactions (id, student_id, class_id, amount, reason, source, session_id, requested_amount)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO star_transactions (id, student_id, class_id, amount, reason, source, session_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   
   const updateStmt = db.prepare(`
@@ -31,7 +31,7 @@ export function awardStar(transactionData) {
 
   try {
     db.exec('BEGIN TRANSACTION');
-    stmt.run(id, studentId, classId, amount, reason, source, sessionId || null, amount);
+    stmt.run(id, studentId, classId, amount, reason, source, sessionId || null);
     updateStmt.run(amount, studentId, classId);
     
     // Fetch updated balance
@@ -51,6 +51,13 @@ export function awardStar(transactionData) {
 // phản ánh đủ mọi thay đổi. Số dư luôn kẹp sàn 0.
 export function adjustStars(transactionData) {
   const db = getDatabase();
+  // An older SQL/JSON restore can replace the table without restarting either
+  // backend. Upgrade this optional audit column before preparing its INSERT.
+  const hasRequestedAmount = () => db.prepare('PRAGMA table_info(star_transactions)').all().some(column => column.name === 'requested_amount');
+  if (!hasRequestedAmount()) {
+    try { db.exec('ALTER TABLE star_transactions ADD COLUMN requested_amount INTEGER'); }
+    catch (error) { if (!hasRequestedAmount()) throw error; }
+  }
   const { id, studentId, classId, amount, reason, source, sessionId } = transactionData;
 
   const amt = Number(amount);

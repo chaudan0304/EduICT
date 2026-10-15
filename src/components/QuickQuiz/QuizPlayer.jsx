@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { soundEffects } from '../../utils/audio';
 import { DIFFICULTIES, saveQuizResultsApi } from './quizStorage';
-import DialogService from '../../services/DialogService';
 import { scoreQuestion } from './quizScoring';
 
 export default function QuizPlayer({
@@ -45,6 +44,13 @@ export default function QuizPlayer({
   const finishingRef = useRef(false);
   const latestActionsRef = useRef(null);
   const awardConfirmationRef = useRef(null);
+  const [rewardPrompt, setRewardPrompt] = useState(null);
+  const rewardDialogRef = useRef(null);
+  useEffect(() => {
+    const dialog = rewardDialogRef.current;
+    if (rewardPrompt !== null && dialog && !dialog.open) dialog.showModal();
+    else if (rewardPrompt === null && dialog?.open) dialog.close();
+  }, [rewardPrompt]);
 
   // Dữ liệu ghi nhận từng học sinh theo từng câu (Mode 2 - Student Mode): Map<questionId, Map<studentId, 'CORRECT'|'WRONG'|'NOT_ANSWERED'>>
   const [studentMarksByQuestion, setStudentMarksByQuestion] = useState({});
@@ -248,15 +254,12 @@ export default function QuizPlayer({
         }
       }
 
-      if (isSoundEnabled) {
-        soundEffects.playVictory();
-      }
-
-      if (awardConfirmationRef.current === null) awardConfirmationRef.current = totalStarsAwarded > 0 && await DialogService.confirmAsync(`Lưu kết quả và thưởng ${totalStarsAwarded} sao theo kết quả đố vui? Chọn Hủy để chỉ lưu kết quả, không thưởng sao.`);
+      if (awardConfirmationRef.current === null && totalStarsAwarded > 0) { setRewardPrompt(totalStarsAwarded); return; }
       const saved = await saveQuizResultsApi(quizSession.id, {
         status: 'COMPLETED', completed_at: new Date().toISOString(), results: allResults, student_results: studentResultsList,
         award_stars: awardConfirmationRef.current, confirmed: awardConfirmationRef.current
       });
+      if (isSoundEnabled) soundEffects.playVictory();
       onBalancesChanged?.(saved.balances || []);
       onCompleteQuiz({
         session_id: quizSession.id,
@@ -279,7 +282,7 @@ export default function QuizPlayer({
   // Xử lý phím tắt bàn phím chuẩn máy chiếu
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (finishingRef.current) return;
+      if (finishingRef.current || rewardPrompt !== null) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       if (e.key === 'ArrowRight' || e.key === ' ') {
@@ -300,7 +303,7 @@ export default function QuizPlayer({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAnswerRevealed, currentIndex, totalQuestions, onClose]);
+  }, [isAnswerRevealed, currentIndex, totalQuestions, onClose, rewardPrompt]);
 
   if (!currentQ) return null;
 
@@ -324,6 +327,15 @@ export default function QuizPlayer({
     }}>
       {saveError && <div role="alert" style={{ padding: '1rem', background: '#7f1d1d', color: 'white' }}>{saveError} Kết quả vẫn được giữ tại đây. <button type="button" className="btn btn-primary" onClick={handleFinishQuiz} disabled={isSaving}>Thử lưu lại</button></div>}
       {isSaving && <div role="status" style={{ padding: '0.5rem 1rem' }}>Đang lưu kết quả và số sao đã xác nhận…</div>}
+      <dialog ref={rewardDialogRef} aria-labelledby="quiz-reward-title" onCancel={event => { event.preventDefault(); setRewardPrompt(null); }} style={{ width: 'min(92vw, 460px)', border: '1px solid var(--surface-border)', borderRadius: 20, padding: 24, background: 'var(--surface-card)', color: 'var(--text-main)', boxShadow: '0 24px 80px #0005' }}>
+        <h3 id="quiz-reward-title">Lưu kết quả đố vui</h3>
+        <p>Có thể thưởng tổng {rewardPrompt || 0} sao theo kết quả vừa ghi nhận. Chọn cách lưu bên dưới.</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
+          <button type="button" className="btn btn-primary" autoFocus onClick={() => { awardConfirmationRef.current = true; setRewardPrompt(null); void handleFinishQuiz(); }}>Lưu và thưởng sao</button>
+          <button type="button" className="btn btn-outline" onClick={() => { awardConfirmationRef.current = false; setRewardPrompt(null); void handleFinishQuiz(); }}>Chỉ lưu kết quả</button>
+          <button type="button" className="btn btn-outline" onClick={() => setRewardPrompt(null)}>Quay lại</button>
+        </div>
+      </dialog>
       {/* 1. Top Header: Tên Quiz, Tiến độ, Nút âm thanh, Đóng */}
       <div style={{
         padding: '0.85rem 2rem',
