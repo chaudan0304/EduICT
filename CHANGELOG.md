@@ -1,5 +1,13 @@
 # Lịch sử thay đổi
 
+## 1.15.0 — 17/10/2026
+
+- Lịch giảng dạy có nút Chỉnh lớp & giờ học: chọn lớp/nghỉ/trống theo thứ và tiết, sửa giờ bắt đầu/kết thúc cho 4 tiết sáng và 3 tiết chiều. Khung giờ dùng chung thứ Hai–thứ Sáu; khoảng nghỉ tự tính giữa các tiết.
+- Lưu lớp và khung giờ trong cùng giao dịch, kiểm tra giờ chồng lấn/đảo chiều và xung đột phân lớp. Phát hiện lịch đã sửa ở cửa sổ khác, giữ bản nháp và chặn ghi đè.
+- Web/desktop đọc lại lịch khi quay về cửa sổ và mỗi 15 giây khi đang hiển thị. Đồng hồ của cửa sổ tiết đang dạy giữ khung giờ đã chọn; mở lại tiết học dùng lịch mới. Tạo tiết học theo lịch lấy đúng thời lượng khung giờ mới.
+
+Chi tiết và phạm vi kiểm chứng: docs/timetable-editing-1.15.0.md.
+
 ## 1.14.0 — 17/10/2026
 
 - Tạo tiết học chỉ đóng biểu mẫu khi máy chủ xác nhận; giữ mã tạo để thử lại không tạo trùng. Xóa tiết học thất bại giữ nguyên hàng và có nút thử lại.
