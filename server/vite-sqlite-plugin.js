@@ -1,10 +1,13 @@
-import { handleApiRequest } from './api-handler.js';
-import { handleUploadsRequest } from './static-file-handler.js';
-
 export function sqliteApiPlugin() {
   return {
     name: 'vite-plugin-edumaster-sqlite',
-    configureServer(server) {
+    async configureServer(server) {
+      // Build must never initialize or reconcile the user's SQLite database.
+      const { handleApiRequest } = await import('./api-handler.js');
+      const { handleUploadsRequest } = await import('./static-file-handler.js');
+      const { startAutomaticBackup } = await import('./services/automaticBackup.js');
+      const stopBackup = startAutomaticBackup();
+      server.httpServer?.once('close', stopBackup);
       server.middlewares.use(async (req, res, next) => {
         if (req.url && req.url.startsWith('/uploads/')) {
           const handled = handleUploadsRequest(req, res);

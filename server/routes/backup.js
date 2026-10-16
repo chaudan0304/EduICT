@@ -14,11 +14,27 @@ import {
   createBackup,
   deleteBackup,
   verifyBackup,
-  restoreBackup
+  restoreBackup,
+  withBackupOperation
 } from '../services/backupService.js';
+import { getAutomaticBackupStatus } from '../services/automaticBackup.js';
+import { downloadBackupPackage, importBackupPackage } from '../services/backupPackage.js';
 
 export async function tryHandleBackup(req, res, ctx) {
   const { pathname, method } = ctx;
+
+  if (pathname === '/api/backup/package' && method === 'GET') {
+    try {
+      const backupId = new URL(req.url, 'http://localhost').searchParams.get('backupId');
+      await downloadBackupPackage(backupId, res);
+    } catch (err) { if (!res.headersSent && !res.destroyed) sendJson(res, err.statusCode || 400, { error: err.message }); }
+    return true;
+  }
+  if (pathname === '/api/backup/import-package' && method === 'POST') {
+    try { sendJson(res, 200, await importBackupPackage(req)); }
+    catch (err) { if (!res.headersSent && !res.destroyed) sendJson(res, err.statusCode || 400, { error: err.message }); }
+    return true;
+  }
 
   if (pathname === '/api/backup/export-json' && method === 'GET') {
     try {
@@ -50,7 +66,7 @@ export async function tryHandleBackup(req, res, ctx) {
 
   if (pathname === '/api/backup/list' && method === 'GET') {
     try {
-      sendJson(res, 200, { success: true, data: listBackups() });
+      sendJson(res, 200, { success: true, data: listBackups(), automatic: getAutomaticBackupStatus() });
     } catch (err) {
       sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }
@@ -95,7 +111,7 @@ export async function tryHandleBackup(req, res, ctx) {
     try {
       const { backupId } = await parseJsonBody(req);
       if (!backupId) return sendJson(res, 400, { success: false, error: 'Thiếu backupId' });
-      const result = deleteBackup(backupId);
+      const result = await withBackupOperation(() => deleteBackup(backupId));
       sendJson(res, 200, result);
     } catch (err) {
       sendJson(res, err.statusCode || 500, { success: false, error: err.message });

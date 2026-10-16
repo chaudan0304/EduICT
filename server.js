@@ -7,12 +7,14 @@ import { handleUploadsRequest } from './server/static-file-handler.js';
 import { getDatabase, getDatabasePath } from './server/db.js';
 import { closeConnection } from './server/db/connection.js';
 import * as pathService from './server/services/pathService.js';
+import { startAutomaticBackup } from './server/services/automaticBackup.js';
 
 const PORT = process.env.PORT || 5173;
 const DIST_DIR = pathService.getDistDir();
 
 // Khởi tạo Database SQLite
 getDatabase();
+const stopBackup = startAutomaticBackup();
 
 const server = http.createServer(async (req, res) => {
   // Xử lý static files uploads
@@ -78,6 +80,7 @@ let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
+  stopBackup();
   console.log(`[Server] Nhận ${signal}, đang tắt...`);
   server.close(() => {
     try { closeConnection(); } catch { /* đã đóng */ }

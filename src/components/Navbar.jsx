@@ -1602,9 +1602,11 @@ export default function Navbar({
                   color: 'var(--text-muted)',
                   marginBottom: '0.6rem' 
                 }}>
-                  📦 Sao lưu toàn bộ dữ liệu (JSON)
+                  📄 Xuất toàn bộ cơ sở dữ liệu (JSON)
                 </div>
 
+                <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)' }}>JSON, SQL, SQLite và Excel giữ dữ liệu trong database; không kèm tệp ảnh/tài nguyên. Dùng gói EduICT để sao lưu cả kho tài nguyên.</p>
+                <button type="button" className="btn btn-primary btn-sm" disabled={dataBusy} onClick={() => { setShowBackupModal(false); setClassroomToolsTab('backup'); setShowClassroomTools(true); }}>Mở sao lưu & phục hồi đầy đủ</button>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <button 
                     type="button"

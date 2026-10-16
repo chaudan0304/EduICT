@@ -1,13 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Settings, ShieldCheck, FileText, Download, X } from 'lucide-react';
+import { Settings, ShieldCheck, FileText, Download, Archive, X } from 'lucide-react';
 import GeminiSettings from './GeminiSettings';
 import PreflightPanel from './PreflightPanel';
 import StudentProgressPanel from './StudentProgressPanel';
 import VersionPanel from './VersionPanel';
+import BackupPanel from './BackupPanel';
 import './ClassroomTools.css';
 
 const tabs = [{ id: 'gemini', label: 'Gemini', icon: Settings }, { id: 'preflight', label: 'Trước giờ dạy', icon: ShieldCheck },
-  { id: 'progress', label: 'Tiến bộ học sinh', icon: FileText }, { id: 'version', label: 'Phiên bản', icon: Download }];
+  { id: 'progress', label: 'Tiến bộ học sinh', icon: FileText }, { id: 'backup', label: 'Sao lưu', icon: Archive }, { id: 'version', label: 'Phiên bản', icon: Download }];
 
 export default function ClassroomToolsModal({ isOpen, onClose, currentClass, onAiStatusChange, initialTab = 'gemini' }) {
   const dialog = useRef(null); const titleId = useId(); const opener = useRef(null);
@@ -29,6 +30,7 @@ export default function ClassroomToolsModal({ isOpen, onClose, currentClass, onA
       {tab === 'preflight' && <PreflightPanel />}
       {tab === 'progress' && <StudentProgressPanel key={currentClass?.id || 'none'} currentClass={currentClass} onBusyChange={setBusy} />}
       {tab === 'version' && <VersionPanel />}
+      {tab === 'backup' && <BackupPanel onBusyChange={setBusy} />}
     </div>}
   </dialog>;
 }
