@@ -1,6 +1,6 @@
 # Sửa các vấn đề còn lại — EduICT 1.11.2
 
-Ngày 15/10/2026 · Nhánh `codex/fix-project-audit` · tiếp nối [đợt 1.11.1](project-audit-fixes-1.11.1.md).
+Ngày 15/10/2026 · cập nhật cài đặt 16/10/2026 · Nhánh `codex/fix-project-audit` · tiếp nối [đợt 1.11.1](project-audit-fixes-1.11.1.md).
 
 ## Thay đổi và bằng chứng
 
@@ -21,8 +21,17 @@ Ngày 15/10/2026 · Nhánh `codex/fix-project-audit` · tiếp nối [đợt 1.1
 - Thử tạo tệp giả trong thư mục cài trả Access denied. Nhật ký NSIS chẩn đoán xác nhận trình gỡ cũ trả exit 2, lặp lại rồi chờ hộp lỗi.
 - Đã thử giả thuyết TEMP ở ổ C khác ổ D; chuyển TEMP sang D vẫn không khắc phục. Kết luận dựa trên ACL và phép thử ghi, không kết luận do khác ổ đĩa.
 - Đã sao lưu toàn bộ thư mục cài trước khi thử cập nhật vào `scratch/installed-1.11.0-before-followup`.
-- Chạy bộ cài bằng RunAs đã yêu cầu Windows UAC; hệ điều hành trả “The operation was canceled by the user”. **Chưa cài được 1.11.2 vào vị trí hiện tại; bản đã cài vẫn 1.11.0.0.** Cần người dùng xác nhận UAC khi chạy `release/EduMaster-Setup.exe` bằng Run as administrator. Không đổi ACL và không cài thêm một bản khác để né quyền.
+- Lần chạy RunAs trước trả “The operation was canceled by the user”; người dùng cho biết không thấy UAC. Ngày 16/10 đã chạy lại, người dùng xác nhận chọn Yes: bộ cài thoát mã 0, EXE tại vị trí cài hiện tại có ProductVersion **1.11.2.0**. Không đổi ACL.
 - Log thiếu quyền nằm ở `%LOCALAPPDATA%\EduMaster\installer.log`; không chứa khóa hoặc dữ liệu học sinh.
+
+## Xác nhận sau cài đặt — 16/10/2026
+
+- Đã mở EXE đang cài tại `D:\App_DaCaiDat\EduMaster\EduMaster.exe`. Log ghi khởi động EduMaster v1.11.2 lúc `2026-10-16T11:40:06.966Z`; backend sẵn sàng, không ghi nhận lỗi ở lượt khởi động này.
+- Ứng dụng tạo thành công bản sao lưu `EduMaster-Safety-preupdate-1.11.0-to-1.11.2-2026-10-16T11-40-06-988Z` trước khi khởi động backend.
+- Desktop và web đều mở kho `C:\Users\chaud\AppData\Roaming\EduMaster\data\edumaster.sqlite`. Đã khởi động lại web tại `http://127.0.0.1:5173/`; desktop dùng cổng động 57366 trong lượt kiểm tra này.
+- API `/api/health` của cả hai trả `ok: true`, `database: ok`. `/api/classes?schoolYear=all` đều có **23 lớp, 810 học sinh**, đủ `studentsVersion` cho 23 lớp. Mã SHA-256 của toàn bộ phản hồi danh sách sau chuẩn hóa khớp nhau: `4281b3981b3ddd3b72bf484468fcc7361939d04069b5445abe789c4a5b794f7c`.
+- Kết nối SQLite `readOnly: true`: `PRAGMA integrity_check` trả `ok`, `PRAGMA foreign_key_check` trả 0 dòng lỗi. Không tạo giao dịch điểm/sao để thử trên dữ liệu thật.
+- Đây là kiểm tra phiên bản EXE, khởi động, API và kho dữ liệu sau cài. Chưa xác nhận giao diện desktop trực tiếp hay các tương tác PowerPoint/micro/đăng nhập Microsoft. Không chạy lại bộ test/build đã ghi bên dưới vì lượt tiếp tục này chỉ cài bộ EXE đã dựng.
 
 ## Kết quả cuối
 
