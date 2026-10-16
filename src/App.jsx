@@ -11,6 +11,8 @@ import NewSchoolYearDetectedModal from './components/NewSchoolYearDetectedModal'
 import ErrorBoundary from './components/ErrorBoundary';
 import { ClassStarContext } from './components/ClassStars/ClassStarContext';
 import useStudentUpdates from './hooks/useStudentUpdates';
+import useClassDataSync from './hooks/useClassDataSync';
+import DataSyncStatus from './components/DataSyncStatus';
 
 // Part F (Giai đoạn 1B) — Code splitting: các tab NẶNG tải theo yêu cầu (React.lazy).
 // Vỏ ứng dụng (Navbar/Sidebar/HomeDashboard/ClassroomTimer/modal năm học) giữ eager
@@ -28,7 +30,6 @@ const LessonManager = lazy(() => import('./components/LessonPresentation/LessonM
 const QuickQuizManager = lazy(() => import('./components/QuickQuiz/QuickQuizManager'));
 import { getActiveOngoingSession } from './components/ClassroomSession/sessionStorage';
 import { 
-  getStoredClasses, 
   saveClasses, 
   getCurrentClassId, 
   setCurrentClassId,
@@ -49,9 +50,9 @@ import {
 import { setActiveTeacherInfo, setActiveTimetable } from './utils/timetable';
 
 export default function App() {
-  const [classes, setClasses] = useState(() => getStoredClasses());
+  const [classes, setClasses] = useState([]);
   const [saveError, setSaveError] = useState('');
-  const persistStudents = useStudentUpdates(classes, setClasses, setSaveError);
+  const { persistStudents, writeStatus, isBlocked, getRevision, discardUnsaved, trackMetadata } = useStudentUpdates(classes, setClasses, setSaveError);
   const [currentClassId, setClassId] = useState(() => getCurrentClassId());
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -66,8 +67,10 @@ export default function App() {
   useEffect(() => onPresentationNavigate(setActiveTab), []);
   const [isProjector, setIsProjector] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [dbStatus, setDbStatus] = useState({ connected: false, dbFile: 'edumaster.sqlite' });
   const [currentSchoolYear, setCurrentSchoolYear] = useState('2026 - 2027');
+  const [syncReady, setSyncReady] = useState(false);
+  const { status: syncStatus, refresh: refreshClasses } = useClassDataSync({ classes, schoolYear: currentSchoolYear, enabled: syncReady, setClasses, setClassId, isBlocked, getRevision, discardUnsaved });
+  const dbStatus = { connected: syncStatus.connected, dbFile: 'edumaster.sqlite' };
   const [availableSchoolYears, setAvailableSchoolYears] = useState(['2025 - 2026', '2026 - 2027']);
   const [academicYearSettings, setAcademicYearSettings] = useState({ startMonth: 9, startDay: 5 });
   const [newYearInfo, setNewYearInfo] = useState(null);
@@ -149,16 +152,8 @@ export default function App() {
         }
         setCurrentSchoolYear(activeYear);
 
-        const sqliteClasses = await fetchClassesFromSqlite(activeYear);
-        if (sqliteClasses && Array.isArray(sqliteClasses) && sqliteClasses.length > 0) {
-          setClasses(sqliteClasses);
-          saveClasses(sqliteClasses);
-          setClassId(selectedId => sqliteClasses.some(c => c.id === selectedId)
-            ? selectedId : sqliteClasses[0].id);
-          setDbStatus({ connected: true, dbFile: 'edumaster.sqlite' });
-        } else {
-          setDbStatus({ connected: true, dbFile: 'edumaster.sqlite' });
-        }
+        // The sync hook also accepts an empty collection and reports failures.
+        setSyncReady(true);
         await loadStudentStats(activeYear);
 
         // GIAI ĐOẠN 3 — Nạp hồ sơ giáo viên & thời khóa biểu đã lưu (nếu có),
@@ -187,6 +182,8 @@ export default function App() {
         }
       } catch (e) {
         console.warn('Could not connect to SQLite backend:', e);
+      } finally {
+        setSyncReady(true);
       }
     }
     initSqliteData();
@@ -230,6 +227,7 @@ export default function App() {
   }, [isProjector]);
 
   const currentClass = classes.find(c => c.id === currentClassId) || classes[0];
+  const selectClass = useCallback(id => { setClassId(id); setCurrentClassId(id); }, []);
 
   const handleClassStarsApplied = result => {
     const balances = new Map(result.balances.map(item => [String(item.studentId), item.newBalance]));
@@ -272,7 +270,7 @@ export default function App() {
       // The star ledger already saved the new balance. A merit-only update must
       // not send the stale roster captured before awarding stars.
       const { students: _students, ...classMetadata } = targetClass;
-      void syncClassToSqlite({ ...classMetadata, goodScores: safeScores }).catch(error => setSaveError(`Chưa lưu sổ điểm tốt: ${error.message}`));
+      void trackMetadata(classIdToUpdate, () => syncClassToSqlite({ ...classMetadata, goodScores: safeScores })).catch(error => setSaveError(`Chưa lưu sổ điểm tốt: ${error.message}`));
     }
   };
 
@@ -299,11 +297,14 @@ export default function App() {
   // Chuyển đổi xem năm học khác
   const handleSelectSchoolYear = async (year) => {
     if (!year || year === currentSchoolYear) return;
-    setCurrentSchoolYear(year);
-    await setCurrentSchoolYearToSqlite(year);
-
-    const yearClasses = await fetchClassesFromSqlite(year);
-    if (yearClasses && Array.isArray(yearClasses)) {
+    if (writeStatus.pending > 0 || writeStatus.unsaved) {
+      setSaveError('Hãy lưu xong thay đổi hoặc làm mới dữ liệu trước khi đổi năm học.');
+      return;
+    }
+    try {
+      if (!await setCurrentSchoolYearToSqlite(year)) throw new Error('Không lưu được năm học đang chọn.');
+      const yearClasses = await fetchClassesFromSqlite(year, { strict: true });
+      setCurrentSchoolYear(year);
       setClasses(yearClasses);
       saveClasses(yearClasses);
       // Requirement Section 20 - Test 5: Reset lớp đang chọn nếu không tồn tại trong năm mới
@@ -313,8 +314,8 @@ export default function App() {
         setClassId(nextId);
         setCurrentClassId(nextId);
       }
-    }
-    await refreshStudentStats(year);
+      await refreshStudentStats(year);
+    } catch (error) { setSaveError(`Chưa đổi được năm học: ${error.message}`); }
   };
 
   // Xử lý khi chuyển năm học thành công
@@ -325,13 +326,11 @@ export default function App() {
       setAvailableSchoolYears(yearsInfo.availableYears);
     }
     const newClasses = await fetchClassesFromSqlite(toYear);
-    if (newClasses && Array.isArray(newClasses) && newClasses.length > 0) {
+    if (newClasses && Array.isArray(newClasses)) {
       setClasses(newClasses);
       saveClasses(newClasses);
-      if (newClasses[0]) {
-        setClassId(newClasses[0].id);
-        setCurrentClassId(newClasses[0].id);
-      }
+      setClassId(newClasses[0]?.id || '');
+      setCurrentClassId(newClasses[0]?.id || '');
     }
     await refreshStudentStats(toYear);
   };
@@ -424,7 +423,7 @@ export default function App() {
           isLoadingStats={isLoadingStats}
           statsError={statsError}
           onRefreshStats={refreshStudentStats}
-          onSelectClass={setClassId}
+          onSelectClass={selectClass}
           onAddClass={handleAddClass}
           onDeleteClass={handleDeleteClass}
           onRestoreClasses={handleRestoreClasses}
@@ -450,6 +449,16 @@ export default function App() {
         {/* Main Content Area */}
         <ErrorBoundary title="Đã xảy ra sự cố khi tải nội dung chức năng">
           <main className="app-container" style={{ flex: 1, paddingTop: '1.25rem', width: '100%' }}>
+          <DataSyncStatus status={syncStatus} writeStatus={writeStatus} currentClass={currentClass} hasSession={Boolean(ongoingSession)}
+            onRefresh={async () => {
+              const discard = writeStatus.unsaved;
+              if (discard && !await DialogService.confirmAsync('Tải lại dữ liệu đã lưu trên máy chủ? Các thay đổi chưa lưu ở cửa sổ này sẽ bị bỏ.')) return;
+              if (await refreshClasses({ discard })) { setSaveError(''); await refreshStudentStats(); }
+            }}
+            onTeach={() => {
+              if (!ongoingSession && currentClass) setAutoOpenSessionForClassId(currentClass.id);
+              setActiveTab('sessions');
+            }} />
           {saveError && <div role="alert" className="error-message" style={{ padding: '1rem', marginBottom: '1rem' }}>
             <strong>{saveError}</strong><p>Kiểm tra kết nối và thực hiện lại. Khi có xung đột, dữ liệu mới nhất của lớp đã được nạp lại nếu kết nối còn hoạt động.</p>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setSaveError('')}>Đã hiểu</button>
@@ -535,7 +544,7 @@ export default function App() {
 
           {activeTab !== 'home' && (
             <ClassContextBar classes={classes} currentClass={currentClass} schoolYear={currentSchoolYear}
-              onSelectClass={id => { setClassId(id); setCurrentClassId(id); }} />
+              onSelectClass={selectClass} />
           )}
 
           <Suspense fallback={
@@ -564,7 +573,7 @@ export default function App() {
             <HomeDashboard
               classes={classes}
               currentClass={currentClass}
-              onSelectClass={setClassId}
+              onSelectClass={selectClass}
               studentStats={studentStats}
               isLoadingStats={isLoadingStats}
               currentSchoolYear={currentSchoolYear}
@@ -577,10 +586,7 @@ export default function App() {
             <SessionManager
               classes={classes}
               currentClass={currentClass}
-              onSelectClass={(newClassId) => {
-                setClassId(newClassId);
-                setCurrentClassId(newClassId);
-              }}
+              onSelectClass={selectClass}
               autoOpenClassId={autoOpenSessionForClassId}
               onClearAutoOpen={() => setAutoOpenSessionForClassId(null)}
               onUpdateStudents={handleUpdateStudents}

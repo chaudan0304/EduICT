@@ -367,22 +367,23 @@ export async function transitionSchoolYearInSqlite(fromYear, toYear) {
   return (await apiClient.post('/api/school-year/transition', { fromYear, toYear })) ?? {};
 }
 
-export async function fetchClassesFromSqlite(schoolYear = null) {
+export async function fetchClassesFromSqlite(schoolYear = null, { strict = false, signal } = {}) {
   try {
     const url = schoolYear && schoolYear !== 'all' 
       ? `/api/classes?schoolYear=${encodeURIComponent(schoolYear)}`
       : (schoolYear === 'all' ? '/api/classes?schoolYear=all' : '/api/classes');
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
+    {
+      const data = await apiClient.get(url, { signal });
       if (Array.isArray(data)) {
         return data.map(c => ({
           ...c,
           students: sortStudentsVietnamese(c.students || [])
         }));
       }
+      throw new Error('Máy chủ trả về danh sách lớp không hợp lệ.');
     }
   } catch (e) {
+    if (strict) throw e;
     console.warn('Backend SQLite API not reachable, using localStorage:', e);
   }
   return null;

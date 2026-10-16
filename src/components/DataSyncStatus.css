@@ -1,0 +1,9 @@
+.data-sync-status { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.8rem 1rem; margin-bottom:1rem; background:var(--surface-card); border:1px solid var(--surface-border); border-radius:var(--radius-md,12px); }
+.data-sync-copy { display:flex; align-items:center; gap:.65rem; min-width:0; color:var(--primary); }
+.data-sync-copy > svg { flex-shrink:0; }
+.data-sync-copy strong { display:block; font-size:.85rem; color:var(--text-main); }
+.data-sync-copy span { display:block; margin-top:.2rem; font-size:.75rem; color:var(--text-muted); overflow-wrap:anywhere; }
+.data-sync-status.has-warning { border-color:var(--warning,#d97706); }
+.data-sync-status.has-warning .data-sync-copy { color:var(--warning,#d97706); }
+.data-sync-actions { display:flex; flex-shrink:0; gap:.5rem; flex-wrap:wrap; }
+@media(max-width:720px) { .data-sync-status { align-items:flex-start; flex-direction:column; }.data-sync-actions { width:100%; }.data-sync-actions button { flex:1; } }
