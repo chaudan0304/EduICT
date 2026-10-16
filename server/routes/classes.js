@@ -12,10 +12,9 @@ import {
   getDbRules,
   saveDbRules,
   getDbTeacherProfile,
-  saveDbTeacherProfile,
-  getDbTimetable,
-  saveDbTimetable
+  saveDbTeacherProfile
 } from '../db.js';
+import { getTimetableSettings, saveTimetableSettings } from '../services/timetableSettings.js';
 
 export async function tryHandleClasses(req, res, ctx) {
   const { pathname, method } = ctx;
@@ -189,8 +188,7 @@ export async function tryHandleClasses(req, res, ctx) {
   if (pathname === '/api/timetable') {
     if (method === 'GET') {
       try {
-        const timetable = getDbTimetable();
-        sendJson(res, 200, { timetable });
+        sendJson(res, 200, getTimetableSettings());
       } catch (err) {
         sendJson(res, err.statusCode || 500, { error: err.message });
       }
@@ -199,15 +197,15 @@ export async function tryHandleClasses(req, res, ctx) {
     if (method === 'POST') {
       try {
         const body = await parseJsonBody(req);
-        const grid = body && body.timetable ? body.timetable : body;
-        saveDbTimetable(grid);
-        sendJson(res, 200, { success: true });
+        const wrapped = body && Object.hasOwn(body, 'timetable');
+        const saved = saveTimetableSettings(wrapped ? body : { timetable: body });
+        sendJson(res, 200, { success: true, ...saved });
       } catch (err) {
         // Xung đột TKB → 409 kèm danh sách; lỗi khác → 500
         if (err.code === 'TIMETABLE_CONFLICT') {
           sendJson(res, 409, { success: false, error: err.message, conflicts: err.conflicts || [] });
         } else {
-          sendJson(res, err.statusCode || 500, { error: err.message });
+          sendJson(res, err.statusCode || 500, { error: err.message, code: err.code });
         }
       }
       return true;

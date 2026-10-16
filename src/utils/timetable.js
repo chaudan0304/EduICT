@@ -1,3 +1,5 @@
+import { buildPeriodSlots, DEFAULT_TEACHING_PERIODS } from '../../shared/timetablePeriods.js';
+
 /**
  * Lịch Giảng Dạy Cá Nhân (Thời Khóa Biểu)
  * Giáo viên: Nguyễn Văn Châu Đàn (Châu Đàn)
@@ -36,23 +38,13 @@ export function setActiveTeacherInfo(profile) {
 }
 
 // Khung giờ các tiết học trong ngày (Chuẩn 40 phút / tiết)
-export const PERIOD_SLOTS = [
-  // BUỔI SÁNG
-  { id: 'm1', session: 'morning', period: 1, label: 'Tiết 1 (Sáng)', startTime: '07:15', endTime: '07:55', startHour: 7, startMin: 15, endHour: 7, endMin: 55, durationMin: 40 },
-  { id: 'm2', session: 'morning', period: 2, label: 'Tiết 2 (Sáng)', startTime: '07:55', endTime: '08:35', startHour: 7, startMin: 55, endHour: 8, endMin: 35, durationMin: 40 },
-  { id: 'm_recess', session: 'morning', period: null, isRecess: true, label: 'Ra chơi sáng', startTime: '08:35', endTime: '08:55', startHour: 8, startMin: 35, endHour: 8, endMin: 55, durationMin: 20 },
-  { id: 'm3', session: 'morning', period: 3, label: 'Tiết 3 (Sáng)', startTime: '08:55', endTime: '09:35', startHour: 8, startMin: 55, endHour: 9, endMin: 35, durationMin: 40 },
-  { id: 'm4', session: 'morning', period: 4, label: 'Tiết 4 (Sáng)', startTime: '09:35', endTime: '10:15', startHour: 9, startMin: 35, endHour: 10, endMin: 15, durationMin: 40 },
-
-  // NGHỈ TRƯA BÁN TRÚ (10:15 / 10:30 - 14:00)
-  { id: 'lunch', session: 'lunch', period: null, isLunch: true, label: 'Nghỉ trưa bán trú', startTime: '10:15', endTime: '14:00', startHour: 10, startMin: 15, endHour: 14, endMin: 0, durationMin: 225 },
-
-  // BUỔI CHIỀU
-  { id: 'a1', session: 'afternoon', period: 1, label: 'Tiết 1 (Chiều)', startTime: '14:00', endTime: '14:40', startHour: 14, startMin: 0, endHour: 14, endMin: 40, durationMin: 40 },
-  { id: 'a2', session: 'afternoon', period: 2, label: 'Tiết 2 (Chiều)', startTime: '14:40', endTime: '15:20', startHour: 14, startMin: 40, endHour: 15, endMin: 20, durationMin: 40 },
-  { id: 'a_recess', session: 'afternoon', period: null, isRecess: true, label: 'Ra chơi chiều', startTime: '15:20', endTime: '15:40', startHour: 15, startMin: 20, endHour: 15, endMin: 40, durationMin: 20 },
-  { id: 'a3', session: 'afternoon', period: 3, label: 'Tiết 3 (Chiều)', startTime: '15:40', endTime: '16:20', startHour: 15, startMin: 40, endHour: 16, endMin: 20, durationMin: 40 }
-];
+export const PERIOD_SLOTS = buildPeriodSlots();
+export function getDefaultTeachingPeriods() { return deepClonePlain(DEFAULT_TEACHING_PERIODS); }
+export function setActivePeriodSlots(periods) {
+  const slots = buildPeriodSlots(periods);
+  PERIOD_SLOTS.splice(0, PERIOD_SLOTS.length, ...slots);
+  return PERIOD_SLOTS;
+}
 
 // Thời khóa biểu chính thức 5 ngày trong tuần
 // Day Index: 1 = Thứ Hai, 2 = Thứ Ba, 3 = Thứ Tư, 4 = Thứ Năm, 5 = Thứ Sáu
@@ -278,7 +270,7 @@ export function getCurrentPeriodStatus(now = new Date()) {
     const remainingSec = firstSlotStartSec - curTotalSec;
     return {
       status: 'BEFORE_SCHOOL',
-      label: 'Chưa vào tiết học sáng (Vào học lúc 07:15)',
+      label: `Chưa vào tiết học sáng (Vào học lúc ${firstSlot.startTime})`,
       dayName: daySchedule.name,
       currentPeriod: null,
       currentClass: null,
