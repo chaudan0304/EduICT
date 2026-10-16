@@ -10,6 +10,8 @@ import {
   Flag 
 } from 'lucide-react';
 import { soundEffects } from '../../utils/audio';
+import SessionSaveStatus from './SessionSaveStatus';
+import { getSessionSummaryTiming } from './sessionSummaryTiming';
 
 export default function SessionSummaryModal({
   isOpen,
@@ -39,6 +41,7 @@ export default function SessionSummaryModal({
   if (!isOpen) return null;
 
   const students = currentClass?.students || [];
+  const timing = getSessionSummaryTiming(session, activities);
 
   // Thống kê người tham gia & sao
   const participantMap = {};
@@ -85,6 +88,7 @@ export default function SessionSummaryModal({
           position: 'relative'
         }}
       >
+        <SessionSaveStatus sessionId={session?.id} />
         {/* Trường hợp 1: Hộp thoại xác nhận kết thúc */}
         {isConfirmingEnd ? (
           <div style={{ textAlign: 'center' }}>
@@ -226,12 +230,12 @@ export default function SessionSummaryModal({
                 textAlign: 'center'
               }}>
                 <Clock size={20} color="#06b6d4" style={{ margin: '0 auto 0.25rem' }} />
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Thời lượng</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Thời gian đã dạy</div>
                 <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                  {session?.period_label || `${session?.duration_minutes || session?.durationMinutes || 35} phút`}
+                  {timing.actualSeconds == null ? 'Chưa có mốc thời gian' : `${Math.floor(timing.actualSeconds / 60)} phút ${timing.actualSeconds % 60} giây`}
                 </div>
                 <div style={{ fontSize: '0.6875rem', color: '#06b6d4', fontWeight: 700 }}>
-                  Hoàn thành trọn vẹn
+                  Dự kiến {timing.plannedMinutes} phút · {timing.completed}/{timing.total} hoạt động hoàn thành
                 </div>
               </div>
             </div>

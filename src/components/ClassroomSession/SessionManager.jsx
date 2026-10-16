@@ -4,6 +4,7 @@ import SessionList from './SessionList';
 import SessionDashboard from './SessionDashboard';
 import CreateSessionModal from './CreateSessionModal';
 import SessionSummaryModal from './SessionSummaryModal';
+import SessionSaveStatus from './SessionSaveStatus';
 import { 
   fetchSessionsFromApi, 
   fetchSessionDetailFromApi, 
@@ -32,6 +33,8 @@ export default function SessionManager({
   const [createModalTargetSlot, setCreateModalTargetSlot] = useState(null);
   const [viewSummarySession, setViewSummarySession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [deleteFailure, setDeleteFailure] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Tự động mở Modal tạo tiết học khi được kích hoạt từ Thời khóa biểu
   useEffect(() => {
@@ -150,14 +153,20 @@ export default function SessionManager({
   };
 
   // Xóa session
-  const handleDeleteSession = async (sessionId, title) => {
-    if (DialogService.confirm(`Thầy/cô có chắc muốn xóa tiết học "${title}"?`)) {
+  const handleDeleteSession = async (sessionId, title, retry = false) => {
+    if (deleting) return;
+    if (retry || DialogService.confirm(`Thầy/cô có chắc muốn xóa tiết học "${title}"?`)) {
+      setDeleting(true);
+      try {
       await deleteSessionApi(sessionId);
+      setDeleteFailure(null);
       setSessions(prev => prev.filter(s => s.id !== sessionId));
       if (activeSession?.id === sessionId) {
         setActiveSession(null);
         setCurrentView('list');
       }
+      } catch (error) { setDeleteFailure({ sessionId, title, message: error.message }); }
+      finally { setDeleting(false); }
     }
   };
 
@@ -174,6 +183,8 @@ export default function SessionManager({
 
   return (
     <div className="classroom-session-container">
+      {currentView === 'list' && <SessionSaveStatus />}
+      {deleteFailure && <div role="alert" className="session-save-warning"><strong>Chưa xóa tiết học</strong><p>{deleteFailure.message} Tiết học vẫn được giữ trong danh sách.</p><button className="btn btn-outline" disabled={deleting} onClick={() => handleDeleteSession(deleteFailure.sessionId, deleteFailure.title, true)}>Thử xóa lại</button></div>}
       {currentView === 'list' && (
         loading && sessions.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontSize: '0.9375rem' }}>

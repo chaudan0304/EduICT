@@ -1,6 +1,7 @@
 // Service layer kết nối API SQLite và Fallback LocalStorage cho Classroom Sessions
 import StorageService from '../../services/StorageService';
 import apiClient from '../../services/apiClient';
+import { queueSessionWrite, retrySessionWrites, mergePendingSession, clearSessionWrites } from './sessionPersistence';
 
 export const ACTIVITY_TYPES = {
   WARMUP: {
@@ -251,13 +252,13 @@ export async function fetchSessionsFromApi(classId = null) {
         const prevMap = new Map(prevCached.map(s => [s.id, s]));
         const merged = data.map(item => {
           const prev = prevMap.get(item.id);
-          return {
+          return mergePendingSession({
             ...prev,
             ...item,
             activities: prev?.activities || item.activities || [],
             events: prev?.events || item.events || [],
             participation: prev?.participation || item.participation || []
-          };
+          });
         });
         setCachedSessions(merged);
         return merged;
@@ -278,7 +279,7 @@ export async function fetchSessionDetailFromApi(sessionId) {
   try {
     const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
     if (res.ok) {
-      const data = await res.json();
+      const data = mergePendingSession(await res.json());
       if (data && data.id) {
         const cached = getCachedSessions();
         const updated = [data, ...cached.filter(s => s.id !== data.id)];
@@ -300,64 +301,15 @@ export function resolveSessionClassId(classes, candidate, currentId) {
 }
 
 export async function createSessionApi(sessionData) {
-  try {
-    const res = await fetch('/api/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sessionData)
-    });
-    if (res.ok) {
-      const created = await res.json();
-      const cached = getCachedSessions();
-      setCachedSessions([created, ...cached.filter(s => s.id !== created.id)]);
-      return created;
-    }
-  } catch (e) {
-    console.warn('Backend SQLite error creating session, saving locally:', e);
-  }
-
-  // Fallback offline
-  const newId = sessionData.id || `sess_${Date.now()}`;
-  const localSession = {
-    ...sessionData,
-    id: newId,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    status: sessionData.status || 'DRAFT',
-    activities: (sessionData.activities || []).map((a, idx) => ({
-      ...a,
-      id: a.id || `act_${Date.now()}_${idx}`,
-      session_id: newId,
-      order_index: idx,
-      status: a.status || 'PENDING'
-    })),
-    events: [],
-    participation: []
-  };
-
+  const created = await apiClient.post('/api/sessions', sessionData);
+  if (!created?.id) throw new Error('Máy chủ chưa xác nhận tiết học. Hãy thử lưu lại.');
   const cached = getCachedSessions();
-  setCachedSessions([localSession, ...cached]);
-  return localSession;
+  setCachedSessions([created, ...cached.filter(s => s.id !== created.id)]);
+  return created;
 }
 
 export async function updateSessionApi(sessionId, updateData) {
-  try {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updateData)
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      const cached = getCachedSessions().map(s => s.id === sessionId ? { ...s, ...updated } : s);
-      setCachedSessions(cached);
-      return updated;
-    }
-  } catch (e) {
-    console.warn('Backend SQLite error updating session:', e);
-  }
-
-  // Fallback
+  queueSessionWrite(sessionId, { patch: updateData });
   const cached = getCachedSessions().map(s => {
     if (s.id === sessionId) {
       return { ...s, ...updateData, updated_at: new Date().toISOString() };
@@ -365,16 +317,13 @@ export async function updateSessionApi(sessionId, updateData) {
     return s;
   });
   setCachedSessions(cached);
-  return cached.find(s => s.id === sessionId);
+  try { return await retrySessionWrites(sessionId); }
+  catch { return cached.find(s => s.id === sessionId) || { id: sessionId, ...updateData }; }
 }
 
 export async function deleteSessionApi(sessionId) {
-  try {
-    await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
-  } catch (e) {
-    console.warn('Backend SQLite error deleting session:', e);
-  }
-
+  await apiClient.delete(`/api/sessions/${encodeURIComponent(sessionId)}`);
+  clearSessionWrites(sessionId);
   const cached = getCachedSessions().filter(s => s.id !== sessionId);
   setCachedSessions(cached);
   if (getStoredActiveSessionId() === sessionId) {
@@ -384,20 +333,7 @@ export async function deleteSessionApi(sessionId) {
 }
 
 export async function saveActivitiesApi(sessionId, activities, { allowLocalFallback = true } = {}) {
-  if (!allowLocalFallback) return apiClient.put(`/api/sessions/${encodeURIComponent(sessionId)}/activities`, { activities });
-  try {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/activities`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activities })
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (e) {
-    console.warn('Backend SQLite error saving activities:', e);
-  }
-
+  queueSessionWrite(sessionId, { activities });
   const cached = getCachedSessions().map(s => {
     if (s.id === sessionId) {
       return { ...s, activities };
@@ -405,6 +341,8 @@ export async function saveActivitiesApi(sessionId, activities, { allowLocalFallb
     return s;
   });
   setCachedSessions(cached);
+  try { await retrySessionWrites(sessionId); }
+  catch (error) { if (!allowLocalFallback) throw error; }
   return activities;
 }
 

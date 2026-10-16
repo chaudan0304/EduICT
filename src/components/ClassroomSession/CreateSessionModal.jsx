@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -18,6 +18,8 @@ import {
   getSlotById
 } from '../../utils/timetable';
 import TimetableModal from './TimetableModal';
+import useLocalDraft from '../../hooks/useLocalDraft';
+import DraftStatus from '../DraftStatus';
 
 export default function CreateSessionModal({
   isOpen,
@@ -48,6 +50,11 @@ export default function CreateSessionModal({
   });
   const [syncWithTimetable, setSyncWithTimetable] = useState(true);
   const [showTimetableModal, setShowTimetableModal] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [createId, setCreateId] = useState(() => `sess_${Date.now()}_${crypto.randomUUID()}`);
+  useEffect(() => { if (isOpen) { setCreateId(`sess_${Date.now()}_${crypto.randomUUID()}`); setSaveError(''); } }, [isOpen]);
 
   // Tự động đồng bộ lớp được chọn khi mở modal hoặc khi click từ Thời khóa biểu
   useEffect(() => {
@@ -62,6 +69,15 @@ export default function CreateSessionModal({
       }
     }
   }, [isOpen, initialClassId, currentClass?.id, initialSlot]);
+  const localDraft = useLocalDraft(`session-create:${initialClassId || currentClass?.id || 'new'}`, isOpen,
+    { selectedClassId, lessonTitle, durationMinutes, sessionDate, objectives, teacherNotes, selectedPresetId, selectedLessonId, selectedSlotId, syncWithTimetable, createId }, data => {
+      if (typeof data.lessonTitle !== 'string') return;
+      if (classes.some(item => item.id === data.selectedClassId)) setSelectedClassId(data.selectedClassId);
+      setLessonTitle(data.lessonTitle); setDurationMinutes(Number(data.durationMinutes) || 35); setSessionDate(data.sessionDate || new Date().toISOString().slice(0,10));
+      setObjectives(data.objectives || ''); setTeacherNotes(data.teacherNotes || ''); setSelectedPresetId(data.selectedPresetId || 'standard_35');
+      setSelectedLessonId(data.selectedLessonId || ''); setSelectedSlotId(data.selectedSlotId || ''); setSyncWithTimetable(Boolean(data.syncWithTimetable));
+      if (typeof data.createId === 'string') setCreateId(data.createId);
+    });
 
   // Cập nhật trạng thái tiết học theo thời gian thực mỗi 1 giây
   useEffect(() => {
@@ -133,7 +149,8 @@ export default function CreateSessionModal({
     }
   };
 
-  const handleSubmit = (startImmediately) => {
+  const handleSubmit = async (startImmediately) => {
+    if (savingRef.current) return;
     if (!lessonTitle.trim()) {
       alert('Vui lòng nhập tên bài học!');
       return;
@@ -175,7 +192,7 @@ export default function CreateSessionModal({
       : null;
 
     const newSessionData = {
-      id: `sess_${Date.now()}`,
+      id: createId,
       class_id: selectedClassId,
       lesson_id: finalLessonId || null,
       lesson_title: lessonTitle.trim(),
@@ -201,12 +218,14 @@ export default function CreateSessionModal({
       }))
     };
 
-    onCreateSession(newSessionData, startImmediately);
-    onClose();
+    savingRef.current = true; setSaving(true); setSaveError('');
+    try { await onCreateSession(newSessionData, startImmediately); localDraft.clear(); onClose(); }
+    catch (error) { setSaveError(`Chưa lưu vào dữ liệu chung: ${error.message}. Thông tin vẫn ở đây; bấm nút lưu để thử lại.`); }
+    finally { savingRef.current = false; setSaving(false); }
   };
 
   return typeof document !== 'undefined' && createPortal(
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
+    <div className="modal-overlay" onClick={() => { if (!savingRef.current) onClose(); }} style={{ zIndex: 9999 }}>
       <div 
         className="modal-content" 
         onClick={(e) => e.stopPropagation()}
@@ -229,7 +248,7 @@ export default function CreateSessionModal({
             </p>
           </div>
 
-          <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
+          <button type="button" className="btn btn-outline btn-sm" disabled={saving} onClick={onClose}>
             <X size={16} />
           </button>
         </div>
@@ -325,7 +344,7 @@ export default function CreateSessionModal({
           )}
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(false); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(false); }} aria-busy={saving} inert={saving || undefined} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Hàng 1: Chọn Lớp & Ngày học */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '0.75rem' }}>
             <div>
@@ -708,15 +727,18 @@ export default function CreateSessionModal({
             </div>
           </div>
 
+          <DraftStatus status={localDraft.status} />
+          {saveError && <p role="alert" className="session-save-warning">{saveError}</p>}
           {/* Các nút hành động */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" disabled={saving} onClick={onClose}>
               Hủy
             </button>
 
             <button
               type="button"
               className="btn btn-outline"
+              disabled={saving}
               onClick={() => handleSubmit(false)}
             >
               <Save size={16} />
@@ -726,6 +748,7 @@ export default function CreateSessionModal({
             <button
               type="button"
               className="btn btn-primary"
+              disabled={saving}
               onClick={() => handleSubmit(true)}
               style={{
                 background: 'linear-gradient(135deg, #10b981, #059669)',

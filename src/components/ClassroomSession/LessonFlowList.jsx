@@ -11,6 +11,8 @@ import { fetchLessonsApi } from '../LessonPresentation/lessonStorage';
 import AiLessonFlowModal from '../AI/AiLessonFlowModal';
 import LessonFlowActivityCard from './LessonFlowActivityCard';
 import './LessonFlowList.css';
+import useLocalDraft from '../../hooks/useLocalDraft';
+import DraftStatus from '../DraftStatus';
 
 export default function LessonFlowList({
   activities = [],
@@ -18,7 +20,8 @@ export default function LessonFlowList({
   onSelectActivity,
   onUpdateActivities,
   _isSessionRunning,
-  lessonId = null
+  lessonId = null,
+  sessionId = null
 }) {
   const [editingIndex, setEditingIndex] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', duration: 5, type: 'ACTIVITY', description: '' });
@@ -34,6 +37,13 @@ export default function LessonFlowList({
   // State Trợ Giảng AI Flow
   const [isAiFlowOpen, setIsAiFlowOpen] = useState(false);
   const [lessonsList, setLessonsList] = useState([]);
+  const localDraft = useLocalDraft(`flow-editor:${sessionId || lessonId || 'local'}`, true,
+    { editForm, editingActivityId: activities[editingIndex]?.id || null, newActivity, showAddForm }, data => {
+      if (data.newActivity && typeof data.newActivity.title === 'string') setNewActivity(data.newActivity);
+      setShowAddForm(Boolean(data.showAddForm));
+      const index = activities.findIndex(activity => activity.id === data.editingActivityId);
+      if (index >= 0 && typeof data.editForm?.title === 'string') { setEditingIndex(index); setEditForm(data.editForm); }
+    });
 
   React.useEffect(() => {
     fetchLessonsApi({ grade: 'all' })
@@ -69,6 +79,7 @@ export default function LessonFlowList({
     };
 
     onUpdateActivities([...activities, actToAdd]);
+    localDraft.clear();
     setShowAddForm(false);
     setNewActivity({
       type: 'ACTIVITY',
@@ -106,6 +117,7 @@ export default function LessonFlowList({
     });
     onUpdateActivities(updated);
     setEditingIndex(null);
+    localDraft.clear();
   };
 
   // Xóa hoạt động
@@ -213,6 +225,7 @@ export default function LessonFlowList({
         <progress value={completedCount} max={Math.max(activities.length, 1)} aria-label={`Đã hoàn thành ${completedCount}/${activities.length} hoạt động`} />
         <span>{completedCount}/{activities.length} đã xong</span>
       </div>
+      <DraftStatus status={localDraft.status} />
 
       {/* Form Thêm Hoạt Động Nhanh */}
       {showAddForm && (

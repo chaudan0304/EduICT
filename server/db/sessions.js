@@ -68,14 +68,27 @@ export function getSessionById(sessionId) {
 // 3. Tạo mới 1 session (kèm các activities ban đầu nếu có)
 export function createSession(sessionData) {
   const db = getDatabase();
-  db.exec('BEGIN TRANSACTION;');
+  db.exec('BEGIN IMMEDIATE TRANSACTION;');
   try {
+  const existing = sessionData.id && getSessionById(sessionData.id);
+  if (existing) {
+    const same = existing.class_id === (sessionData.class_id || sessionData.classId)
+      && existing.lesson_title === (sessionData.lesson_title || sessionData.lessonTitle || 'Tiết học Tin học')
+      && existing.duration_minutes === (Number(sessionData.duration_minutes || sessionData.durationMinutes) || 35)
+      && existing.objectives === (sessionData.objectives || '') && existing.teacher_notes === (sessionData.teacher_notes || sessionData.teacherNotes || '')
+      && (existing.lesson_id || null) === (sessionData.lesson_id || sessionData.lessonId || null)
+      && existing.session_date === (sessionData.session_date || sessionData.sessionDate || new Date().toISOString().slice(0, 10))
+      && JSON.stringify(existing.activities.map(a => [a.type,a.title,a.duration_minutes,a.description,a.notes])) === JSON.stringify((sessionData.activities || []).map((a,i) => [a.type || 'ACTIVITY',a.title || `Hoạt động ${i+1}`,Number(a.duration_minutes || a.durationMinutes) || 5,a.description || '',a.notes || '']));
+    if (!same) throw Object.assign(new Error('Tiết học đã được tạo với thông tin khác. Hãy kiểm tra danh sách trước khi tạo lại.'), { statusCode: 409 });
+    db.exec('COMMIT;');
+    return existing;
+  }
     const sessionId = sessionData.id || `sess_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const stmt = db.prepare(`
       INSERT INTO classroom_sessions (
         id, class_id, lesson_id, lesson_title, duration_minutes, session_date,
-        objectives, teacher_notes, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        objectives, teacher_notes, status, started_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
     `);
 
     stmt.run(
@@ -87,7 +100,8 @@ export function createSession(sessionData) {
       sessionData.session_date || sessionData.sessionDate || new Date().toISOString().slice(0, 10),
       sessionData.objectives || '',
       sessionData.teacher_notes || sessionData.teacherNotes || '',
-      sessionData.status || 'DRAFT'
+      sessionData.status || 'DRAFT',
+      sessionData.started_at || (sessionData.status === 'RUNNING' ? new Date().toISOString() : null)
     );
 
     if (Array.isArray(sessionData.activities) && sessionData.activities.length > 0) {
@@ -124,6 +138,7 @@ export function createSession(sessionData) {
 // 4. Cập nhật session (status, started_at, paused_at, total_paused_seconds, ended_at, notes...)
 export function updateSession(sessionId, updateData) {
   const db = getDatabase();
+  if (!getSessionById(sessionId)) throw Object.assign(new Error('Tiết học không còn tồn tại. Hãy kiểm tra lại danh sách.'), { statusCode: 404 });
   const allowed = [
     'lesson_id', 'lesson_title', 'duration_minutes', 'session_date', 'objectives', 
     'teacher_notes', 'status', 'started_at', 'paused_at', 

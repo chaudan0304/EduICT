@@ -9,6 +9,7 @@ import StudentParticipationGrid from './StudentParticipationGrid';
 import SessionControlBar from './SessionControlBar';
 import QuickToolModal from './QuickToolModal';
 import SessionSummaryModal from './SessionSummaryModal';
+import SessionSaveStatus from './SessionSaveStatus';
 import PresentationView from '../LessonPresentation/LessonPresentation';
 import { fetchLessonDetailApi, fetchLessonsApi } from '../LessonPresentation/lessonStorage';
 import { 
@@ -644,6 +645,7 @@ export default function SessionDashboard({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '5.5rem' }}>
+      <SessionSaveStatus sessionId={session.id} />
       {/* 1. Header Thông tin Session */}
       <SessionHeader
         session={session}
@@ -685,6 +687,7 @@ export default function SessionDashboard({
           onUpdateActivities={handleUpdateActivities}
           isSessionRunning={isRunning}
           lessonId={session.lesson_id || session.lessonId || null}
+          sessionId={session.id}
         />
 
         {/* Cột phải: Bảng tương tác học sinh & cộng sao */}
