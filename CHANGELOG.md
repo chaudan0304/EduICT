@@ -1,5 +1,15 @@
 # Lịch sử thay đổi
 
+## 1.14.0 — 17/10/2026
+
+- Tạo tiết học chỉ đóng biểu mẫu khi máy chủ xác nhận; giữ mã tạo để thử lại không tạo trùng. Xóa tiết học thất bại giữ nguyên hàng và có nút thử lại.
+- Thay đổi trạng thái và tiến trình chưa lưu hiện cảnh báo, được giữ cục bộ và có nút thử lưu lại. Chỉ gửi lại PUT của tiết học, không tự phát lại giao dịch thưởng sao/quiz.
+- Tổng kết dùng thời gian bắt đầu/kết thúc thực tế, trừ thời gian tạm dừng và đếm hoạt động đã hoàn thành; bản cũ thiếu mốc thời gian hiện rõ chưa có dữ liệu.
+- Tự lưu bản nháp câu hỏi thủ công, AI tạo câu hỏi, AI đề xuất tiến trình và biểu mẫu/hoạt động tiết học. Bản nháp riêng cho trình duyệt/app đang soạn.
+- Cho chọn thư mục khác trên máy để giữ thêm gói sao lưu đầy đủ; đối chiếu SHA-256 và không ghi đè tệp trùng tên khác nội dung. Người dùng sẽ chọn thư mục trong app sau, hiện chưa bật.
+
+Chi tiết và giới hạn kiểm chứng: docs/session-reliability-1.14.0.md.
+
 ## 1.13.0 — 16/10/2026
 
 - Bỏ tệp temp/cache không được database tham chiếu khỏi bản sao lưu; giữ tệp còn dùng. Các snapshot dùng lại tài nguyên không đổi bằng hardlink khi ổ đĩa hỗ trợ, không liên kết tới file đang sử dụng. Mỗi bản vẫn xuất/khôi phục được riêng; nhãn năm học lấy đúng thiết lập hiện tại.
