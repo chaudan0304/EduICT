@@ -228,6 +228,13 @@ export default function App() {
 
   const currentClass = classes.find(c => c.id === currentClassId) || classes[0];
   const selectClass = useCallback(id => { setClassId(id); setCurrentClassId(id); }, []);
+  const enterTeaching = () => {
+    if (ongoingSession) {
+      const id = ongoingSession.class_id || ongoingSession.classId;
+      if (classes.some(c => c.id === id)) selectClass(id);
+    } else if (currentClass) setAutoOpenSessionForClassId(currentClass.id);
+    setActiveTab('sessions');
+  };
 
   const handleClassStarsApplied = result => {
     const balances = new Map(result.balances.map(item => [String(item.studentId), item.newBalance]));
@@ -455,10 +462,8 @@ export default function App() {
               if (discard && !await DialogService.confirmAsync('Tải lại dữ liệu đã lưu trên máy chủ? Các thay đổi chưa lưu ở cửa sổ này sẽ bị bỏ.')) return;
               if (await refreshClasses({ discard })) { setSaveError(''); await refreshStudentStats(); }
             }}
-            onTeach={() => {
-              if (!ongoingSession && currentClass) setAutoOpenSessionForClassId(currentClass.id);
-              setActiveTab('sessions');
-            }} />
+            onTeach={enterTeaching} />
+          {syncStatus.connected && classes.length === 0 && <p role="status" className="empty-state">Chưa có lớp trong năm học {currentSchoolYear}. Bạn có thể thêm lớp hoặc chọn năm học khác.</p>}
           {saveError && <div role="alert" className="error-message" style={{ padding: '1rem', marginBottom: '1rem' }}>
             <strong>{saveError}</strong><p>Kiểm tra kết nối và thực hiện lại. Khi có xung đột, dữ liệu mới nhất của lớp đã được nạp lại nếu kết nối còn hoạt động.</p>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setSaveError('')}>Đã hiểu</button>
@@ -578,6 +583,7 @@ export default function App() {
               isLoadingStats={isLoadingStats}
               currentSchoolYear={currentSchoolYear}
               onSelectTab={setActiveTab}
+              onEnterSession={enterTeaching}
               ongoingSession={ongoingSession}
             />
           )}

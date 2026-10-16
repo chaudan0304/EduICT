@@ -6,7 +6,7 @@ import PageHeader from './ui/PageHeader';
 
 const gradeOf = classroom => Number(classroom?.grade || detectGradeFromName(classroom?.name) || 3);
 
-export default function HomeDashboard({ classes = [], currentClass, onSelectClass, studentStats, isLoadingStats, onSelectTab, ongoingSession = null, currentSchoolYear }) {
+export default function HomeDashboard({ classes = [], currentClass, onSelectClass, studentStats, isLoadingStats, onSelectTab, onEnterSession, ongoingSession = null, currentSchoolYear }) {
   const [gradeFilter, setGradeFilter] = useState('all');
   const students = currentClass?.students || [];
   const grade = gradeOf(currentClass);
@@ -14,6 +14,7 @@ export default function HomeDashboard({ classes = [], currentClass, onSelectClas
   const totalStudents = studentStats?.totalStudents ?? classes.reduce((total, classroom) => total + (classroom.students?.length || 0), 0);
   const filteredClasses = classes.filter(classroom => gradeFilter === 'all' || gradeOf(classroom) === gradeFilter);
   const enterSession = () => {
+    if (onEnterSession) { onEnterSession(); return; }
     if (hasSession) {
       const classId = ongoingSession.class_id || ongoingSession.classId;
       if (classId) onSelectClass(classId);
@@ -45,7 +46,7 @@ export default function HomeDashboard({ classes = [], currentClass, onSelectClas
             <p>Tiến trình bài học, đồng hồ và thưởng sao trong cùng một màn hình.</p>
           </div>
         </div>
-        <button type="button" className="btn btn-primary" onClick={enterSession}><Play size={18} aria-hidden="true" />{hasSession ? 'Tiếp tục tiết học' : 'Vào tiết học'}<ArrowRight size={18} aria-hidden="true" /></button>
+        <button type="button" className="btn btn-primary" disabled={!hasSession && !currentClass} onClick={enterSession}><Play size={18} aria-hidden="true" />{hasSession ? 'Tiếp tục tiết học' : 'Vào tiết học'}<ArrowRight size={18} aria-hidden="true" /></button>
       </section>
       <dl className="home-overview" aria-label="Tổng quan lớp học" aria-busy={isLoadingStats}>
         <div><dt><Users size={16} aria-hidden="true" /> Học sinh toàn trường</dt><dd>{isLoadingStats && !studentStats ? '…' : totalStudents.toLocaleString('vi-VN')}</dd></div>

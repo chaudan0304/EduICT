@@ -11,6 +11,6 @@ export default function DataSyncStatus({ status, writeStatus, onRefresh, onTeach
       <span aria-live="off">{status.error || (writeStatus.unsaved ? 'Giữ thay đổi trên cửa sổ này. Kiểm tra kết nối trước khi thử lại.' : status.lastSyncedAt ? `${status.changed ? 'Đã nhận thay đổi từ kho chung. ' : ''}Đọc gần nhất ${new Date(status.lastSyncedAt).toLocaleTimeString('vi-VN')} · Tự làm mới khi quay lại cửa sổ và mỗi 10 giây` : 'Đang tải danh sách từ kho dữ liệu dùng chung.')}</span>
     </div></div>
     <div className="data-sync-actions"><button className="btn btn-outline btn-sm" type="button" onClick={onRefresh} disabled={pending || status.loading}><RefreshCw size={15} aria-hidden="true" />Làm mới</button>
-      <button className="btn btn-primary btn-sm" type="button" onClick={onTeach} disabled={!currentClass}><Play size={15} aria-hidden="true" />{hasSession ? 'Tiếp tục tiết dạy' : 'Vào tiết dạy'}</button></div>
+      <button className="btn btn-primary btn-sm" type="button" onClick={onTeach} disabled={!currentClass && !hasSession}><Play size={15} aria-hidden="true" />{hasSession ? 'Tiếp tục tiết dạy' : 'Vào tiết dạy'}</button></div>
   </section>;
 }
