@@ -13,6 +13,7 @@ import { ClassStarContext } from './components/ClassStars/ClassStarContext';
 import useStudentUpdates from './hooks/useStudentUpdates';
 import useClassDataSync from './hooks/useClassDataSync';
 import DataSyncStatus from './components/DataSyncStatus';
+import useTimetableSync from './hooks/useTimetableSync';
 
 // Part F (Giai đoạn 1B) — Code splitting: các tab NẶNG tải theo yêu cầu (React.lazy).
 // Vỏ ứng dụng (Navbar/Sidebar/HomeDashboard/ClassroomTimer/modal năm học) giữ eager
@@ -44,12 +45,12 @@ import {
   checkNewSchoolYearFromSqlite,
   transitionSchoolYearInSqlite,
   detectGradeFromName,
-  fetchTeacherProfileFromSqlite,
-  fetchTimetableFromSqlite
+  fetchTeacherProfileFromSqlite
 } from './utils/storage';
-import { setActiveTeacherInfo, setActiveTimetable } from './utils/timetable';
+import { setActiveTeacherInfo } from './utils/timetable';
 
 export default function App() {
+  useTimetableSync();
   const [classes, setClasses] = useState([]);
   const [saveError, setSaveError] = useState('');
   const { persistStudents, writeStatus, isBlocked, getRevision, discardUnsaved, trackMetadata } = useStudentUpdates(classes, setClasses, setSaveError);
@@ -162,8 +163,6 @@ export default function App() {
         try {
           const savedTeacher = await fetchTeacherProfileFromSqlite();
           if (savedTeacher) setActiveTeacherInfo(savedTeacher);
-          const savedTimetable = await fetchTimetableFromSqlite();
-          if (savedTimetable) setActiveTimetable(savedTimetable);
         } catch (e) {
           console.warn('Could not load teacher/timetable from SQLite:', e);
         }

@@ -1,0 +1,9 @@
+.timetable-time-fields { display: flex; align-items: end; justify-content: center; gap: .3rem; min-width: 230px; padding: .35rem 0; }
+.timetable-time-fields label { min-width: 0; display: flex; flex-direction: column; gap: .2rem; font-size: .7rem; }
+.timetable-time-fields > span { padding-bottom: .55rem; }
+.timetable-time-fields input { width: 108px; padding: .45rem .25rem; border: 1px solid var(--surface-border); border-radius: 8px; background: var(--surface); color: var(--text-main); font: inherit; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.timetable-editor-actions { position: sticky; top: 0; z-index: 4; background: var(--surface); padding: .5rem; border-radius: 10px; box-shadow: 0 3px 8px #0f172a08; }
+.timetable-time-fields input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.timetable-editor-note { padding: .8rem 1rem; margin-bottom: 1rem; border: 1px solid #bae6fd; background: var(--primary-light); border-radius: 12px; color: var(--text-main); font-size: .85rem; }
+.timetable-editor-note p { margin: .35rem 0; line-height: 1.6; }
+.timetable-editor-error { color: #b91c1c; font-weight: 700; }

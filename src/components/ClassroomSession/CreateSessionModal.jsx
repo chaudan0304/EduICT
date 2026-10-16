@@ -90,6 +90,8 @@ export default function CreateSessionModal({
 
   const chosenClass = classes.find(c => c.id === selectedClassId) || currentClass;
   const grade = chosenClass?.grade || 3;
+  const durationSlot = syncWithTimetable ? getSlotById(selectedSlotId) || (periodStatus.slot?.period != null ? periodStatus.slot : null) : null;
+  const displayedDuration = durationSlot?.durationMin || durationMinutes;
 
   // Tự động áp dụng lớp & số phút theo tiết học thực tế từ Thời khóa biểu
   const handleSelectClassFromTimetable = (targetClassName, targetGrade, targetSlot = null) => {
@@ -196,7 +198,7 @@ export default function CreateSessionModal({
       class_id: selectedClassId,
       lesson_id: finalLessonId || null,
       lesson_title: lessonTitle.trim(),
-      duration_minutes: Number(durationMinutes) || 40,
+      duration_minutes: targetSlot?.durationMin || Number(durationMinutes) || 40,
       session_date: sessionDate,
       objectives: objectives.trim(),
       teacher_notes: teacherNotes.trim(),
@@ -532,13 +534,14 @@ export default function CreateSessionModal({
               </label>
               <select
                 className="input-field"
-                value={durationMinutes}
+                value={displayedDuration}
+                disabled={!!durationSlot}
                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
               >
-                {![20, 25, 30, 35, 40, 45, 70, 80].includes(Number(durationMinutes)) && (
-                  <option value={durationMinutes}>{durationMinutes} phút (Theo thời gian thực còn lại)</option>
+                {![20, 25, 30, 35, 40, 45, 80].includes(Number(displayedDuration)) && (
+                  <option value={displayedDuration}>{displayedDuration} phút {durationSlot ? '(Theo khung giờ đã chọn)' : '(Tùy chỉnh)'}</option>
                 )}
-                <option value={40}>40 phút (Chuẩn TKB Tin học)</option>
+                <option value={40}>40 phút</option>
                 <option value={35}>35 phút</option>
                 <option value={30}>30 phút</option>
                 <option value={25}>25 phút</option>

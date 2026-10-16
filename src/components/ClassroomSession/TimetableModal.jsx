@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -11,19 +11,24 @@ import {
   UserCog
 } from 'lucide-react';
 import {
-  PERIOD_SLOTS,
   getCurrentPeriodStatus,
   formatTimeCountdown,
   getActiveTeacherInfo,
   getActiveTimetable,
   getDefaultTimetable,
-  setActiveTimetable,
+  getAllTeachingSlots,
+  getDefaultTeachingPeriods,
   setActiveTeacherInfo,
   abbreviateSubject,
   detectTimetableConflicts,
   hasBlockingConflicts
 } from '../../utils/timetable';
-import { saveTimetableToSqlite, saveTeacherProfileToSqlite } from '../../utils/storage';
+import { saveTeacherProfileToSqlite } from '../../utils/storage';
+import { normalizeTeachingPeriods, buildPeriodSlots } from '../../../shared/timetablePeriods';
+import { applyTimetableSettings, fetchTimetableSettings, saveTimetableSettings, getTimetableRevision, getTimetableGeneration, TIMETABLE_UPDATED } from '../../services/timetableSettings';
+import useLocalDraft from '../../hooks/useLocalDraft';
+import DraftStatus from '../DraftStatus';
+import './TimetableModal.css';
 
 const cloneGrid = (g) => JSON.parse(JSON.stringify(g));
 
@@ -49,6 +54,17 @@ export default function TimetableModal({
   const [saveMsg, setSaveMsg] = useState(null); // { type:'success'|'error', text }
   const [showTeacherForm, setShowTeacherForm] = useState(false);
   const [teacherDraft, setTeacherDraft] = useState(() => ({ ...getActiveTeacherInfo() }));
+  const [periods, setPeriods] = useState(() => cloneGrid(getAllTeachingSlots()));
+  const [revision, setRevision] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [remoteChanged, setRemoteChanged] = useState(false);
+  const saveLock = useRef(false);
+  const localDraft = useLocalDraft('timetable-editor', isOpen && editMode, { grid, periods, revision }, data => {
+    if (!data.grid || !Array.isArray(data.periods) || typeof data.revision !== 'string') return;
+    setGrid(data.grid); setPeriods(data.periods); setRevision(data.revision);
+    setRemoteChanged(data.revision !== getTimetableRevision());
+    setConflicts(detectTimetableConflicts(data.grid));
+  });
 
   // Cập nhật đồng hồ thời gian thực mỗi 1 giây
   useEffect(() => {
@@ -70,7 +86,29 @@ export default function TimetableModal({
     setShowTeacherForm(false);
     setConflicts([]);
     setSaveMsg(null);
+    setRevision(null); setRemoteChanged(false); setLoading(true);
+    const controller = new AbortController();
+    const before = getTimetableGeneration();
+    fetchTimetableSettings({ signal: controller.signal, timeout: 8000 }).then(data => {
+      if (controller.signal.aborted) return;
+      if (before === getTimetableGeneration()) applyTimetableSettings(data);
+      setGrid(cloneGrid(getActiveTimetable())); setPeriods(cloneGrid(getAllTeachingSlots()));
+      setRevision(getTimetableRevision());
+    }).catch(error => { if (!controller.signal.aborted) setSaveMsg({ type: 'error', text: `Chưa tải được lịch mới: ${error.message}. Đóng và mở lại lịch để thử lại.` }); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const changed = event => {
+      if (editMode) { if (event.detail.revision !== revision) setRemoteChanged(true); return; }
+      setGrid(cloneGrid(getActiveTimetable())); setPeriods(cloneGrid(getAllTeachingSlots())); setRevision(event.detail.revision);
+      setPeriodStatus(getCurrentPeriodStatus());
+    };
+    window.addEventListener(TIMETABLE_UPDATED, changed);
+    return () => window.removeEventListener(TIMETABLE_UPDATED, changed);
+  }, [isOpen, editMode, revision]);
 
   if (!isOpen) return null;
 
@@ -84,8 +122,21 @@ export default function TimetableModal({
     { day: 5, name: 'THỨ SÁU' }
   ];
 
-  const morningSlots = PERIOD_SLOTS.filter(s => s.session === 'morning' && !s.isRecess);
-  const afternoonSlots = PERIOD_SLOTS.filter(s => s.session === 'afternoon' && !s.isRecess);
+  const shownPeriods = editMode ? periods : getAllTeachingSlots();
+  const morningSlots = shownPeriods.filter(s => s.session === 'morning' || s.id.startsWith('m'));
+  const afternoonSlots = shownPeriods.filter(s => s.session === 'afternoon' || s.id.startsWith('a'));
+  let timeError = '';
+  try { normalizeTeachingPeriods(periods); } catch (error) { timeError = error.message; }
+  const lunch = !timeError ? buildPeriodSlots(periods).find(slot => slot.isLunch) : null;
+  const changeTime = (slotId, field, value) => {
+    setPeriods(previous => previous.map(slot => slot.id === slotId ? { ...slot, [field]: value } : slot));
+    setSaveMsg(null);
+  };
+  const renderTime = slot => editMode ? <div className="timetable-time-fields">
+    <label><span>Bắt đầu</span><input type="time" aria-label={`${slot.label} bắt đầu`} value={slot.startTime} disabled={saving} onChange={event => changeTime(slot.id, 'startTime', event.target.value)} /></label>
+    <span aria-hidden="true">–</span>
+    <label><span>Kết thúc</span><input type="time" aria-label={`${slot.label} kết thúc`} value={slot.endTime} disabled={saving} onChange={event => changeTime(slot.id, 'endTime', event.target.value)} /></label>
+  </div> : <>{slot.startTime} – {slot.endTime}</>;
 
   // Danh sách lớp cho ô chọn (từ prop classes; loại trùng tên)
   const classOptions = [];
@@ -129,39 +180,50 @@ export default function TimetableModal({
   };
 
   const handleSaveTimetable = async () => {
+    if (saveLock.current || !revision) return;
     const found = recomputeConflicts(grid);
     if (hasBlockingConflicts(found)) {
       setSaveMsg({ type: 'error', text: 'Không thể lưu: thời khóa biểu đang có xung đột nghiêm trọng (ô viền đỏ).' });
       return;
     }
-    setSaving(true);
-    const res = await saveTimetableToSqlite(grid);
-    setSaving(false);
-    if (res.success) {
-      setActiveTimetable(grid);
+    try { normalizeTeachingPeriods(periods); } catch (error) { setSaveMsg({ type: 'error', text: error.message }); return; }
+    saveLock.current = true; setSaving(true);
+    try {
+      const saved = await saveTimetableSettings(grid, periods, revision);
+      setRevision(saved.revision); setRemoteChanged(false); localDraft.clear();
       setPeriodStatus(getCurrentPeriodStatus(new Date()));
       setEditMode(false);
-      setSaveMsg({ type: 'success', text: '✅ Đã lưu thời khóa biểu.' });
-    } else {
-      if (Array.isArray(res.conflicts) && res.conflicts.length > 0) {
-        setConflicts(res.conflicts.map(c => ({ ...c, severity: 'error' })));
+      setSaveMsg({ type: 'success', text: 'Đã lưu lớp và khung giờ vào dữ liệu chung. Web/desktop đọc lại khi quay về cửa sổ hoặc trong khoảng 15 giây.' });
+    } catch (error) {
+      if (Array.isArray(error.data?.conflicts)) {
+        setConflicts(error.data.conflicts.map(c => ({ ...c, severity: 'error' })));
       }
-      setSaveMsg({ type: 'error', text: res.error || 'Lưu thất bại.' });
-    }
+      if (error.data?.code === 'TIMETABLE_STALE') setRemoteChanged(true);
+      setSaveMsg({ type: 'error', text: error.message || 'Lưu thất bại. Bản đang soạn vẫn được giữ.' });
+    } finally { saveLock.current = false; setSaving(false); }
   };
 
   const handleResetTimetable = () => {
     const def = cloneGrid(getDefaultTimetable());
     setGrid(def);
+    setPeriods(normalizeTeachingPeriods(getDefaultTeachingPeriods()));
     recomputeConflicts(def);
     setSaveMsg({ type: 'success', text: 'Đã khôi phục TKB mặc định (chưa lưu — bấm "Lưu TKB" để áp dụng).' });
   };
 
-  const handleCancelEdit = () => {
-    setGrid(cloneGrid(getActiveTimetable()));
-    setEditMode(false);
-    setConflicts([]);
-    setSaveMsg(null);
+  const handleCancelEdit = async () => {
+    if (saveLock.current) return;
+    saveLock.current = true; setSaving(true);
+    const before = getTimetableGeneration();
+    try {
+      const latest = await fetchTimetableSettings({ timeout: 8000 });
+      if (before === getTimetableGeneration()) applyTimetableSettings(latest);
+      localDraft.clear();
+      setGrid(cloneGrid(getActiveTimetable()));
+      setPeriods(cloneGrid(getAllTeachingSlots())); setRevision(getTimetableRevision()); setRemoteChanged(false);
+      setEditMode(false); setConflicts([]); setSaveMsg(null);
+    } catch (error) { setSaveMsg({ type: 'error', text: `Chưa tải được lịch mới: ${error.message}. Bản đang soạn vẫn được giữ.` }); }
+    finally { saveLock.current = false; setSaving(false); }
   };
 
   const openTeacherForm = () => {
@@ -216,6 +278,8 @@ export default function TimetableModal({
       return (
         <select
           value={value}
+          disabled={saving}
+          aria-label={`${days.find(day => day.day === dayNum)?.name}, ${slot.label}, lớp học`}
           onChange={(e) => handleCellChange(dayNum, session, slot.period, e.target.value)}
           style={{
             width: '100%',
@@ -299,9 +363,10 @@ export default function TimetableModal({
   };
 
   return typeof document !== 'undefined' && createPortal(
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 10000 }}>
+    <div className="modal-overlay" onClick={() => { if (!saveLock.current && !saving) onClose(); }} style={{ zIndex: 10000 }}>
       <div
         className="modal-content"
+        role="dialog" aria-modal="true" aria-label="Lịch giảng dạy và chỉnh sửa thời khóa biểu" aria-busy={loading || saving}
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: 1080,
@@ -316,6 +381,8 @@ export default function TimetableModal({
         <button
           type="button"
           onClick={onClose}
+          disabled={saving}
+          aria-label="Đóng thời khóa biểu"
           className="btn btn-outline btn-sm"
           style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 10, padding: '0.35rem 0.65rem' }}
         >
@@ -349,35 +416,41 @@ export default function TimetableModal({
           </p>
         </div>
         {/* Thanh công cụ: chỉnh sửa TKB & hồ sơ giáo viên */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.85rem' }}>
+        <div className="timetable-editor-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.85rem' }}>
           {!editMode ? (
             <>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => { setEditMode(true); recomputeConflicts(grid); setSaveMsg(null); }} style={{ fontWeight: 800 }}>
-                <Pencil size={14} /> Sửa Thời Khóa Biểu
+              <button type="button" className="btn btn-primary btn-sm" disabled={loading || !revision || saving} onClick={() => { setEditMode(true); recomputeConflicts(grid); setSaveMsg(null); }} style={{ fontWeight: 800 }}>
+                <Pencil size={14} /> Chỉnh lớp & giờ học
               </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={openTeacherForm} style={{ fontWeight: 800 }}>
+              <button type="button" className="btn btn-outline btn-sm" disabled={saving} onClick={openTeacherForm} style={{ fontWeight: 800 }}>
                 <UserCog size={14} /> Sửa Hồ Sơ Giáo Viên
               </button>
             </>
           ) : (
             <>
-              <button type="button" className="btn btn-primary btn-sm" disabled={saving || blocking} onClick={handleSaveTimetable}
+              <button type="button" className="btn btn-primary btn-sm" disabled={saving || blocking || !!timeError || remoteChanged || !revision} onClick={handleSaveTimetable}
                 style={{ fontWeight: 800, opacity: (saving || blocking) ? 0.55 : 1, cursor: (saving || blocking) ? 'not-allowed' : 'pointer' }}
                 title={blocking ? 'Còn xung đột nghiêm trọng — hãy sửa trước khi lưu' : 'Lưu thời khóa biểu'}>
                 <Save size={14} /> {saving ? 'Đang lưu…' : 'Lưu TKB'}
               </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={handleResetTimetable} style={{ fontWeight: 700 }}>
+              <button type="button" className="btn btn-outline btn-sm" disabled={saving} onClick={handleResetTimetable} style={{ fontWeight: 700 }}>
                 <RotateCcw size={14} /> Khôi phục mặc định
               </button>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={handleCancelEdit} style={{ fontWeight: 700 }}>
-                Hủy
+              <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={handleCancelEdit} style={{ fontWeight: 700 }}>
+                Bỏ bản sửa & tải lịch mới
               </button>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                Chọn lớp cho từng ô. Hệ thống tự phát hiện xung đột.
+                Đổi giờ ở cột Thời gian và chọn lớp tại từng ô thứ/tiết.
               </span>
             </>
           )}
         </div>
+
+        {loading && <p role="status" className="timetable-editor-note">Đang tải lịch và khung giờ đã lưu…</p>}
+        {editMode && <div className="timetable-editor-note"><strong>Chỉnh thời khóa biểu cả tuần</strong><p>Khung giờ dùng chung từ thứ Hai đến thứ Sáu. Khoảng nghỉ tự tính giữa các tiết. Đồng hồ trong cửa sổ tiết đang dạy giữ khung giờ đã chọn; mở lại tiết học sẽ dùng lịch mới.</p><DraftStatus status={localDraft.status} />
+          {timeError && <p role="alert" className="timetable-editor-error">{timeError}</p>}
+          {remoteChanged && <p role="alert" className="timetable-editor-error">Lịch đã đổi ở cửa sổ khác. Bản đang soạn vẫn được giữ. Chọn “Bỏ bản sửa & tải lịch mới” để đọc lịch mới, rồi sửa tiếp.</p>}
+        </div>}
 
         {/* Thông báo lưu */}
         {saveMsg && (
@@ -469,7 +542,7 @@ export default function TimetableModal({
             : 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(79, 70, 229, 0.03))',
           border: `1.5px solid ${periodStatus.isTeachingNow ? '#10b981' : periodStatus.status === 'RECESS' ? '#f59e0b' : 'rgba(99, 102, 241, 0.25)'}`,
           borderRadius: 'var(--radius-xl)', padding: '1rem 1.25rem', marginBottom: '1.5rem',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem'
+          display: editMode ? 'none' : 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
             <div style={{
@@ -582,7 +655,7 @@ export default function TimetableModal({
                   )}
                   <td style={{ fontWeight: 800, borderRight: '1px solid var(--surface-border)' }}>{slot.period}</td>
                   <td style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)', borderRight: '1px solid var(--surface-border)' }}>
-                    {slot.startTime} - {slot.endTime}
+                    {renderTime(slot)}
                   </td>
                   {days.map(d => {
                     const cell = grid?.[d.day]?.morning?.[slot.period];
@@ -604,7 +677,7 @@ export default function TimetableModal({
               {/* --- NGHỈ TRƯA BÁN TRÚ --- */}
               <tr style={{ background: 'rgba(99, 102, 241, 0.05)', borderBottom: '2px solid var(--surface-border)' }}>
                 <td colSpan={8} style={{ padding: '0.6rem', fontWeight: 800, color: '#6366f1', fontSize: '0.8125rem' }}>
-                  🍱 NGHỈ TRƯA BÁN TRÚ (10:15 / 10:30 - 14:00)
+                  {timeError ? 'Chỉnh khung giờ hợp lệ để cập nhật khoảng nghỉ' : lunch ? `🍱 NGHỈ TRƯA (${lunch.startTime} – ${lunch.endTime})` : 'Hai buổi liền nhau, không có khoảng nghỉ trưa'}
                 </td>
               </tr>
               {/* --- 2. BUỔI CHIỀU --- */}
@@ -621,7 +694,7 @@ export default function TimetableModal({
                   )}
                   <td style={{ fontWeight: 800, borderRight: '1px solid var(--surface-border)' }}>{slot.period}</td>
                   <td style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)', borderRight: '1px solid var(--surface-border)' }}>
-                    {slot.startTime} - {slot.endTime}
+                    {renderTime(slot)}
                   </td>
                   {days.map(d => {
                     const cell = grid?.[d.day]?.afternoon?.[slot.period];
@@ -651,7 +724,7 @@ export default function TimetableModal({
           <div>
             💡 <em>Mẹo: Nhấp vào ô lớp để mở nhanh danh sách bài học. Bật &quot;Sửa TKB&quot; để chỉnh sửa &amp; lưu thời khóa biểu; hệ thống tự phát hiện xung đột.</em>
           </div>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+          <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={onClose}>
             Đóng Bảng
           </button>
         </div>
