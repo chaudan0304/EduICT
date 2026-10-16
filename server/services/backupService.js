@@ -6,6 +6,7 @@ import { getDatabasePath } from './pathService.js';
 import * as pathService from './pathService.js';
 import { getDatabase, closeConnection } from '../db/connection.js';
 import databaseAccess from './databaseAccess.cjs';
+import { copyBackupAssets } from './backupAssets.js';
 
 const dayKey = date => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(date));
 
@@ -92,7 +93,7 @@ function writeSafetyManifest(directory, backupId, db) {
   const stats = {};
   for (const table of ['classes', 'students', 'lessons', 'question_bank']) stats[table === 'question_bank' ? 'questions' : table] = db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get().c;
   const manifest = { formatVersion: 1, appName: 'EduMaster', backupId, kind: 'safety', createdAt: new Date().toISOString(),
-    schoolYear: db.prepare("SELECT value FROM app_settings WHERE key='school_year'").get()?.value || '',
+    schoolYear: db.prepare("SELECT value FROM app_settings WHERE key='current_school_year'").get()?.value || '',
     databaseChecksum: checksumSync(path.join(directory, 'database.sqlite')), uploadsComplete: true, filesChecksums, fileCount: Object.keys(filesChecksums).length, sizeBytes, stats };
   fs.writeFileSync(path.join(directory, 'manifest.json'), JSON.stringify(manifest, null, 2));
 }
@@ -114,6 +115,9 @@ export function listBackups() {
             fileCount: manifest.fileCount,
             sizeBytes: manifest.sizeBytes ?? null,
             kind: manifest.kind || 'manual',
+            newBytes: manifest.newBytes ?? null,
+            reusedBytes: manifest.reusedBytes ?? 0,
+            excludedTemporaryBytes: manifest.excludedTemporaryBytes ?? 0,
             stats: Object.fromEntries(['classes', 'students', 'lessons', 'questions'].map(key => [key, Number.isFinite(manifest.stats?.[key]) ? manifest.stats[key] : 0])),
             uploadsComplete: manifest.uploadsComplete === true
           });
@@ -149,8 +153,7 @@ async function createBackupUnlocked(kind) {
     const dbBackupPath = path.join(tmpDir, 'database.sqlite');
     db.exec(`VACUUM INTO '${dbBackupPath.replaceAll("'", "''")}'`);
 
-    const schoolYearRow = db.prepare("SELECT value FROM app_settings WHERE key = 'school_year'").get();
-    const schoolYear = schoolYearRow ? schoolYearRow.value : '2025 - 2026';
+    const schoolYear = db.prepare("SELECT value FROM app_settings WHERE key = 'current_school_year'").get()?.value || '';
     let stats = { classes: 0, students: 0, lessons: 0, questions: 0 };
     try {
       stats.classes = db.prepare("SELECT COUNT(*) as c FROM classes").get().c;
@@ -160,22 +163,20 @@ async function createBackupUnlocked(kind) {
     } catch {}
 
 
-    const filesDir = path.join(tmpDir, 'files');
-    copyDirSync(pathService.getUploadsDir(), filesDir);
-    const filesChecksums = {};
-    let sizeBytes = fs.statSync(dbBackupPath).size;
-    const hashFiles = async directory => {
-      if (!fs.existsSync(directory)) return;
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const file = path.join(directory, entry.name);
-        if (entry.isDirectory()) await hashFiles(file);
-        else {
-          filesChecksums[path.relative(filesDir, file).split(path.sep).join('/')] = await calculateFileChecksum(file);
-          sizeBytes += fs.statSync(file).size;
-        }
-      }
-    };
-    await hashFiles(filesDir);
+    const previous = listBackups().slice(0, 10).flatMap(backup => {
+      try {
+        const folder = getBackupLocation(backup.id);
+        const saved = JSON.parse(fs.readFileSync(path.join(folder, 'manifest.json'), 'utf8'));
+        return [{ filesDir: path.join(folder, 'files'), filesChecksums: saved.filesChecksums }];
+      } catch { return []; }
+    });
+    const snapshot = new DatabaseSync(dbBackupPath, { readOnly: true });
+    let assets;
+    try { assets = await copyBackupAssets({ uploadsDir: pathService.getUploadsDir(), destination: path.join(tmpDir, 'files'), database: snapshot, previous }); }
+    finally { snapshot.close(); }
+    const { filesChecksums } = assets;
+    const databaseBytes = fs.statSync(dbBackupPath).size;
+    const sizeBytes = databaseBytes + assets.logicalBytes;
     const fileCount = Object.keys(filesChecksums).length;
 
     const dbChecksum = await calculateFileChecksum(dbBackupPath);
@@ -189,7 +190,11 @@ async function createBackupUnlocked(kind) {
       databaseChecksum: dbChecksum,
       uploadsComplete: true,
       filesChecksums,
-      stats, kind, sizeBytes
+      stats, kind, sizeBytes,
+      storageMode: 'linked-snapshots',
+      newBytes: databaseBytes + assets.copiedBytes,
+      reusedBytes: assets.reusedBytes,
+      excludedTemporaryBytes: assets.excludedBytes,
     };
 
     fs.writeFileSync(path.join(tmpDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
