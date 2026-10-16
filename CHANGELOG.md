@@ -1,5 +1,12 @@
 # Lịch sử thay đổi
 
+## 1.13.0 — 16/10/2026
+
+- Bỏ tệp temp/cache không được database tham chiếu khỏi bản sao lưu; giữ tệp còn dùng. Các snapshot dùng lại tài nguyên không đổi bằng hardlink khi ổ đĩa hỗ trợ, không liên kết tới file đang sử dụng. Mỗi bản vẫn xuất/khôi phục được riêng; nhãn năm học lấy đúng thiết lập hiện tại.
+- Thư viện kiểm tra file PowerPoint liên kết, hiện cảnh báo mất file/khác dung lượng. Có chọn lại từng file và tìm theo tên trong thư mục mới trên Desktop; xác nhận trước khi lưu, chặn ghi đè liên kết đã sửa ở cửa sổ khác.
+- Sửa nút tạo tiết học truyền sự kiện bấm vào mã lớp làm lỗi lưu SQLite. Slide soạn bằng chữ/câu hỏi/hoạt động có thể trình chiếu ngay, không bị chờ chuyển ảnh như PowerPoint nhập.
+- Kiểm tra hồi quy, xuất–nhập–khôi phục trên dữ liệu riêng; thử luồng tiết học có slide, sao và quiz, cùng PowerPoint thật trên bản chép tạm. Chi tiết và giới hạn: docs/teaching-recovery-1.13.0.md.
+
 ## 1.12.0 — 16/10/2026
 
 - Web và desktop đọc lại dữ liệu lớp khi quay lại cửa sổ và định kỳ; bỏ phản hồi cũ nếu có thao tác sửa trong lúc tải. Tạm dừng làm mới khi đang nhập/lưu hoặc có thay đổi chưa lưu.
