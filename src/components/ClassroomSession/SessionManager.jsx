@@ -8,6 +8,7 @@ import {
   fetchSessionsFromApi, 
   fetchSessionDetailFromApi, 
   createSessionApi, 
+  resolveSessionClassId,
   deleteSessionApi,
   getStoredActiveSessionId,
   setStoredActiveSessionId
@@ -184,7 +185,8 @@ export default function SessionManager({
             classes={classes}
             currentClass={currentClass}
             onOpenCreateModal={(targetClassId = null, targetSlot = null) => {
-              const cId = targetClassId || currentClass?.id;
+              const cId = resolveSessionClassId(classes, targetClassId, currentClass?.id);
+              if (!cId) { DialogService.alert('Hãy chọn một lớp trước khi tạo tiết học.'); return; }
               if (cId && onSelectClass) {
                 onSelectClass(cId);
               }

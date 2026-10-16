@@ -204,7 +204,7 @@ export default function SessionList({
           <button
             type="button"
             className="btn btn-primary"
-            onClick={onOpenCreateModal}
+            onClick={() => onOpenCreateModal()}
             style={{
               padding: '0.6rem 1.25rem',
               fontWeight: 800,
@@ -293,7 +293,7 @@ export default function SessionList({
           <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.875rem' }}>
             Bấm "Tạo Classroom Session Mới" để lên tiến trình và bắt đầu buổi dạy học
           </p>
-          <button type="button" className="btn btn-primary btn-sm" onClick={onOpenCreateModal}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => onOpenCreateModal()}>
             <Plus size={16} /> Tạo Tiết Học Đầu Tiên
           </button>
         </div>

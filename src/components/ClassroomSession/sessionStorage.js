@@ -294,6 +294,11 @@ export async function fetchSessionDetailFromApi(sessionId) {
   return cached || null;
 }
 
+export function resolveSessionClassId(classes, candidate, currentId) {
+  return classes.find(c => typeof candidate === 'string' && c.id === candidate)?.id
+    || classes.find(c => c.id === currentId)?.id || classes[0]?.id || null;
+}
+
 export async function createSessionApi(sessionData) {
   try {
     const res = await fetch('/api/sessions', {
