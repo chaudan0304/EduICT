@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchQuestionSourceApi, generateQuestionsApi } from './aiService';
 import { createQuestionApi } from '../QuickQuiz/quizStorage';
 import { normalizeQuestion, validateQuestion } from './questionDraft';
+import useLocalDraft from '../../hooks/useLocalDraft';
 
 export default function useQuestionGenerator({ isOpen, lessons, preselectedLessonId, initialGrade, onQuestionsAdded }) {
   const [lessonId, setLessonId] = useState(preselectedLessonId ? String(preselectedLessonId) : '');
@@ -25,6 +26,7 @@ export default function useQuestionGenerator({ isOpen, lessons, preselectedLesso
   const epoch = useRef(0);
   const initialized = useRef(!!preselectedLessonId);
   const currentLesson = lessons.find(lesson => String(lesson.id) === lessonId);
+  const restoredSource = useRef(null);
   const cancelGeneration = useCallback(() => {
     generation.current?.abort(); generation.current = null;
     setLoading(false);
@@ -57,14 +59,14 @@ export default function useQuestionGenerator({ isOpen, lessons, preselectedLesso
   }, [isOpen]);
 
   useEffect(() => {
-    setSource(null); setSourceContent(''); setSourceError('');
+    setSource(null); setSourceContent(restoredSource.current?.lessonId === lessonId ? restoredSource.current.content : ''); setSourceError('');
     if (!isOpen || !lessonId) { setSourceLoading(false); return; }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
     let active = true;
     setSourceLoading(true);
     fetchQuestionSourceApi(lessonId, controller.signal).then(data => {
-      if (active) { setSource({ ...data, lessonId }); setSourceContent(data.content); }
+      if (active) { setSource({ ...data, lessonId }); setSourceContent(restoredSource.current?.lessonId === lessonId ? restoredSource.current.content : data.content); restoredSource.current = null; }
     }).catch(err => {
       if (active) {
         setSource({ content: '', kind: 'empty', lessonId });
@@ -73,6 +75,17 @@ export default function useQuestionGenerator({ isOpen, lessons, preselectedLesso
     }).finally(() => { clearTimeout(timer); if (active) setSourceLoading(false); });
     return () => { active = false; clearTimeout(timer); controller.abort(); };
   }, [isOpen, lessonId]);
+
+  const localDraft = useLocalDraft(`ai-questions:${preselectedLessonId || 'library'}:${initialGrade}`, isOpen,
+    { lessonId, count, difficulty, instructions, sourceContent, batch, questions, selected: [...selected], saved: [...saved] }, data => {
+      if (typeof data.lessonId !== 'string' || !Array.isArray(data.questions)) return;
+      initialized.current = true; restoredSource.current = { lessonId: data.lessonId, content: data.sourceContent || '' };
+      setLessonId(data.lessonId); setCount(Number(data.count) || 5); setDifficulty(data.difficulty || 'mixed'); setInstructions(data.instructions || '');
+      setSourceContent(data.sourceContent || ''); setBatch(data.batch || null); setQuestions(data.questions.map(normalizeQuestion));
+      setSelected(new Set(data.selected || [])); setSaved(new Set(data.saved || []));
+    });
+  const clearDraft = localDraft.clear;
+  useEffect(() => { if (isOpen && questions.length && questions.every((_, index) => saved.has(index))) clearDraft(); }, [isOpen, questions, saved, clearDraft]);
 
   const generate = async () => {
     if (generation.current || saving.current || sourceLoading || source?.lessonId !== lessonId || !currentLesson || !sourceContent.trim()) return;
@@ -151,7 +164,7 @@ export default function useQuestionGenerator({ isOpen, lessons, preselectedLesso
     setQuestions(previous => previous.map((question, i) => i === index ? { ...question, ...patch } : question));
   };
   return {
-    lessonId, setLessonId, currentLesson, count, setCount, difficulty, setDifficulty,
+    draftStatus: localDraft.status, lessonId, setLessonId, currentLesson, count, setCount, difficulty, setDifficulty,
     instructions, setInstructions, source, sourceContent, setSourceContent, sourceLoading, sourceError,
     loading, isSaving, error, report, batch, questions, selected, saved, generate, cancelGeneration, save, toggle, update,
     selectAll: () => setSelected(new Set(questions.map((_, index) => index).filter(index => !saved.has(index)))),

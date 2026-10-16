@@ -5,6 +5,8 @@ import { generateLessonFlowApi } from './aiService';
 import LessonFlowDraftCard from './LessonFlowDraftCard';
 import { formatFlowActivities, readFlowDraft, reviewFlow } from './lessonFlowDraft';
 import './AiLessonFlowModal.css';
+import useLocalDraft from '../../hooks/useLocalDraft';
+import DraftStatus from '../DraftStatus';
 
 function FlowDialog({ onClose, lesson, lessons, onApplyFlow, currentActivityCount }) {
   const dialog = useRef(null);
@@ -29,6 +31,10 @@ function FlowDialog({ onClose, lesson, lessons, onApplyFlow, currentActivityCoun
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState('');
   const selectedLesson = sources.find(item => String(item.id) === selectedLessonId);
+  const localDraft = useLocalDraft(`ai-flow:${lesson?.id || 'picker'}`, true, { selectedLessonId, duration, draft, cached }, data => {
+    if (typeof data.selectedLessonId !== 'string' || !Array.isArray(data.draft)) return;
+    setSelectedLessonId(data.selectedLessonId); setDuration(Number(data.duration) || 35); setDraft(data.draft); setCached(Boolean(data.cached));
+  });
   const review = reviewFlow(draft, duration);
   const locked = loading || applying;
   const discardRequest = useCallback(() => {
@@ -91,7 +97,7 @@ function FlowDialog({ onClose, lesson, lessons, onApplyFlow, currentActivityCoun
     applyingRef.current = true; setApplying(true); setError('');
     try {
       preparedActivities.current ||= formatFlowActivities(draft);
-      await onApplyFlow(preparedActivities.current); onClose();
+      await onApplyFlow(preparedActivities.current); localDraft.clear(); onClose();
     }
     catch (err) { setError(err.message || 'Chưa lưu được tiến trình. Bản chỉnh sửa vẫn được giữ để thử lại.'); }
     finally { applyingRef.current = false; setApplying(false); }
@@ -105,7 +111,7 @@ function FlowDialog({ onClose, lesson, lessons, onApplyFlow, currentActivityCoun
         <button type="button" className="btn btn-icon aiflow-close" aria-label="Đóng đề xuất tiến trình" disabled={applying} onClick={close}><X size={21} /></button>
       </header>
       <div className="aiflow-body">
-        <aside className="aiflow-setup">
+        <aside className="aiflow-setup"><DraftStatus status={localDraft.status} />
           <form onSubmit={generate}>
             <h3><BookOpen size={18} />Chuẩn bị đề xuất</h3>
             <label className="aiflow-field" htmlFor={`${id}-lesson`}>Bài học<select id={`${id}-lesson`} value={selectedLessonId} disabled={locked || !sources.length} onChange={event => { setSelectedLessonId(event.target.value); resetReview(); }}>

@@ -197,17 +197,13 @@ export default function QuestionBankView({
 
   // Lưu câu hỏi từ modal
   const handleSaveQuestion = async (formData) => {
-    try {
       if (editingQuestion) {
-        const updated = await updateQuestionApi(editingQuestion.id, formData);
+        const updated = await updateQuestionApi(editingQuestion.id, formData, { allowLocalFallback: false });
         setQuestions(prev => prev.map(q => q.id === editingQuestion.id ? updated : q));
       } else {
-        const created = await createQuestionApi(formData);
+        const created = await createQuestionApi(formData, { allowLocalFallback: false });
         setQuestions(prev => [created, ...prev]);
       }
-    } catch (err) {
-      alert(`❌ Lỗi lưu câu hỏi: ${err.message}`);
-    }
   };
 
   return (

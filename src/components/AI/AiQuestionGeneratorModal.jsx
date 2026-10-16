@@ -4,6 +4,7 @@ import useQuestionGenerator from './useQuestionGenerator';
 import QuestionDraftCard from './QuestionDraftCard';
 import { lessonDisplayTitle, QUESTION_LEVELS } from './questionDraft';
 import './AiQuestionGeneratorModal.css';
+import DraftStatus from '../DraftStatus';
 
 export default function AiQuestionGeneratorModal({ isOpen, onClose, lessons = [], preselectedLessonId = null, initialGrade = 'all', onQuestionsAdded }) {
   const generator = useQuestionGenerator({ isOpen, lessons, preselectedLessonId, initialGrade, onQuestionsAdded });
@@ -50,6 +51,7 @@ export default function AiQuestionGeneratorModal({ isOpen, onClose, lessons = []
           <div className="aiq-heading"><h2 id={`${id}-title`}>AI tạo câu hỏi</h2><p id={`${id}-description`}>Tạo bản nháp trắc nghiệm 4 lựa chọn. Bạn duyệt và chỉnh sửa trước khi lưu.</p></div>
           <button type="button" className="btn btn-icon" aria-label="Đóng cửa sổ tạo câu hỏi" disabled={generator.isSaving} onClick={close}><X size={20} /></button>
         </header>
+        <DraftStatus status={generator.draftStatus} />
         <nav className="aiq-mobile-tabs" aria-label="Các bước tạo câu hỏi">
           <button type="button" aria-current={pane === 'setup' ? 'step' : undefined} onClick={() => setPane('setup')}>1. Thiết lập</button>
           <button type="button" aria-current={pane === 'review' ? 'step' : undefined} onClick={() => setPane('review')}>2. Duyệt câu hỏi {generator.questions.length ? `(${generator.questions.length})` : ''}</button>

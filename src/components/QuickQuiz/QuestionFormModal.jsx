@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import useLocalDraft from '../../hooks/useLocalDraft';
+import DraftStatus from '../DraftStatus';
 import { 
   X, 
   Save, 
@@ -23,6 +25,9 @@ export default function QuestionFormModal({
 }) {
   const [formData, setFormData] = useState(() => createDefaultQuestion(3, 'TOPIC_A'));
   const [showPreview, setShowPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const saveLock = useRef(false);
 
   useEffect(() => {
     if (question) {
@@ -35,7 +40,11 @@ export default function QuestionFormModal({
       setFormData(createDefaultQuestion(3, 'TOPIC_A'));
     }
     setShowPreview(false);
+    setSaveError('');
   }, [question, isOpen]);
+  const localDraft = useLocalDraft(`question-form:${question?.id || 'new'}`, isOpen, { formData }, data => {
+    if (typeof data.formData?.question === 'string' && Array.isArray(data.formData.options)) setFormData(data.formData);
+  });
 
   if (!isOpen) return null;
 
@@ -61,8 +70,9 @@ export default function QuestionFormModal({
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saveLock.current) return;
     if (!formData.question.trim()) {
       alert('⚠️ Vui lòng nhập nội dung câu hỏi!');
       return;
@@ -76,8 +86,10 @@ export default function QuestionFormModal({
       correct_answer: formData.options?.[formData.correct_index] || formData.correct_answer || ''
     };
 
-    onSave(payload);
-    onClose();
+    saveLock.current = true; setSaving(true); setSaveError('');
+    try { await onSave(payload); localDraft.clear(); onClose(); }
+    catch (error) { setSaveError(`Chưa lưu câu hỏi: ${error.message}. Bản nháp vẫn được giữ để thử lại.`); }
+    finally { saveLock.current = false; setSaving(false); }
   };
 
   return (
@@ -153,6 +165,7 @@ export default function QuestionFormModal({
             <button
               type="button"
               onClick={onClose}
+              disabled={saving}
               className="btn btn-icon"
               style={{ width: 34, height: 34 }}
             >
@@ -162,7 +175,9 @@ export default function QuestionFormModal({
         </div>
 
         {/* Nội dung form */}
-        <form onSubmit={handleSubmit} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+        <form onSubmit={handleSubmit} aria-busy={saving} inert={saving || undefined} style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+          <DraftStatus status={localDraft.status} />
+          {saveError && <p role="alert" className="session-save-warning">{saveError}</p>}
           {showPreview ? (
             /* Live Preview Canvas */
             <div style={{
@@ -485,6 +500,7 @@ export default function QuestionFormModal({
             <button
               type="button"
               onClick={onClose}
+              disabled={saving}
               className="btn btn-secondary"
               style={{ padding: '0.6rem 1.25rem' }}
             >

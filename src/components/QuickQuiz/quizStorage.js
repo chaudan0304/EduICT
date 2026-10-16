@@ -193,7 +193,7 @@ export async function createQuestionApi(questionData, { allowLocalFallback = tru
 }
 
 // 3. Cập nhật câu hỏi
-export async function updateQuestionApi(id, questionData) {
+export async function updateQuestionApi(id, questionData, { allowLocalFallback = true } = {}) {
   try {
     const res = await fetch(`/api/questions/${id}`, {
       method: 'PUT',
@@ -206,6 +206,7 @@ export async function updateQuestionApi(id, questionData) {
     saveLocalQuestionsCache(cache.map(q => q.id === id ? updated : q));
     return updated;
   } catch (err) {
+    if (!allowLocalFallback) throw err;
     console.warn('API updateQuestion lỗi, cập nhật cache:', err);
     const cache = getLocalQuestionsCache();
     const updated = { ...cache.find(q => q.id === id), ...questionData, id };
