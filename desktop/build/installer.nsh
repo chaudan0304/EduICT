@@ -1,3 +1,4 @@
+!ifndef BUILD_UNINSTALLER
 ; Refuse an upgrade before uninstalling anything if the existing installation
 ; cannot be modified. The stock NSIS uninstall retry otherwise reaches a modal
 ; error even in /S mode and appears to hang in background installations.
@@ -103,3 +104,4 @@ Var EduICTExistingMode
   Pop $R1
   Pop $R0
 !macroend
+!endif

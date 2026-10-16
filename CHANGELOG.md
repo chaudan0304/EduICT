@@ -1,5 +1,16 @@
 # Lịch sử thay đổi
 
+## 1.12.0 — 16/10/2026
+
+- Web và desktop đọc lại dữ liệu lớp khi quay lại cửa sổ và định kỳ; bỏ phản hồi cũ nếu có thao tác sửa trong lúc tải. Tạm dừng làm mới khi đang nhập/lưu hoặc có thay đổi chưa lưu.
+- Không lấy lớp mẫu/bộ nhớ đệm làm dữ liệu đã kết nối. Danh sách rỗng được giữ rỗng; lỗi API hiện trạng thái mất kết nối và nút làm mới.
+- Hiển thị trạng thái lưu và thời điểm đọc dữ liệu, thêm lối vào/tiếp tục tiết dạy từ màn hình hiện tại.
+- Sao lưu hằng ngày khi ứng dụng chạy, giữ 7 bản tự động; web và desktop cùng kho không tạo trùng. Bản thủ công và điểm phục hồi an toàn được giữ riêng.
+- Màn hình sao lưu/kiểm tra/phục hồi; tải và nhập gói EduICT gồm database và tài nguyên. Nhập gói chỉ thêm vào danh sách sao lưu, không tự thay dữ liệu đang dùng. Các kiểu xuất database ghi rõ không kèm tệp.
+- Bộ cài giữ chế độ cài hiện có và chặn ép đổi chế độ/tình huống hai đăng ký cùng trỏ một thư mục. Quá trình build web không khởi tạo hay đối chiếu database người dùng.
+
+Chi tiết và giới hạn kiểm chứng: docs/local-reliability-improvements.md.
+
 ## 1.11.2 — 15/10/2026
 
 - Nâng SheetJS lên 0.20.3 từ nguồn chính thức; giữ nhập XLS/XLSX và sửa hàm nhập bảng điểm thiếu bộ chuẩn hóa ngày sinh/giới tính.
