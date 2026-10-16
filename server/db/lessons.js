@@ -1,6 +1,7 @@
 import { getDatabase } from './connection.js';
 import { assertManagedPowerPoint } from '../services/linkedPowerPoint.js';
 import { normalizeLessonMetadata } from '../services/powerPointOnline.js';
+import { needsRenderedImage, isSlideReady } from '../../shared/slideReadiness.js';
 
 // ========================================================
 // LESSONS & SLIDES CRUD
@@ -287,6 +288,8 @@ export function createLesson(lessonData) {
 // 4. Cập nhật bài học
 export function updateLesson(lessonId, lessonData) {
   const db = getDatabase();
+  const expectedSource = lessonData.expected_source_file_path;
+  if (expectedSource !== undefined && typeof expectedSource !== 'string') throw Object.assign(new Error('Liên kết gốc không hợp lệ.'), { statusCode: 400 });
   lessonData = normalizeLessonMetadata(lessonData, db.prepare('SELECT * FROM lessons WHERE id = ?;').get(lessonId));
   const stmt = db.prepare(`
     UPDATE lessons SET
@@ -321,13 +324,13 @@ export function updateLesson(lessonId, lessonData) {
       onedrive_drive_id = CASE WHEN COALESCE(?, online_embed_url, '') != COALESCE(online_embed_url, '') THEN '' ELSE onedrive_drive_id END,
       onedrive_item_id = CASE WHEN COALESCE(?, online_embed_url, '') != COALESCE(online_embed_url, '') THEN '' ELSE onedrive_item_id END,
       updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?;
+    WHERE id = ? AND (? IS NULL OR source_file_path = ?);
   `);
 
   const slideCount = Array.isArray(lessonData.slides) ? lessonData.slides.length : (lessonData.slide_count !== undefined ? Number(lessonData.slide_count) : null);
   const fileName = lessonData.source_file_name !== undefined ? lessonData.source_file_name : (lessonData.sourceFileName !== undefined ? lessonData.sourceFileName : (lessonData.source_filename !== undefined ? lessonData.source_filename : null));
 
-  stmt.run(
+  const saved = stmt.run(
     lessonData.title !== undefined ? lessonData.title : null,
     lessonData.grade !== undefined ? Number(lessonData.grade) : null,
     lessonData.subject !== undefined ? lessonData.subject : null,
@@ -358,8 +361,12 @@ export function updateLesson(lessonId, lessonData) {
     lessonData.online_embed_url !== undefined ? lessonData.online_embed_url : null,
     lessonData.online_embed_url !== undefined ? lessonData.online_embed_url : null,
     lessonData.online_embed_url !== undefined ? lessonData.online_embed_url : null,
-    lessonId
+    lessonId,
+    expectedSource ?? null,
+    expectedSource ?? null
   );
+
+  if (expectedSource !== undefined && saved.changes === 0) throw Object.assign(new Error('Liên kết đã thay đổi ở cửa sổ khác. Hãy đóng và mở lại thông tin bài.'), { statusCode: 409 });
 
   if (Array.isArray(lessonData.slides)) {
     saveLessonSlides(lessonId, lessonData.slides);
@@ -437,8 +444,8 @@ export function saveLessonSlides(lessonId, slidesArray) {
       const imgUrl = s.image_url || s.imageUrl || '';
       const slideNum = s.slide_number !== undefined ? Number(s.slide_number) : (s.order_index !== undefined ? Number(s.order_index) + 1 : idx + 1);
 
-      // Slide status: nếu có ảnh hợp lệ thì ready, nếu chưa có thì pending/processing
-      let slideStatus = s.render_status || s.status || s.renderStatus;
+      // Authored text/question/activity slides do not need an image conversion.
+      let slideStatus = needsRenderedImage(s) ? (s.render_status || s.status || s.renderStatus) : 'ready';
       if (!slideStatus) {
         slideStatus = imgUrl ? 'ready' : 'pending';
       }
@@ -531,9 +538,9 @@ export function syncLessonOverallRenderStatus(lessonId) {
   if (!slides || slides.length === 0) return;
 
   const total = slides.length;
-  const readyCount = slides.filter(s => (s.render_status === 'ready' || s.render_status === 'completed' || s.render_status === 'COMPLETED') && s.image_url && s.image_url.trim() !== '').length;
-  const failedCount = slides.filter(s => s.render_status === 'failed' || s.render_status === 'FAILED').length;
-  const processingCount = slides.filter(s => s.render_status === 'processing' || s.render_status === 'PROCESSING' || s.render_status === 'pending' || s.render_status === 'PENDING' || s.render_status === 'retrying' || s.render_status === 'RETRYING').length;
+  const readyCount = slides.filter(isSlideReady).length;
+  const failedCount = slides.filter(s => needsRenderedImage(s) && ['failed'].includes(String(s.render_status || '').toLowerCase())).length;
+  const processingCount = slides.filter(s => needsRenderedImage(s) && ['processing', 'pending', 'retrying'].includes(String(s.render_status || '').toLowerCase())).length;
 
   let newStatus = 'ready';
   if (processingCount > 0) {

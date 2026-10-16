@@ -45,6 +45,19 @@ function createNativeAdapter(api) {
       return res.file || null;
     },
 
+    async selectPresentationFolder(options) {
+      if (!api.selectPresentationFolder) throw new Error('Hãy cập nhật Desktop để tìm lại file theo thư mục.');
+      const result = await api.selectPresentationFolder(options);
+      if (!result || result.ok === false) throw nativeError(result);
+      return result;
+    },
+    async approvePresentationFiles(options) {
+      if (!api.approvePresentationFiles) throw new Error('Hãy cập nhật Desktop để xác nhận file đã chọn.');
+      const result = await api.approvePresentationFiles(options);
+      if (!result || result.ok === false) throw nativeError(result);
+      return result;
+    },
+
     // Trả về mô tả file {name,size,type,data}; FileDialogService chuyển thành File như bản web.
     async openFile(options = {}) {
       const res = await api.openFile({

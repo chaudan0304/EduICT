@@ -11,6 +11,11 @@ const { createPowerPointBridge, createPowerShellRunner } = require('../native/po
 const REPO = path.resolve(__dirname, '..', '..');
 
 function findSamplePptx() {
+  const explicit = process.env.EDUICT_SMOKE_PPTX;
+  if (explicit) {
+    if (!path.isAbsolute(explicit) || !/\.pptx$/i.test(explicit) || !fs.statSync(explicit).isFile()) throw new Error('EDUICT_SMOKE_PPTX phải trỏ đến tệp .pptx có sẵn.');
+    return explicit;
+  }
   const root = path.join(REPO, 'uploads', 'presentations');
   if (!fs.existsSync(root)) return null;
   for (const dir of fs.readdirSync(root)) {

@@ -13,6 +13,7 @@ const path = require('node:path');
 const { BRIDGE_METHODS, ERROR_CODES } = require('../native/bridgeMethods.cjs');
 const { isTrustedSender, clampText, sanitizeFilters, sanitizeFileName } = require('./security.cjs');
 const { noopLogger } = require('./logger.cjs');
+const { createPresentationFolderPicker } = require('../native/presentationFolder.cjs');
 
 const MAX_OPEN_BYTES = 300 * 1024 * 1024;
 const MAX_SAVE_BYTES = 300 * 1024 * 1024;
@@ -55,6 +56,7 @@ function createIpcHandlers({
   fsImpl = fs,
 } = {}) {
   const win = () => getWindow() || undefined;
+  const presentationFolder = createPresentationFolderPicker({ dialog, getWindow: win, linkedPresentations });
 
   async function getCapabilities() {
     let ppt = { installed: false };
@@ -213,6 +215,8 @@ function createIpcHandlers({
     'edumaster:getCapabilities': getCapabilities,
     'edumaster:openFile': openFile,
     'edumaster:selectPresentationFile': selectPresentationFile,
+    'edumaster:selectPresentationFolder': options => presentationFolder.pick(options),
+    'edumaster:approvePresentationFiles': options => presentationFolder.approve(options),
     'edumaster:saveFile': saveFile,
     'edumaster:exportStudentReportPdf': exportStudentReportPdf || (() => denied()),
     'edumaster:selectFolder': selectFolder,

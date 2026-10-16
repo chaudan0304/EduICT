@@ -38,6 +38,8 @@ import { getTopicsByGrade } from '../../data/ppctMapping';
 import { detectGradeFromName } from '../../utils/storage';
 import LinkPowerPointModal from './LinkPowerPointModal';
 import LinkedPowerPointCard from './LinkedPowerPointCard';
+import RelinkPowerPointModal from './RelinkPowerPointModal';
+import useLinkedFileHealth from './useLinkedFileHealth';
 import PowerPointOnlineModal from './PowerPointOnlineModal';
 import PowerPointOnlineBatchModal from './PowerPointOnlineBatchModal';
 import OneDriveFolderModal from './OneDriveFolderModal';
@@ -62,6 +64,10 @@ export default function LessonLibrary({
   }, [currentClass]);
 
   const [lessons, setLessons] = useState([]);
+  const fileHealth = useLinkedFileHealth(lessons);
+  const [relinkOpen, setRelinkOpen] = useState(false);
+  const linkedLessons = lessons.filter(l => l.type === 'linked_powerpoint');
+  const missingFiles = linkedLessons.filter(l => ['missing', 'invalid', 'unavailable'].includes(fileHealth.items[l.id]?.state));
   const [isLoading, setIsLoading] = useState(true);
   const [launchingId, setLaunchingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -498,6 +504,15 @@ export default function LessonLibrary({
       </PageHeader>
 
       {onlineBatchNotice && <p role="status" className="online-batch-summary">{onlineBatchNotice}</p>}
+      {linkedLessons.length > 0 && <section className="linked-file-summary" aria-label="Liên kết PowerPoint trên máy"><p role="status">{fileHealth.loading ? 'Đang kiểm tra file PowerPoint…' : fileHealth.error ? `Chưa kiểm tra được liên kết: ${fileHealth.error}` : `${linkedLessons.length} bài liên kết trên máy · ${missingFiles.length} bài cần kiểm tra lại file.`}</p><div>
+        <button type="button" className="btn btn-outline btn-sm" disabled={fileHealth.loading} onClick={fileHealth.refresh}>Kiểm tra lại</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => setRelinkOpen(true)}><FolderOpen size={16} />Tìm lại theo thư mục</button></div></section>}
+      {relinkOpen && <RelinkPowerPointModal lessons={linkedLessons} onClose={() => setRelinkOpen(false)} onSaved={result => {
+        const updated = new Map(result.lessons.map(item => [item.id, item]));
+        setLessons(previous => previous.map(item => updated.has(item.id) ? { ...item, ...updated.get(item.id) } : item));
+        setOnlineBatchNotice(`Đã sửa ${result.updated} liên kết PowerPoint. Nội dung file được giữ nguyên.`);
+        fileHealth.refresh();
+      }} />}
 
       {/* Banner Tự Động Quét Bài Giảng Trùng Lặp (Phân loại 3 mức độ) */}
       {scanReport && scanReport.totalDuplicates > 0 && (
@@ -721,7 +736,7 @@ export default function LessonLibrary({
         <div className="library-card-grid">
           {filteredLessons.map(lesson => {
             if (hasOnlinePowerPoint(lesson)) return selectableCard(lesson, <PowerPointOnlineCard lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />);
-            if (lesson.type === 'linked_powerpoint') return selectableCard(lesson, <LinkedPowerPointCard lesson={lesson} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setEditingLinkedLesson(lesson)} onOnline={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />);
+            if (lesson.type === 'linked_powerpoint') return selectableCard(lesson, <LinkedPowerPointCard lesson={lesson} health={fileHealth.items[lesson.id]} launching={launchingId === lesson.id} onOpen={e => handleLaunchPresentation(lesson, e)} onEdit={() => setEditingLinkedLesson(lesson)} onOnline={() => setOnlineModal({ lesson })} onDelete={e => handleDeleteLesson(lesson, e)} />);
             const gc = gradeColors[lesson.grade] || gradeColors[3];
             const slideCount = lesson.slide_count || lesson.slides_count || lesson.slides?.length || 0;
             const isImported = lesson.type === 'imported';

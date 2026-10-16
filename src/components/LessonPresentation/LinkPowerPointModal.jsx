@@ -31,7 +31,7 @@ export default function LinkPowerPointModal({ isOpen, onClose, onImportSuccess, 
     setBusy(true); setError('');
     try {
       if (!form.source_file_path) throw new Error('Hãy chọn file PowerPoint trước khi lưu.');
-      const result = await saveLinkedPowerPoint(form, lesson?.id);
+      const result = await saveLinkedPowerPoint(form, lesson?.id, lesson?.source_file_path);
       onImportSuccess(result); onClose();
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }

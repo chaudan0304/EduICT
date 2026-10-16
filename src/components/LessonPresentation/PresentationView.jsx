@@ -28,6 +28,7 @@ import NativePowerPointSurface from './NativePowerPointSurface';
 import PowerPointOnlineSurface from './PowerPointOnlineSurface';
 import PowerPointOnlineControls from './PowerPointOnlineControls';
 import { hasOnlinePowerPoint } from '../../../shared/powerPointOnline.js';
+import { isSlideReady } from '../../../shared/slideReadiness.js';
 import LuckyWheel from '../LuckyWheel';
 import DuckRace from '../DuckRace';
 import ClassroomActivitiesModal from '../ClassroomActivities/ClassroomActivitiesModal';
@@ -176,7 +177,7 @@ export default function PresentationView({
 
   // Tự động polling cập nhật nếu bài học đang ở trạng thái render slide nền
   useEffect(() => {
-    if (isOnlinePowerPoint || activeLesson?.render_status !== 'processing' || !activeLesson?.id) return;
+    if (isOnlinePowerPoint || activeLesson?.render_status !== 'processing' || !activeLesson?.id || (slides.length > 0 && slides.every(isSlideReady))) return;
 
     const interval = setInterval(async () => {
       try {
@@ -196,7 +197,7 @@ export default function PresentationView({
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [activeLesson?.id, activeLesson?.render_status, isOnlinePowerPoint]);
+  }, [activeLesson?.id, activeLesson?.render_status, isOnlinePowerPoint, slides]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
@@ -559,7 +560,7 @@ export default function PresentationView({
   }
 
   // 2.5 Màn hình Đang Xử Lý Slide Nền (Background Processing - chỉ chặn nếu chưa có slide nào sẵn sàng)
-  if (activeLesson?.render_status === 'processing' && (!slides || slides.length === 0 || !slides.some(s => s.render_status === 'ready' && (s.image_url || s.imageUrl)))) {
+  if (activeLesson?.render_status === 'processing' && !slides.some(isSlideReady)) {
     return (
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,

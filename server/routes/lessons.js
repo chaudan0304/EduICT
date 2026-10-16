@@ -10,11 +10,28 @@ import {
 } from '../db.js';
 import { deleteLessonPresentationsDir } from '../pptxService.js';
 import { deleteLessonsBatch } from '../services/lessonBatchDelete.js';
+import { checkLinkedPresentationFiles, relinkPresentations } from '../services/linkedPresentationHealth.js';
+import { getDatabase } from '../db/connection.js';
 
 // 11.1 & 11.2 — collection routes on /api/lessons (must run BEFORE the pptx
 // group and the generic /api/lessons/:id CRUD to preserve original first-match order)
 export async function tryHandleLessonsCollection(req, res, ctx) {
   const { pathname, method, url } = ctx;
+
+  if (pathname === '/api/lessons/linked-files/status' && method === 'GET') {
+    try { sendJson(res, 200, { items: checkLinkedPresentationFiles(getAllLessons({ type: 'linked_powerpoint' })), checkedAt: new Date().toISOString() }); }
+    catch (error) { sendJson(res, 500, { error: error.message }); }
+    return true;
+  }
+  if (pathname === '/api/lessons/linked-files/relink' && method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const result = relinkPresentations(getDatabase(), body.items);
+      sendJson(res, 200, { ...result, lessons: body.items.map(item => getLessonById(item.lessonId)) });
+    }
+    catch (error) { sendJson(res, error.statusCode || 400, { error: error.message }); }
+    return true;
+  }
 
   if (pathname === '/api/lessons/batch-delete' && method === 'POST') {
     try {
