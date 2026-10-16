@@ -127,6 +127,14 @@ h1, h2, h3 { font-family: var(--font-display); }
   .class-context-controls { gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+.session-save-warning { padding:1rem; margin-block:.75rem; border:1px solid #f59e0b; background:#fffbeb; color:#78350f; border-radius:12px; font-size:.875rem; }
+.session-save-warning p { margin:.5rem 0; line-height:1.6; }
+.draft-status { margin:.5rem 0; color:var(--text-muted); font-size:.78rem; line-height:1.5; }
+.draft-status.is-error { color:#b45309; }
+.backup-destination { margin-top:1rem; }
+.backup-destination h4 { margin:0 0 .5rem; }
+.backup-destination-consent { display:flex; align-items:flex-start; gap:.5rem; font-size:.85rem; margin-block:.75rem; }
+.backup-destination-consent input { flex-shrink:0; margin-top:.2rem; }
 .linked-ppt-dialog {
   width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 32px);
   margin: auto; padding: 24px; overflow-y: auto; color: var(--text-main);
