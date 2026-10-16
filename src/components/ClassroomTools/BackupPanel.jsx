@@ -3,6 +3,7 @@ import { Archive, Download, Upload, ShieldCheck, RotateCcw, RefreshCw } from 'lu
 import apiClient from '../../services/apiClient';
 import AppLifecycleService from '../../services/AppLifecycleService';
 import { downloadDatabaseFile } from '../../services/FullDataExportService';
+import BackupDestination from './BackupDestination';
 
 const kindLabel = kind => ({ automatic: 'Tự động', safety: 'Trước phục hồi', imported: 'Đã nhập' }[kind] || 'Thủ công');
 const sizeLabel = size => size == null ? 'Chưa có thông tin dung lượng' : `${(size / 1024 ** 2).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} MB`;
@@ -37,7 +38,7 @@ export default function BackupPanel({ onBusyChange }) {
   };
   const create = () => run(async () => {
     const result = await apiClient.post('/api/backup/create', {}, { timeout: 300000 });
-    await load(result.backupId); setMessage('Đã tạo và kiểm tra bản sao lưu đầy đủ.');
+    await load(result.backupId); setMessage(result.mirror?.ok === false ? `Đã tạo bản trong ứng dụng. Chưa chép được dự phòng: ${result.mirror.error}` : result.mirror && !result.mirror.skipped ? 'Đã tạo, kiểm tra và chép thêm gói dự phòng.' : 'Đã tạo và kiểm tra bản sao lưu đầy đủ.');
   });
   const restore = () => run(async () => {
     await apiClient.post('/api/backup/restore', { backupId: confirmId }, { timeout: 300000 });
@@ -75,6 +76,7 @@ export default function BackupPanel({ onBusyChange }) {
         <button type="button" className="btn btn-outline" disabled={busy || !selected.uploadsComplete} onClick={() => run(() => downloadDatabaseFile(`/api/backup/package?backupId=${encodeURIComponent(selectedId)}`, `${selectedId}.eduict`))}><Download size={16} />Tải gói đầy đủ</button>
         <button type="button" className="btn btn-outline" disabled={busy} onClick={() => setConfirmId(selectedId)}><RotateCcw size={16} />Phục hồi</button></div></div>}
     {confirmId && <div className="backup-confirm" role="group" aria-label="Xác nhận phục hồi"><strong>Thay dữ liệu đang dùng bằng bản đã chọn?</strong><p>Đóng bản web hoặc desktop còn lại trước khi tiếp tục. Hệ thống kiểm tra gói và giữ bản an toàn trước khi thay dữ liệu.</p><div className="classroom-tools-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={restore}>Xác nhận phục hồi</button><button type="button" className="btn btn-outline" disabled={busy} onClick={() => setConfirmId('')}>Hủy</button></div></div>}
+    <BackupDestination mirror={data.mirror} busy={busy} selectedId={selectedId} onSave={folder=>run(async()=>{await apiClient.post('/api/backup/mirror',{folder});await load();setMessage(folder?'Đã bật nơi dự phòng. Bấm Tạo bản sao lưu hoặc Chép bản đang chọn để lưu ngay.':'Đã ngừng chép dự phòng. Các gói đã có vẫn được giữ.');})} onCopy={backupId=>run(async()=>{const result=await apiClient.post('/api/backup/mirror-copy',{backupId},{timeout:300000});await load();if(!result.ok)throw new Error(result.error);setMessage('Đã chép và kiểm tra gói dự phòng.');})}/>
     {busy && <p role="status">Đang xử lý sao lưu, vui lòng giữ cửa sổ này…</p>}
     {message && <p className="classroom-tools-success" role="status">{message}</p>}
     {error && <p className="classroom-tools-error" role="alert">{error}</p>}

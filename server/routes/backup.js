@@ -19,9 +19,18 @@ import {
 } from '../services/backupService.js';
 import { getAutomaticBackupStatus } from '../services/automaticBackup.js';
 import { downloadBackupPackage, importBackupPackage } from '../services/backupPackage.js';
+import {getBackupMirrorStatus,setBackupMirrorDestination,mirrorBackupIfConfigured} from '../services/backupMirror.js';
 
 export async function tryHandleBackup(req, res, ctx) {
   const { pathname, method } = ctx;
+  if(pathname==='/api/backup/mirror'&&method==='POST'){
+    try{const body=await parseJsonBody(req);sendJson(res,200,{success:true,mirror:setBackupMirrorDestination(body.folder)});}
+    catch(error){sendJson(res,error.statusCode||500,{error:error.message});}return true;
+  }
+  if(pathname==='/api/backup/mirror-copy'&&method==='POST'){
+    try{const body=await parseJsonBody(req);sendJson(res,200,await mirrorBackupIfConfigured(body.backupId,{force:true}));}
+    catch(error){sendJson(res,error.statusCode||500,{error:error.message});}return true;
+  }
 
   if (pathname === '/api/backup/package' && method === 'GET') {
     try {
@@ -66,7 +75,7 @@ export async function tryHandleBackup(req, res, ctx) {
 
   if (pathname === '/api/backup/list' && method === 'GET') {
     try {
-      sendJson(res, 200, { success: true, data: listBackups(), automatic: getAutomaticBackupStatus() });
+      sendJson(res, 200, { success: true, data: listBackups(), automatic: getAutomaticBackupStatus(), mirror: getBackupMirrorStatus() });
     } catch (err) {
       sendJson(res, err.statusCode || 500, { success: false, error: err.message });
     }

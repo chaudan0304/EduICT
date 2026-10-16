@@ -130,13 +130,16 @@ export function listBackups() {
 }
 
 export async function createBackup({ kind = 'manual' } = {}) {
-  return withBackupOperation(async () => {
+  const created = await withBackupOperation(async () => {
     if (kind === 'automatic') {
       const existing = listBackups().find(b => b.kind === 'automatic' && dayKey(b.createdAt) === dayKey(Date.now()));
       if (existing) return { success: true, skipped: true, backupId: existing.id };
     }
     return createBackupUnlocked(kind);
   });
+  // Package export takes the backup mutex itself; copy only after snapshot creation releases it.
+  const { mirrorBackupIfConfigured } = await import('./backupMirror.js');
+  return { ...created, mirror: await mirrorBackupIfConfigured(created.backupId) };
 }
 
 async function createBackupUnlocked(kind) {
