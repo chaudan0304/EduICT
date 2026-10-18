@@ -1,4 +1,16 @@
 import { getDatabase } from './connection.js';
+import { createHash } from 'node:crypto';
+
+const SESSION_FIELDS = ['lesson_id', 'lesson_title', 'duration_minutes', 'session_date', 'objectives', 'teacher_notes', 'status', 'started_at', 'paused_at', 'total_paused_seconds', 'ended_at'];
+const fingerprint = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const sessionRevision = session => fingerprint([session.id, session.class_id, ...SESSION_FIELDS.map(key => session[key] ?? null)]);
+const stale = () => Object.assign(new Error('Tiết học đã đổi ở cửa sổ khác. Bản đang sửa được giữ lại để đối chiếu trước khi lưu.'), { statusCode: 409, code: 'SESSION_STALE' });
+function normalizedActivity(act, index, sessionId) {
+  return { id: act.id || `act_${Date.now()}_${index}`, session_id: sessionId, order_index: index,
+    type: act.type || 'ACTIVITY', title: act.title || `Hoạt động ${index + 1}`,
+    duration_minutes: Number(act.duration_minutes || act.durationMinutes) || 5, status: act.status || 'PENDING',
+    description: act.description || '', notes: act.notes || '', started_at: act.started_at || null, completed_at: act.completed_at || null };
+}
 
 // ========================================================
 // CLASSROOM SESSIONS CRUD
@@ -24,7 +36,7 @@ export function getAllSessions(classId = null) {
     params.push(classId);
   }
   query += ' ORDER BY s.created_at DESC;';
-  return db.prepare(query).all(...params);
+  return db.prepare(query).all(...params).map(session => ({ ...session, revision: sessionRevision(session) }));
 }
 
 // 2. Lấy chi tiết 1 session (kèm activities, events, participation)
@@ -59,6 +71,8 @@ export function getSessionById(sessionId) {
 
   return {
     ...session,
+    revision: sessionRevision(session),
+    activities_revision: fingerprint(activities.map((act, index) => normalizedActivity(act, index, sessionId))),
     activities,
     events,
     participation
@@ -138,15 +152,15 @@ export function createSession(sessionData) {
 // 4. Cập nhật session (status, started_at, paused_at, total_paused_seconds, ended_at, notes...)
 export function updateSession(sessionId, updateData) {
   const db = getDatabase();
-  if (!getSessionById(sessionId)) throw Object.assign(new Error('Tiết học không còn tồn tại. Hãy kiểm tra lại danh sách.'), { statusCode: 404 });
-  const allowed = [
-    'lesson_id', 'lesson_title', 'duration_minutes', 'session_date', 'objectives', 
-    'teacher_notes', 'status', 'started_at', 'paused_at', 
-    'total_paused_seconds', 'ended_at'
-  ];
+  db.exec('BEGIN IMMEDIATE;');
+  try {
+  const current = getSessionById(sessionId);
+  if (!current) throw Object.assign(new Error('Tiết học không còn tồn tại. Hãy kiểm tra lại danh sách.'), { statusCode: 404 });
+  const allowed = SESSION_FIELDS;
 
   const setClauses = [];
   const params = [];
+  const changed = {};
 
   for (const key of allowed) {
     const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
@@ -154,9 +168,11 @@ export function updateSession(sessionId, updateData) {
     if (val !== undefined) {
       setClauses.push(`${key} = ?`);
       params.push(val);
+      changed[key] = val;
     }
   }
 
+  if (updateData.expectedRevision !== undefined && updateData.expectedRevision !== current.revision && Object.entries(changed).some(([key, value]) => current[key] !== value)) throw stale();
   if (setClauses.length > 0) {
     setClauses.push('updated_at = CURRENT_TIMESTAMP');
     params.push(sessionId);
@@ -164,7 +180,10 @@ export function updateSession(sessionId, updateData) {
     db.prepare(sql).run(...params);
   }
 
-  return getSessionById(sessionId);
+  const updated = getSessionById(sessionId);
+  db.exec('COMMIT;');
+  return updated;
+  } catch (error) { db.exec('ROLLBACK;'); throw error; }
 }
 
 // 5. Xóa session
@@ -175,10 +194,15 @@ export function deleteSession(sessionId) {
 }
 
 // 6. Lưu / Cập nhật lại toàn bộ activities của session
-export function saveSessionActivities(sessionId, activities) {
+export function saveSessionActivities(sessionId, activities, { expectedRevision } = {}) {
   const db = getDatabase();
-  db.exec('BEGIN TRANSACTION;');
+  db.exec('BEGIN IMMEDIATE;');
   try {
+    const current = getSessionById(sessionId);
+    if (!current) throw Object.assign(new Error('Tiết học không còn tồn tại.'), { statusCode: 404 });
+    if (!Array.isArray(activities) || activities.length > 1000) throw Object.assign(new Error('Danh sách hoạt động không hợp lệ.'), { statusCode: 400 });
+    const normalized = activities.map((act, index) => normalizedActivity(act, index, sessionId));
+    if (expectedRevision !== undefined && expectedRevision !== current.activities_revision && fingerprint(normalized) !== current.activities_revision) throw stale();
     db.prepare('DELETE FROM session_activities WHERE session_id = ?;').run(sessionId);
 
     const actStmt = db.prepare(`

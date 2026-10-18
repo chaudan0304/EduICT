@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getSessionWriteStatus, retrySessionWrites, SESSION_WRITES_EVENT } from './sessionPersistence';
+import SessionConflictReview from './SessionConflictReview';
 
 export default function SessionSaveStatus({ sessionId }) {
   const [status, setStatus] = useState(() => getSessionWriteStatus(sessionId));
@@ -10,5 +11,5 @@ export default function SessionSaveStatus({ sessionId }) {
     return () => window.removeEventListener(SESSION_WRITES_EVENT, read);
   }, [sessionId]);
   if (!status.pending) return null;
-  return <div role="alert" className="session-save-warning"><strong>Chưa lưu vào dữ liệu chung</strong><p>{status.error || 'Đang chờ máy chủ xác nhận thay đổi tiết học.'} {status.historyPending > 0 && `${status.historyPending} bản ghi nhật ký đang chờ. Gửi lại nhật ký không cộng sao thêm. `}{status.durable ? 'Bản nháp được giữ trên thiết bị này để thử lưu lại.' : 'Chỉ giữ được trong cửa sổ này; hãy giữ cửa sổ mở.'}</p><button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={async () => { setBusy(true); try { await retrySessionWrites(sessionId); } catch { /* The stored status displays the failure. */ } finally { setBusy(false); } }}>{busy ? 'Đang lưu…' : 'Thử lưu lại'}</button></div>;
+  return <div role="alert" className="session-save-warning"><strong>Chưa lưu vào dữ liệu chung</strong><p>{status.error || 'Đang chờ máy chủ xác nhận thay đổi tiết học.'} {status.historyPending > 0 && `${status.historyPending} bản ghi nhật ký đang chờ. Gửi lại nhật ký không cộng sao thêm. `}{status.durable ? 'Bản nháp được giữ trên thiết bị này để thử lưu lại.' : 'Chỉ giữ được trong cửa sổ này; hãy giữ cửa sổ mở.'}</p>{status.conflictedId ? <SessionConflictReview key={status.conflictedId} sessionId={status.conflictedId}/> : <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={async () => { setBusy(true); try { await retrySessionWrites(sessionId); } catch { /* The stored status displays the failure. */ } finally { setBusy(false); } }}>{busy ? 'Đang lưu…' : 'Thử lưu lại'}</button>}</div>;
 }

@@ -14,13 +14,13 @@ test('session writes: reject failed create/delete; preserve pending updates acro
     setStoredActiveSessionId('s1');
     await assert.rejects(deleteSessionApi('s1'), /fixture unavailable/);
     assert.equal(getStoredActiveSessionId(), 's1');
-    global.fetch = async () => new Response(JSON.stringify({id:'s1',status:'RUNNING',activities:[] }));
+    global.fetch = async () => new Response(JSON.stringify({id:'s1',revision:'r1',activities_revision:'a1',status:'RUNNING',activities:[] }));
     await fetchSessionDetailFromApi('s1');
     global.fetch = async () => { throw new Error('offline fixture'); };
     const pending = await updateSessionApi('s1', {status:'PAUSED',paused_at:'2026-10-16T01:00:00Z'});
     assert.equal(pending.status, 'PAUSED');
     assert.equal(getSessionWriteStatus('s1').pending, 1);
-    global.fetch = async (url,init) => { calls.push({url,method:init?.method||'GET'}); return new Response(JSON.stringify({id:'s1',status:init?.method==='PUT'?'PAUSED':'RUNNING',activities:[]})); };
+    global.fetch = async (url,init) => { calls.push({url,method:init?.method||'GET'}); return new Response(JSON.stringify({id:'s1',revision:init?.method==='PUT'?'r2':'r1',activities_revision:'a1',status:init?.method==='PUT'?'PAUSED':'RUNNING',activities:[]})); };
     assert.equal((await fetchSessionDetailFromApi('s1')).status, 'PAUSED');
     await retrySessionWrites('s1');
     assert.equal(getSessionWriteStatus('s1').pending, 0);
@@ -32,7 +32,7 @@ test('session writes: reject failed create/delete; preserve pending updates acro
     global.fetch = async (url, init) => {
       const body = JSON.parse(init.body); payloads.push(body);
       if (payloads.length === 1) await gate;
-      return new Response(JSON.stringify(String(url).endsWith('/activities') ? body.activities : { id: 's1', ...body }));
+      return new Response(JSON.stringify(String(url).endsWith('/activities') ? {activities:body.activities,revision:'a2'} : { id: 's1', revision:'r3', ...body }));
     };
     queueSessionWrite('s1', { patch: { status: 'PAUSED' } });
     const first = retrySessionWrites('s1');

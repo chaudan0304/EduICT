@@ -1,7 +1,7 @@
 // Service layer kết nối API SQLite và Fallback LocalStorage cho Classroom Sessions
 import StorageService from '../../services/StorageService';
 import apiClient from '../../services/apiClient';
-import { queueSessionWrite, queueSessionHistory, isHistoryPending, retrySessionWrites, mergePendingSession, clearSessionWrites } from './sessionPersistence';
+import { queueSessionWrite, queueSessionHistory, isHistoryPending, retrySessionWrites, mergePendingSession, clearSessionWrites, recordSessionSnapshot, getConfirmedSessionRevisions } from './sessionPersistence';
 
 export const ACTIVITY_TYPES = {
   WARMUP: {
@@ -251,6 +251,7 @@ export async function fetchSessionsFromApi(classId = null) {
         const prevCached = getCachedSessions();
         const prevMap = new Map(prevCached.map(s => [s.id, s]));
         const merged = data.map(item => {
+          recordSessionSnapshot(item);
           const prev = prevMap.get(item.id);
           return mergePendingSession({
             ...prev,
@@ -279,7 +280,8 @@ export async function fetchSessionDetailFromApi(sessionId) {
   try {
     const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
     if (res.ok) {
-      const data = mergePendingSession(await res.json());
+      const raw = await res.json(); recordSessionSnapshot(raw);
+      const data = mergePendingSession(raw);
       if (data && data.id) {
         const cached = getCachedSessions();
         const updated = [data, ...cached.filter(s => s.id !== data.id)];
@@ -303,13 +305,14 @@ export function resolveSessionClassId(classes, candidate, currentId) {
 export async function createSessionApi(sessionData) {
   const created = await apiClient.post('/api/sessions', sessionData);
   if (!created?.id) throw new Error('Máy chủ chưa xác nhận tiết học. Hãy thử lưu lại.');
+  recordSessionSnapshot(created);
   const cached = getCachedSessions();
   setCachedSessions([created, ...cached.filter(s => s.id !== created.id)]);
   return created;
 }
 
 export async function updateSessionApi(sessionId, updateData) {
-  queueSessionWrite(sessionId, { patch: updateData });
+  queueSessionWrite(sessionId, { patch: updateData, expectedRevision: getCachedSessions().find(s => s.id === sessionId)?.revision });
   const cached = getCachedSessions().map(s => {
     if (s.id === sessionId) {
       return { ...s, ...updateData, updated_at: new Date().toISOString() };
@@ -319,6 +322,7 @@ export async function updateSessionApi(sessionId, updateData) {
   setCachedSessions(cached);
   try { return await retrySessionWrites(sessionId); }
   catch { return cached.find(s => s.id === sessionId) || { id: sessionId, ...updateData }; }
+  finally { setCachedSessions(getCachedSessions().map(s => s.id === sessionId ? { ...s, ...getConfirmedSessionRevisions(sessionId) } : s)); }
 }
 
 export async function deleteSessionApi(sessionId) {
@@ -333,7 +337,7 @@ export async function deleteSessionApi(sessionId) {
 }
 
 export async function saveActivitiesApi(sessionId, activities, { allowLocalFallback = true } = {}) {
-  queueSessionWrite(sessionId, { activities });
+  queueSessionWrite(sessionId, { activities, activitiesExpectedRevision: getCachedSessions().find(s => s.id === sessionId)?.activities_revision });
   const cached = getCachedSessions().map(s => {
     if (s.id === sessionId) {
       return { ...s, activities };
@@ -343,6 +347,7 @@ export async function saveActivitiesApi(sessionId, activities, { allowLocalFallb
   setCachedSessions(cached);
   try { await retrySessionWrites(sessionId); }
   catch (error) { if (!allowLocalFallback) throw error; }
+  finally { setCachedSessions(getCachedSessions().map(s => s.id === sessionId ? { ...s, ...getConfirmedSessionRevisions(sessionId) } : s)); }
   return activities;
 }
 

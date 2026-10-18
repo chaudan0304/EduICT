@@ -86,8 +86,8 @@ export async function tryHandleSessions(req, res, ctx) {
     try {
       const body = await parseJsonBody(req);
       const activities = Array.isArray(body) ? body : (body.activities || []);
-      const saved = saveSessionActivities(sessionId, activities);
-      sendJson(res, 200, saved);
+      const saved = saveSessionActivities(sessionId, activities, { expectedRevision: body.expectedRevision });
+      sendJson(res, 200, body.withRevision ? { activities: saved, revision: getSessionById(sessionId).activities_revision } : saved);
     } catch (err) {
       sendJson(res, err.statusCode || 500, { error: err.message });
     }

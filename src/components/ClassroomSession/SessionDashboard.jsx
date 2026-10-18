@@ -10,6 +10,7 @@ import SessionControlBar from './SessionControlBar';
 import QuickToolModal from './QuickToolModal';
 import SessionSummaryModal from './SessionSummaryModal';
 import SessionSaveStatus from './SessionSaveStatus';
+import {SESSION_RESOLVED_EVENT} from './sessionPersistence';
 import PresentationView from '../LessonPresentation/LessonPresentation';
 import { fetchLessonDetailApi, fetchLessonsApi } from '../LessonPresentation/lessonStorage';
 import { 
@@ -49,6 +50,11 @@ export default function SessionDashboard({
 
   const [participationRecords, setParticipationRecords] = useState(() => initialSession.participation || []);
   const [interactionError, setInteractionError] = useState('');
+  useEffect(()=>{
+    const resolved=event=>{if(event.detail.id===initialSession.id){setSession(event.detail);setActivities(event.detail.activities||[]);setParticipationRecords(event.detail.participation||[]);}};
+    window.addEventListener(SESSION_RESOLVED_EVENT,resolved);
+    return()=>window.removeEventListener(SESSION_RESOLVED_EVENT,resolved);
+  },[initialSession.id]);
   
   // Khung giờ tiết học theo Thời Khóa Biểu
   const [activeSlot, setActiveSlot] = useState(() => {

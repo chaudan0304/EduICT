@@ -5,6 +5,7 @@ import SessionDashboard from './SessionDashboard';
 import CreateSessionModal from './CreateSessionModal';
 import SessionSummaryModal from './SessionSummaryModal';
 import SessionSaveStatus from './SessionSaveStatus';
+import {SESSION_RESOLVED_EVENT} from './sessionPersistence';
 import { 
   fetchSessionsFromApi, 
   fetchSessionDetailFromApi, 
@@ -35,6 +36,11 @@ export default function SessionManager({
   const [loading, setLoading] = useState(true);
   const [deleteFailure, setDeleteFailure] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  useEffect(()=>{
+    const resolved=event=>{setSessions(previous=>previous.map(session=>session.id===event.detail.id?event.detail:session));setActiveSession(previous=>previous?.id===event.detail.id?event.detail:previous);};
+    window.addEventListener(SESSION_RESOLVED_EVENT,resolved);
+    return()=>window.removeEventListener(SESSION_RESOLVED_EVENT,resolved);
+  },[]);
 
   // Tự động mở Modal tạo tiết học khi được kích hoạt từ Thời khóa biểu
   useEffect(() => {
