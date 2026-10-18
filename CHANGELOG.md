@@ -1,5 +1,14 @@
 # Lịch sử thay đổi
 
+## 1.16.0 — 18/10/2026
+
+- Nhật ký tương tác và phát biểu chỉ báo đã lưu sau xác nhận máy chủ. Bản chờ được giữ cục bộ, có nút thử lại và mã bản ghi cố định để không tạo trùng; thử lại nhật ký không phát lại thưởng sao.
+- Tiết học kiểm tra phiên bản trước khi lưu ghi chú, trạng thái và tiến trình. Khi xung đột, giáo viên đối chiếu hai bản rồi chọn; bản đang sửa được giữ vào Bản nháp trước khi dùng bản chung.
+- Công cụ → Bản nháp cho phép xem, tiếp tục soạn, bỏ tạm và khôi phục. Biểu mẫu câu hỏi, tiến trình AI, tạo tiết học, sửa hoạt động và thời khóa biểu dùng kho bản nháp chung giữa web/desktop trên máy này; phát hiện xung đột thay vì ghi đè.
+- Bổ sung kiểm thử phục hồi, thời khóa biểu, gửi lại lịch sử và chỉnh sửa đồng thời trên SQLite riêng.
+
+Chi tiết và giới hạn: docs/session-recovery-drafts-1.16.0.md.
+
 ## 1.15.0 — 17/10/2026
 
 - Lịch giảng dạy có nút Chỉnh lớp & giờ học: chọn lớp/nghỉ/trống theo thứ và tiết, sửa giờ bắt đầu/kết thúc cho 4 tiết sáng và 3 tiết chiều. Khung giờ dùng chung thứ Hai–thứ Sáu; khoảng nghỉ tự tính giữa các tiết.
