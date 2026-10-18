@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DialogService from '../../services/DialogService';
 import SessionList from './SessionList';
 import SessionDashboard from './SessionDashboard';
 import CreateSessionModal from './CreateSessionModal';
 import SessionSummaryModal from './SessionSummaryModal';
 import SessionSaveStatus from './SessionSaveStatus';
-import {SESSION_RESOLVED_EVENT} from './sessionPersistence';
+import {SESSION_RESOLVED_EVENT,restoreSessionRecoveryDraft,mergePendingSession} from './sessionPersistence';
+import {DRAFT_OPEN,requestedDraft,consumeDraft} from '../../services/sharedDrafts';
 import { 
   fetchSessionsFromApi, 
   fetchSessionDetailFromApi, 
@@ -36,6 +37,31 @@ export default function SessionManager({
   const [loading, setLoading] = useState(true);
   const [deleteFailure, setDeleteFailure] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [resumeError,setResumeError]=useState('');
+  const resuming=useRef(null);
+  useEffect(()=>{
+    const resume=async()=>{
+      const request=requestedDraft();if(!request||!classes.length||resuming.current===request||/^(question-form|ai-questions):/.test(request.scope)||request.scope==='timetable-editor')return;
+      resuming.current=request;setResumeError('');
+      try{
+        if(request.scope.startsWith('session-create:')){
+          const id=request.scope.slice('session-create:'.length);const target=classes.find(row=>row.id===id)||classes.find(row=>row.id===request.data.selectedClassId);
+          if(!target)throw new Error('Lớp trong bản nháp không còn tồn tại. Nội dung vẫn được giữ trong danh sách Bản nháp.');
+          setCreateModalTargetClassId(target.id);setShowCreateModal(true);consumeDraft(request);return;
+        }
+        const id=request.scope.startsWith('flow-editor:')?request.scope.slice('flow-editor:'.length):request.scope.startsWith('session-conflict:')?request.data.sessionId:request.targetSessionId;
+        if(!id)throw new Error('Chưa chọn tiết học để tiếp tục bản nháp.');
+        const detail=await fetchSessionDetailFromApi(id);
+        if(!detail)throw new Error('Tiết học trong bản nháp không còn tồn tại. Nội dung vẫn được giữ.');
+        if(request.scope.startsWith('ai-flow:')&&['COMPLETED','CANCELLED'].includes(detail.status))throw new Error('Hãy chọn một tiết học chưa kết thúc để nhận tiến trình.');
+        if(request.scope.startsWith('session-conflict:'))restoreSessionRecoveryDraft(request.data);
+        setActiveSession(mergePendingSession(detail));setCurrentView('dashboard');setStoredActiveSessionId(id);onSelectClass?.(detail.class_id);
+        if(!request.scope.startsWith('ai-flow:'))consumeDraft(request);
+        else window.dispatchEvent(new Event(DRAFT_OPEN));
+      }catch(error){setResumeError(error.message);consumeDraft(request);}
+    };
+    void resume();window.addEventListener(DRAFT_OPEN,resume);return()=>window.removeEventListener(DRAFT_OPEN,resume);
+  },[classes,onSelectClass]);
   useEffect(()=>{
     const resolved=event=>{setSessions(previous=>previous.map(session=>session.id===event.detail.id?event.detail:session));setActiveSession(previous=>previous?.id===event.detail.id?event.detail:previous);};
     window.addEventListener(SESSION_RESOLVED_EVENT,resolved);
@@ -76,6 +102,7 @@ export default function SessionManager({
       setLoading(true);
       const data = await fetchSessionsFromApi();
       setSessions(data || []);
+      if(resuming.current){setLoading(false);return;}
 
       // 1. Kiểm tra session có id trong stored active session
       const storedActiveId = getStoredActiveSessionId();
@@ -189,6 +216,7 @@ export default function SessionManager({
 
   return (
     <div className="classroom-session-container">
+      {resumeError&&<p role="alert" className="session-save-warning">{resumeError}</p>}
       {currentView === 'list' && <SessionSaveStatus />}
       {deleteFailure && <div role="alert" className="session-save-warning"><strong>Chưa xóa tiết học</strong><p>{deleteFailure.message} Tiết học vẫn được giữ trong danh sách.</p><button className="btn btn-outline" disabled={deleting} onClick={() => handleDeleteSession(deleteFailure.sessionId, deleteFailure.title, true)}>Thử xóa lại</button></div>}
       {currentView === 'list' && (

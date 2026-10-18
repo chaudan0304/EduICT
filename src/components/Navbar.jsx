@@ -44,6 +44,7 @@ import AiAssistantModal from './AI/AiAssistantModal';
 import { fetchAiStatus } from './AI/aiService';
 import { getCurrentPeriodStatus } from '../utils/timetable';
 import TimetableModal from './ClassroomSession/TimetableModal';
+import {DRAFT_OPEN,requestedDraft} from '../services/sharedDrafts';
 import ClassroomToolsModal from './ClassroomTools/ClassroomToolsModal';
 import ClassroomToolsUpdateNotice from './ClassroomToolsUpdateNotice';
 
@@ -91,6 +92,7 @@ export default function Navbar({
   const [classroomToolsTab, setClassroomToolsTab] = useState('gemini');
   const [modalGradeFilter, setModalGradeFilter] = useState('all');
   const [showTimetableModal, setShowTimetableModal] = useState(false);
+  useEffect(()=>{const resume=()=>{if(requestedDraft()?.scope==='timetable-editor')setShowTimetableModal(true);};window.addEventListener(DRAFT_OPEN,resume);return()=>window.removeEventListener(DRAFT_OPEN,resume);},[]);
   const [livePeriodStatus, setLivePeriodStatus] = useState(() => getCurrentPeriodStatus());
 
   // Cập nhật trạng thái tiết dạy thời gian thực trên thanh điều hướng

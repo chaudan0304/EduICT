@@ -19,6 +19,7 @@ import { getRuntimeConfig } from '../services/runtimeConfig.js';
 import { tryHandleClassroomTools } from './classroomTools.js';
 import { tryHandleMachineFaults } from './machineFaults.js';
 import { tryHandleActivityPersistence } from './activityPersistence.js';
+import { tryHandleEditorDrafts } from './editorDrafts.js';
 
 export async function handleApiRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -77,6 +78,7 @@ export async function handleApiRequest(req, res) {
 
   // Dispatch to route modules in the EXACT original first-match order.
   const ctx = { pathname, method, url };
+  if (await tryHandleEditorDrafts(req, res, ctx)) return true;
 
   if (await tryHandleActivityPersistence(req, res, ctx)) return true;
 

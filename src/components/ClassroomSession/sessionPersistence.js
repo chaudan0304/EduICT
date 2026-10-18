@@ -1,6 +1,7 @@
 import StorageService from '../../services/StorageService';
 import apiClient from '../../services/apiClient';
 import { saveLocalDraft } from '../../services/localDrafts';
+import { writeSharedDraft } from '../../services/sharedDrafts';
 
 const KEY = 'eduict_pending_session_writes_v1';
 export const SESSION_WRITES_EVENT = 'eduict-session-writes';
@@ -60,16 +61,27 @@ export function getSessionWriteStatus(id) {
 }
 export async function readSessionConflict(id) {
   const server = await apiClient.get(`/api/sessions/${encodeURIComponent(id)}`);
-  return { server, local: mergePendingSession(server) };
+  return { server, local: mergePendingSession(server), localRevision: entries()[id]?.revision };
 }
-export async function resolveSessionConflict(id, server, keepLocal) {
+export function restoreSessionRecoveryDraft(data) {
+  queueSessionWrite(data.sessionId,{patch:data.patch||{},...(data.activities?{activities:data.activities}:{})});
+  const entry=entries()[data.sessionId];
+  entry.expectedRevision='recovery-review';entry.activitiesExpectedRevision='recovery-review';entry.conflict=true;entry.error='Bản phục hồi cần đối chiếu với tiết học đang lưu trước khi áp dụng.';changed();
+}
+export async function resolveSessionConflict(id, server, keepLocal, localRevision) {
   if (running.has(id)) throw new Error('Đang gửi dữ liệu. Hãy chờ trước khi chọn bản.');
   const entry = entries()[id];
   if (!entry) return;
+  if (localRevision !== entry.revision) throw new Error('Nội dung tại đây vừa thay đổi. Hãy bấm đối chiếu lại trước khi chọn bản.');
   if (!server.revision || !server.activities_revision) throw new Error('Hãy cập nhật ứng dụng để đọc được phiên bản tiết học.');
   if (!keepLocal) {
-    const backup = saveLocalDraft(`session-conflict:${id}:${Date.now()}`, { sessionId: id, patch: entry.patch, activities: entry.activities });
+    const scope=`session-conflict:${id}:${crypto.randomUUID()}`;
+    const data={ sessionId: id, patch: entry.patch, activities: entry.activities };
+    const backup = saveLocalDraft(scope,data,{pendingSync:true});
     if (!backup.ok) throw new Error('Chưa giữ được bản đang sửa thành bản nháp, nên chưa bỏ nội dung.');
+    const saved=await writeSharedDraft(scope,data,null);
+    saveLocalDraft(scope,data,{sharedVersion:saved.version,pendingSync:false});
+    if(entries()[id]?.revision!==localRevision)throw new Error('Nội dung tại đây vừa thay đổi. Bản đã đối chiếu được giữ trong Bản nháp; hãy đối chiếu lại.');
     delete entry.patch; delete entry.activities;
   }
   recordSessionSnapshot(server);

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import apiClient from '../../services/apiClient';
 import DialogService from '../../services/DialogService';
 import {
   Search,
@@ -28,6 +29,7 @@ import {
 import { fetchLessonsApi } from '../LessonPresentation/lessonStorage';
 import QuestionFormModal from './QuestionFormModal';
 import AiQuestionGeneratorModal from '../AI/AiQuestionGeneratorModal';
+import {DRAFT_OPEN,requestedDraft,consumeDraft} from '../../services/sharedDrafts';
 
 export default function QuestionBankView({
   onLaunchQuizCreator,
@@ -50,13 +52,35 @@ export default function QuestionBankView({
   // Quản lý Modal AI tạo câu hỏi
   const [isAiGenOpen, setIsAiGenOpen] = useState(false);
   const [loadedLessons, setLoadedLessons] = useState(availableLessons);
+  const [lessonsReady,setLessonsReady]=useState(Boolean(availableLessons?.length));
+  const [resumeError,setResumeError]=useState(''),[aiResume,setAiResume]=useState(null);
+  const resuming=useRef(null);
+  useEffect(()=>{
+    const resume=async()=>{const request=requestedDraft();if(!request||isLoading||resuming.current===request)return;
+      if(request.scope.startsWith('question-form:')){
+        resuming.current=request;
+        try{
+          const id=request.scope.slice('question-form:'.length);
+          const question=id==='new'?null:await apiClient.get(`/api/questions/${encodeURIComponent(id)}`);
+          setEditingQuestion(question);setIsFormOpen(true);setResumeError('');consumeDraft(request);
+        }catch(error){setResumeError(`Chưa mở được câu hỏi gốc: ${error.message}. Bản nháp vẫn được giữ để xem nội dung.`);consumeDraft(request);}
+      }else if(request.scope.startsWith('ai-questions:')&&lessonsReady){
+        const parts=request.scope.split(':'),grade=parts.pop(),id=parts.slice(1).join(':');
+        if(id!=='library'&&!loadedLessons.some(lesson=>String(lesson.id)===id)){setResumeError('Bài nguồn không còn tồn tại. Bản nháp vẫn được giữ.');consumeDraft(request);return;}
+        setAiResume({lessonId:id==='library'?null:id,grade});setIsAiGenOpen(true);consumeDraft(request);
+      }
+    };
+    resume();window.addEventListener(DRAFT_OPEN,resume);return()=>window.removeEventListener(DRAFT_OPEN,resume);
+  },[questions,isLoading,loadedLessons,lessonsReady]);
 
   useEffect(() => {
     if (availableLessons && availableLessons.length > 0) {
       setLoadedLessons(availableLessons);
+      setLessonsReady(true);
     } else {
       fetchLessonsApi({ grade: 'all' })
         .then(data => setLoadedLessons(data || []))
+        .then(()=>setLessonsReady(true))
         .catch(err => console.warn('Lỗi tải danh sách bài học cho AI Question:', err));
     }
   }, [availableLessons]);
@@ -208,6 +232,7 @@ export default function QuestionBankView({
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: 1440, margin: '0 auto', width: '100%', position: 'relative' }}>
+      {resumeError&&<p role="alert" className="session-save-warning">{resumeError}</p>}
       {/* 1. Header Banner & Hành Động Chính */}
       <div style={{
         background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.12) 0%, rgba(147, 51, 234, 0.08) 100%)',
@@ -770,9 +795,10 @@ export default function QuestionBankView({
       {isAiGenOpen && (
         <AiQuestionGeneratorModal
           isOpen={isAiGenOpen}
-          onClose={() => setIsAiGenOpen(false)}
+          onClose={() => {setIsAiGenOpen(false);setAiResume(null);}}
           lessons={loadedLessons}
-          initialGrade={currentClass?.grade || selectedGrade}
+          preselectedLessonId={aiResume?.lessonId || null}
+          initialGrade={aiResume?.grade || currentClass?.grade || selectedGrade}
           onQuestionsAdded={() => {
             fetchQuestionsApi({
               grade: selectedGrade,

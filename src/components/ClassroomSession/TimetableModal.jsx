@@ -28,6 +28,7 @@ import { normalizeTeachingPeriods, buildPeriodSlots } from '../../../shared/time
 import { applyTimetableSettings, fetchTimetableSettings, saveTimetableSettings, getTimetableRevision, getTimetableGeneration, TIMETABLE_UPDATED } from '../../services/timetableSettings';
 import useLocalDraft from '../../hooks/useLocalDraft';
 import DraftStatus from '../DraftStatus';
+import {requestedDraft,consumeDraft} from '../../services/sharedDrafts';
 import './TimetableModal.css';
 
 const cloneGrid = (g) => JSON.parse(JSON.stringify(g));
@@ -109,6 +110,7 @@ export default function TimetableModal({
     window.addEventListener(TIMETABLE_UPDATED, changed);
     return () => window.removeEventListener(TIMETABLE_UPDATED, changed);
   }, [isOpen, editMode, revision]);
+  useEffect(()=>{const request=requestedDraft();if(isOpen&&!loading&&revision&&request?.scope==='timetable-editor'){setEditMode(true);consumeDraft(request);}},[isOpen,loading,revision]);
 
   if (!isOpen) return null;
 

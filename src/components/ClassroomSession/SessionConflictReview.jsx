@@ -11,7 +11,7 @@ function VersionDetails({label,session}) {
 export default function SessionConflictReview({sessionId}) {
   const [review,setReview]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const read=async()=>{setBusy(true);setError('');try{setReview(await readSessionConflict(sessionId));}catch(err){setError(err.message);}finally{setBusy(false);}};
-  const choose=async keepLocal=>{setBusy(true);setError('');try{await resolveSessionConflict(sessionId,review.server,keepLocal);setReview(null);}catch(err){setError(err.message);}finally{setBusy(false);}};
+  const choose=async keepLocal=>{setBusy(true);setError('');try{await resolveSessionConflict(sessionId,review.server,keepLocal,review.localRevision);setReview(null);}catch(err){setError(err.message);}finally{setBusy(false);}};
   return <div className="session-conflict-review"><button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={read}>Đối chiếu bản đang sửa và bản chung</button>
     {review&&<><div className="session-conflict-columns"><VersionDetails label="Bản đang sửa tại đây" session={review.local}/><VersionDetails label="Bản chung vừa đọc" session={review.server}/></div>
       <p>Dùng bản chung sẽ giữ bản đang sửa trong danh sách Bản nháp. Áp dụng bản đang sửa sẽ thay các trường đã sửa và tiến trình có thay đổi; hệ thống vẫn kiểm tra nếu có người lưu tiếp.</p>

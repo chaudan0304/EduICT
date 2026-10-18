@@ -180,3 +180,8 @@ h1, h2, h3 { font-family: var(--font-display); }
 .session-conflict-columns { display: grid; grid-template-columns: repeat(auto-fit,minmax(250px,1fr)); gap: .75rem; margin-top: .75rem; }
 .session-conflict-columns section { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 10px; padding: .75rem; max-height: 350px; overflow: auto; overflow-wrap: anywhere; }
 .session-conflict-columns h4 { margin: 0 0 .5rem; }
+.draft-list-card { padding: 1rem; margin: .75rem 0; border: 1px solid var(--surface-border); background: var(--surface); border-radius: 12px; }
+.draft-list-card h4 { margin: .3rem 0; overflow-wrap: anywhere; }
+.draft-list-card small { color: var(--text-muted); }
+.draft-list-card .classroom-tools-actions { margin-top: .75rem; }
+.draft-preview pre, .draft-status pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; max-height: 350px; overflow: auto; }

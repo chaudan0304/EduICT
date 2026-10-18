@@ -14,6 +14,7 @@ import useStudentUpdates from './hooks/useStudentUpdates';
 import useClassDataSync from './hooks/useClassDataSync';
 import DataSyncStatus from './components/DataSyncStatus';
 import useTimetableSync from './hooks/useTimetableSync';
+import {DRAFT_OPEN,requestedDraft} from './services/sharedDrafts';
 
 // Part F (Giai đoạn 1B) — Code splitting: các tab NẶNG tải theo yêu cầu (React.lazy).
 // Vỏ ứng dụng (Navbar/Sidebar/HomeDashboard/ClassroomTimer/modal năm học) giữ eager
@@ -64,6 +65,10 @@ export default function App() {
     } catch {}
     return 'home';
   });
+  useEffect(()=>{
+    const resume=()=>{const request=requestedDraft();if(!request||request.scope==='timetable-editor')return;setActiveTab(/^(question-form|ai-questions):/.test(request.scope)?'quiz':'sessions');};
+    resume();window.addEventListener(DRAFT_OPEN,resume);return()=>window.removeEventListener(DRAFT_OPEN,resume);
+  },[]);
   const [ongoingSession, setOngoingSession] = useState(() => getActiveOngoingSession());
   useEffect(() => onPresentationNavigate(setActiveTab), []);
   const [isProjector, setIsProjector] = useState(false);

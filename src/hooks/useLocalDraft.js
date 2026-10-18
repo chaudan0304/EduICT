@@ -1,32 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { readLocalDraft, saveLocalDraft, clearLocalDraft } from '../services/localDrafts';
+import {useCallback,useEffect,useRef,useState} from 'react';
+import {createDraftSync} from '../services/draftSyncController';
 
-export default function useLocalDraft(scope, enabled, value, restore) {
-  const [ready, setReady] = useState(null);
-  const [status, setStatus] = useState(null);
-  const restoreRef = useRef(restore);
-  const signature = JSON.stringify(value);
-  const last = useRef('');
-  const current = useRef(signature);
-  useEffect(() => { restoreRef.current = restore; current.current = signature; }, [restore, signature]);
-  useEffect(() => {
-    if (!enabled) { setReady(null); return; }
-    const saved = readLocalDraft(scope);
-    last.current = saved ? JSON.stringify(saved.data) : current.current;
-    if (saved) { restoreRef.current(saved.data); setStatus({ restored: true, savedAt: saved.savedAt }); }
-    else setStatus(null);
-    setReady(scope);
-  }, [scope, enabled]);
-  useEffect(() => {
-    if (!enabled || ready !== scope || signature === last.current) return;
-    const result = saveLocalDraft(scope, JSON.parse(signature));
-    if (result.ok) last.current = signature;
-    setStatus(result);
-  }, [scope, enabled, ready, signature]);
-  const clear = useCallback(() => {
-    const cleared = clearLocalDraft(scope);
-    last.current = current.current;
-    setStatus(cleared ? null : { ok: false, error: 'Nội dung đã lưu, nhưng chưa xóa được bản nháp cũ trên trình duyệt này.' });
-  }, [scope]);
-  return { status, clear };
+export default function useLocalDraft(scope,enabled,value,restore){
+  const [status,setStatus]=useState(null);
+  const controller=useRef(null),restoreRef=useRef(restore),valueRef=useRef(value);
+  const serialized=JSON.stringify(value);
+  useEffect(()=>{restoreRef.current=restore;valueRef.current=value;});
+  useEffect(()=>{
+    if(!enabled)return;
+    const sync=createDraftSync(scope,{restore:data=>restoreRef.current(data),status:setStatus});controller.current=sync;
+    void sync.start(valueRef.current);
+    const touched=()=>sync.touch();
+    document.addEventListener('input',touched,true);document.addEventListener('pointerdown',touched,true);
+    return()=>{sync.close();document.removeEventListener('input',touched,true);document.removeEventListener('pointerdown',touched,true);};
+  },[scope,enabled]);
+  useEffect(()=>{if(enabled)controller.current?.change(JSON.parse(serialized));},[enabled,serialized]);
+  const clear=useCallback(()=>controller.current?.clear(),[]);
+  return {status,clear};
 }

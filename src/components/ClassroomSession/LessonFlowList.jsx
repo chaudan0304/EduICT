@@ -13,6 +13,7 @@ import LessonFlowActivityCard from './LessonFlowActivityCard';
 import './LessonFlowList.css';
 import useLocalDraft from '../../hooks/useLocalDraft';
 import DraftStatus from '../DraftStatus';
+import {DRAFT_OPEN,requestedDraft,consumeDraft} from '../../services/sharedDrafts';
 
 export default function LessonFlowList({
   activities = [],
@@ -37,6 +38,16 @@ export default function LessonFlowList({
   // State Trợ Giảng AI Flow
   const [isAiFlowOpen, setIsAiFlowOpen] = useState(false);
   const [lessonsList, setLessonsList] = useState([]);
+  const [lessonsReady,setLessonsReady]=useState(false);
+  const [resumeLesson,setResumeLesson]=useState(undefined),[resumeError,setResumeError]=useState('');
+  React.useEffect(()=>{
+    const resume=()=>{const request=requestedDraft();if(!request?.scope.startsWith('ai-flow:')||request.targetSessionId!==sessionId||!lessonsReady)return;
+      const id=request.scope.slice('ai-flow:'.length);
+      if(id!=='picker'&&!lessonsList.some(lesson=>String(lesson.id)===id)){setResumeError('Bài nguồn không còn tồn tại. Bản đề xuất vẫn được giữ trong danh sách Bản nháp.');consumeDraft(request);return;}
+      setResumeLesson(id==='picker'?null:id);setIsAiFlowOpen(true);consumeDraft(request);
+    };
+    resume();window.addEventListener(DRAFT_OPEN,resume);return()=>window.removeEventListener(DRAFT_OPEN,resume);
+  },[sessionId,lessonsList,lessonsReady]);
   const localDraft = useLocalDraft(`flow-editor:${sessionId || lessonId || 'local'}`, true,
     { editForm, editingActivityId: activities[editingIndex]?.id || null, newActivity, showAddForm }, data => {
       if (data.newActivity && typeof data.newActivity.title === 'string') setNewActivity(data.newActivity);
@@ -48,6 +59,7 @@ export default function LessonFlowList({
   React.useEffect(() => {
     fetchLessonsApi({ grade: 'all' })
       .then(data => setLessonsList(data || []))
+      .then(()=>setLessonsReady(true))
       .catch(err => console.warn('Lỗi tải bài học cho AI Lesson Flow:', err));
   }, []);
 
@@ -327,13 +339,14 @@ export default function LessonFlowList({
         />)}
       </ol>
       {!activities.length && <p className="lesson-flow-empty">Chưa có hoạt động. Thêm hoạt động hoặc dùng AI để chuẩn bị tiến trình.</p>}
+      {resumeError&&<p role="alert" className="session-save-warning">{resumeError}</p>}
 
       {/* Modal AI Đề Xuất Tiến Trình */}
       {isAiFlowOpen && (
         <AiLessonFlowModal
           isOpen={isAiFlowOpen}
-          onClose={() => setIsAiFlowOpen(false)}
-          lesson={lessonsList.find(l => String(l.id) === String(lessonId)) || null}
+          onClose={() => {setIsAiFlowOpen(false);setResumeLesson(undefined);}}
+          lesson={lessonsList.find(l => String(l.id) === String(resumeLesson===undefined?lessonId:resumeLesson)) || null}
           lessons={lessonsList}
           currentActivityCount={activities.length}
           onApplyFlow={async (newActs) => {

@@ -5,9 +5,10 @@ import PreflightPanel from './PreflightPanel';
 import StudentProgressPanel from './StudentProgressPanel';
 import VersionPanel from './VersionPanel';
 import BackupPanel from './BackupPanel';
+import DraftsPanel from './DraftsPanel';
 import './ClassroomTools.css';
 
-const tabs = [{ id: 'gemini', label: 'Gemini', icon: Settings }, { id: 'preflight', label: 'Trước giờ dạy', icon: ShieldCheck },
+const tabs = [{ id: 'gemini', label: 'Gemini', icon: Settings }, { id: 'drafts', label: 'Bản nháp', icon: FileText }, { id: 'preflight', label: 'Trước giờ dạy', icon: ShieldCheck },
   { id: 'progress', label: 'Tiến bộ học sinh', icon: FileText }, { id: 'backup', label: 'Sao lưu', icon: Archive }, { id: 'version', label: 'Phiên bản', icon: Download }];
 
 export default function ClassroomToolsModal({ isOpen, onClose, currentClass, onAiStatusChange, initialTab = 'gemini' }) {
@@ -31,6 +32,7 @@ export default function ClassroomToolsModal({ isOpen, onClose, currentClass, onA
       {tab === 'progress' && <StudentProgressPanel key={currentClass?.id || 'none'} currentClass={currentClass} onBusyChange={setBusy} />}
       {tab === 'version' && <VersionPanel />}
       {tab === 'backup' && <BackupPanel onBusyChange={setBusy} />}
+      {tab === 'drafts' && <DraftsPanel onBusyChange={setBusy} onResume={onClose} />}
     </div>}
   </dialog>;
 }
