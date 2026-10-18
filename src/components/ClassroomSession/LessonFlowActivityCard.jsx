@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Check, CheckCircle2, Clock, Copy, Edit3, MoreHorizo
 const statusLabels = { IN_PROGRESS: 'Đang học', COMPLETED: 'Đã xong', SKIPPED: 'Đã bỏ qua', PENDING: 'Chưa bắt đầu' };
 
 export default function LessonFlowActivityCard({ activity, index, count, isCurrent, typeInfo,
-  isEditing, editForm, onEditChange, onSave, onCancelEdit, onStartEdit,
+  isEditing, editForm, onEditChange, onSave, onCancelEdit, onStartEdit, saving=false,
   onSetStatus, onMoveUp, onMoveDown, onDuplicate, onDelete }) {
   const [showTools, setShowTools] = useState(false);
   const id = useId();
@@ -25,10 +25,12 @@ export default function LessonFlowActivityCard({ activity, index, count, isCurre
       </header>
       <div className="lesson-flow-step-state"><span className={`lesson-flow-status status-${status.toLowerCase()}`}>{status === 'COMPLETED' && <CheckCircle2 size={13} aria-hidden="true" />}{statusLabels[status]}</span></div>
       {isEditing ? <form className="lesson-flow-edit-form" onSubmit={event => { event.preventDefault(); if (editForm.title.trim()) onSave(index); }}>
+        <fieldset disabled={saving} style={{display:'contents'}}>
         <label htmlFor={`${id}-edit-title`}>Tên hoạt động<input id={`${id}-edit-title`} className="input-field" required value={editForm.title} onChange={event => onEditChange({ ...editForm, title: event.target.value })} /></label>
         <label htmlFor={`${id}-edit-duration`}>Thời lượng (phút)<input id={`${id}-edit-duration`} className="input-field" type="number" min="1" max="60" step="1" required value={editForm.duration} onChange={event => onEditChange({ ...editForm, duration: event.target.value })} /></label>
         <label className="lesson-flow-edit-description" htmlFor={`${id}-description`}>Ghi chú hoạt động<textarea id={`${id}-description`} className="input-field" rows={2} value={editForm.description} onChange={event => onEditChange({ ...editForm, description: event.target.value })} /></label>
         <div className="lesson-flow-edit-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={!editForm.title.trim()}><Check size={16} />Lưu thay đổi</button><button type="button" className="btn btn-outline btn-sm" onClick={onCancelEdit}><X size={16} />Hủy</button></div>
+        </fieldset>
       </form> : <>
         {activity.description && <p className="lesson-flow-step-description">{activity.description}</p>}
         <div className="lesson-flow-step-footer">

@@ -65,3 +65,14 @@ test('finishing a draft waits for its in-flight save and archives using the ackn
   release();await Promise.all([writing,finishing]);
   assert.deepEqual(writes,[{version:null,archived:false},{version:'saved',archived:true}]);sync.close();
 });
+
+test('a stale pending archive requires review and keeps both versions accessible',async()=>{
+  let local={data:{text:'old saved question'},sharedVersion:'v1',pendingClear:true},status,restored;
+  const remote={version:'v2',data:{text:'new question in other window'},archived:false};
+  const io={readLocal:()=>local,saveLocal:(scope,data,meta)=>{local={data,...meta};return{ok:true};},clearLocal:()=>{local=null;},read:async()=>remote,
+    write:async()=>{throw Object.assign(new Error('changed'),{status:409,data:{current:remote}});}};
+  const sync=createDraftSync('question-form:stale-archive',{restore:data=>{restored=data;},status:value=>{status=value;}},io);
+  await sync.start({text:'blank form'});
+  assert.equal(status.conflict,true);assert.equal(status.localData.text,'old saved question');assert.equal(status.sharedData.text,'new question in other window');
+  await status.useShared();assert.equal(restored.text,'new question in other window');assert.equal(local.pendingClear,false);sync.close();
+});

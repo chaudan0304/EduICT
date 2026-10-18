@@ -539,13 +539,17 @@ export default function SessionDashboard({
   };
 
   // 8. Cập nhật danh sách activities
-  const handleUpdateActivities = async (newActivities, { resetSelection = false } = {}) => {
+  const handleUpdateActivities = async (newActivities, { resetSelection = false, requireConfirmation = false } = {}) => {
     if (resetSelection) {
       await saveActivitiesApi(session.id, newActivities, { allowLocalFallback: false });
       setActivities(newActivities);
       setCurrentActivityIndex(0);
       resetActivityClock((Number(newActivities[0]?.duration_minutes) || 5) * 60);
       return;
+    }
+    if(requireConfirmation){
+      await saveActivitiesApi(session.id,newActivities,{allowLocalFallback:false});
+      setActivities(newActivities);return;
     }
     setActivities(newActivities);
     await saveActivitiesApi(session.id, newActivities);

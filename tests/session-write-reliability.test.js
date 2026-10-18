@@ -48,3 +48,20 @@ test('session writes: reject failed create/delete; preserve pending updates acro
     assert.equal(mergePendingSession({ id: 's1', status: 'PAUSED' }).status, 'COMPLETED');
   } finally { global.fetch=original; delete global.window; }
 });
+
+test('activity forms require an acknowledged save and retain rejected content for retry',async()=>{
+  const store=new Map();global.window={localStorage:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},dispatchEvent(){}};
+  const original=global.fetch;
+  const {fetchSessionDetailFromApi,saveActivitiesApi}=await import('../src/components/ClassroomSession/sessionStorage.js');
+  const {mergePendingSession,clearSessionWrites}=await import('../src/components/ClassroomSession/sessionPersistence.js');
+  try{
+    global.fetch=async()=>new Response(JSON.stringify({id:'activity-form',revision:'r1',activities_revision:'a1',activities:[]}));
+    await fetchSessionDetailFromApi('activity-form');
+    const activities=[{id:'form-a1',title:'Keep rejected content'}];
+    global.fetch=async()=>new Response(JSON.stringify({error:'fixture offline'}),{status:503});
+    await assert.rejects(saveActivitiesApi('activity-form',activities,{allowLocalFallback:false}),/fixture offline/);
+    assert.deepEqual(mergePendingSession({id:'activity-form',activities:[]}).activities,activities);
+    global.fetch=async()=>new Response(JSON.stringify({activities,revision:'a2'}));
+    assert.deepEqual(await saveActivitiesApi('activity-form',activities,{allowLocalFallback:false}),activities);
+  }finally{clearSessionWrites('activity-form');global.fetch=original;delete global.window;}
+});

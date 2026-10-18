@@ -63,7 +63,7 @@ export function createDraftSync(scope,{restore,status},io={readLocal:readLocalDr
     async start(value){
       initial=value;current=value;
       const local=io.readLocal(scope);
-      if(local?.pendingClear){base=local.sharedVersion;current=local.data;cleared=true;await this.clear();cleared=false;dirty=false;loaded=false;base=null;current=initial;await load();return;}
+      if(local?.pendingClear){base=local.sharedVersion;current=local.data;cleared=true;if(!await this.clear())return;cleared=false;dirty=false;loaded=false;base=null;current=initial;await load();return;}
       if(local){restoredLocal=true;current=local.data;base=local.sharedVersion??null;dirty=local.pendingSync!==false;restore(current);notify({restored:true,savedAt:local.savedAt,pending:true});}
       await load();
     },
@@ -83,8 +83,13 @@ export function createDraftSync(scope,{restore,status},io={readLocal:readLocalDr
       try{
         if(!loaded){remote=await io.read(scope);loaded=true;if(base===null&&!remote.data)base=remote.version;}
         if(remote?.data||dirty){remote=await io.write(scope,current,base,true);base=remote.version;}
-        clearCache();notify(null);
-      }catch(error){cache(true,true);notify({error:`Nội dung đã lưu, nhưng chưa kết thúc được bản nháp chung: ${error.message}`});}
+        clearCache();notify(null);return true;
+      }catch(error){
+        cache(true,true);
+        if(error.status===409&&error.data?.current){cleared=false;loaded=true;dirty=true;conflict(error.data.current);}
+        else notify({error:`Chưa kết thúc được bản nháp chung: ${error.message}. Giữ nội dung đang soạn và thử lại.`,retry:()=>this.start(initial)});
+        return false;
+      }
     },
     close(){closed=true;clearTimeout(timer);if(!cleared&&dirty&&!blocked){if(loaded)void sync();else void load();}},
     flush:sync,

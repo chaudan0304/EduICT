@@ -27,6 +27,7 @@ export default function LessonFlowList({
   const [editingIndex, setEditingIndex] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', duration: 5, type: 'ACTIVITY', description: '' });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [savingForm,setSavingForm]=useState(false),[formError,setFormError]=useState('');
   const addFormId = useId();
   const [newActivity, setNewActivity] = useState({
     type: 'ACTIVITY',
@@ -75,9 +76,9 @@ export default function LessonFlowList({
   };
 
   // Thêm hoạt động mới
-  const handleAddActivity = (e) => {
+  const handleAddActivity = async (e) => {
     e.preventDefault();
-    if (!newActivity.title.trim()) return;
+    if (savingForm||!newActivity.title.trim()) return;
 
     const actToAdd = {
       id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -90,7 +91,10 @@ export default function LessonFlowList({
       notes: ''
     };
 
-    onUpdateActivities([...activities, actToAdd]);
+    setSavingForm(true);setFormError('');
+    try{await onUpdateActivities([...activities, actToAdd],{requireConfirmation:true});}
+    catch(error){setFormError(`Chưa xác nhận lưu hoạt động: ${error.message}. Nội dung đang soạn được giữ lại.`);return;}
+    finally{setSavingForm(false);}
     localDraft.clear();
     setShowAddForm(false);
     setNewActivity({
@@ -114,7 +118,8 @@ export default function LessonFlowList({
   };
 
   // Lưu chỉnh sửa
-  const saveEditing = (index) => {
+  const saveEditing = async (index) => {
+    if(savingForm)return;
     const updated = activities.map((act, idx) => {
       if (idx === index) {
         return {
@@ -127,7 +132,10 @@ export default function LessonFlowList({
       }
       return act;
     });
-    onUpdateActivities(updated);
+    setSavingForm(true);setFormError('');
+    try{await onUpdateActivities(updated,{requireConfirmation:true});}
+    catch(error){setFormError(`Chưa xác nhận lưu hoạt động: ${error.message}. Nội dung đang soạn được giữ lại.`);return;}
+    finally{setSavingForm(false);}
     setEditingIndex(null);
     localDraft.clear();
   };
@@ -238,6 +246,7 @@ export default function LessonFlowList({
         <span>{completedCount}/{activities.length} đã xong</span>
       </div>
       <DraftStatus status={localDraft.status} />
+      {formError&&<p role="alert" className="classroom-tools-error">{formError}</p>}
 
       {/* Form Thêm Hoạt Động Nhanh */}
       {showAddForm && (
@@ -250,6 +259,7 @@ export default function LessonFlowList({
           flexDirection: 'column',
           gap: '0.75rem'
         }}>
+          <fieldset disabled={savingForm} style={{display:'contents'}}>
           <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--primary)' }}>
             ➕ Chọn Loại Hoạt Động & Thời Lượng:
           </div>
@@ -324,6 +334,7 @@ export default function LessonFlowList({
               Thêm Vào Tiến Trình
             </button>
           </div>
+          </fieldset>
         </form>
       )}
 
@@ -333,7 +344,7 @@ export default function LessonFlowList({
           isCurrent={index === currentActivityIndex}
           typeInfo={ACTIVITY_TYPES[activity.type] || ACTIVITY_TYPES.ACTIVITY}
           isEditing={editingIndex === index} editForm={editForm} onEditChange={setEditForm}
-          onSave={saveEditing} onCancelEdit={() => setEditingIndex(null)} onStartEdit={startEditing}
+          saving={savingForm} onSave={saveEditing} onCancelEdit={() => setEditingIndex(null)} onStartEdit={startEditing}
           onSetStatus={handleSetStatus} onMoveUp={handleMoveUp} onMoveDown={handleMoveDown}
           onDuplicate={handleDuplicate} onDelete={handleDelete}
         />)}
