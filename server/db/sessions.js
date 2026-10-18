@@ -213,22 +213,36 @@ export function saveSessionActivities(sessionId, activities) {
 }
 
 // 7. Ghi nhận event mới
-export function addSessionEvent(sessionId, eventData) {
+function insertHistoryOnce(table, record, createdAt) {
   const db = getDatabase();
-  const eventId = eventData.id || `ev_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-  const stmt = db.prepare(`
-    INSERT INTO session_events (id, session_id, event_type, activity_id, student_id, details, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-  `);
-  stmt.run(
-    eventId,
-    sessionId,
-    eventData.event_type || eventData.eventType,
-    eventData.activity_id || eventData.activityId || null,
-    eventData.student_id || eventData.studentId || null,
-    typeof eventData.details === 'object' ? JSON.stringify(eventData.details) : (eventData.details || '')
-  );
-  return { id: eventId, success: true };
+  db.exec('BEGIN IMMEDIATE;');
+  try {
+    const session = db.prepare('SELECT class_id FROM classroom_sessions WHERE id=?').get(record.session_id);
+    if (!session) throw Object.assign(new Error('Tiết học không còn tồn tại.'), { statusCode: 404 });
+    if (record.student_id && !db.prepare('SELECT 1 FROM students WHERE id=? AND class_id=?').get(record.student_id, session.class_id)) {
+      throw Object.assign(new Error('Học sinh không thuộc lớp của tiết học.'), { statusCode: 400 });
+    }
+    const existing = db.prepare(`SELECT * FROM ${table} WHERE id=?`).get(record.id);
+    if (existing) {
+      if (Object.keys(record).some(key => existing[key] !== record[key])) throw Object.assign(new Error('Mã nhật ký đã dùng cho nội dung khác.'), { statusCode: 409 });
+    } else {
+      const keys = Object.keys(record);
+      const timestamp = createdAt && Number.isFinite(Date.parse(createdAt)) ? new Date(createdAt).toISOString() : new Date().toISOString();
+      db.prepare(`INSERT INTO ${table} (${keys.join(',')},created_at) VALUES (${keys.map(() => '?').join(',')},?)`).run(...keys.map(key => record[key]), timestamp);
+    }
+    db.exec('COMMIT;');
+    return { id: record.id, success: true };
+  } catch (error) { db.exec('ROLLBACK;'); throw error; }
+}
+export function addSessionEvent(sessionId, eventData) {
+  return insertHistoryOnce('session_events', {
+    id: eventData.id || `ev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    session_id: sessionId,
+    event_type: eventData.event_type || eventData.eventType,
+    activity_id: eventData.activity_id || eventData.activityId || null,
+    student_id: eventData.student_id || eventData.studentId || null,
+    details: typeof eventData.details === 'object' ? JSON.stringify(eventData.details) : (eventData.details || '')
+  }, eventData.created_at);
 }
 
 // 8. Ghi nhận học sinh tham gia (bản ghi LOG cho tổng kết tiết học)
@@ -237,24 +251,11 @@ export function addSessionEvent(sessionId, eventData) {
 // double-write + race với saveStudentsForClass. Ở đây chỉ lưu lại participation
 // (badge, stars_awarded) phục vụ hiển thị & thống kê tổng kết.
 export function addStudentParticipation(sessionId, pData) {
-  const db = getDatabase();
   const partId = pData.id || `part_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const studentId = pData.student_id || pData.studentId;
   const starsAwarded = Number(pData.stars_awarded || pData.starsAwarded) || 0;
 
-  const stmt = db.prepare(`
-    INSERT INTO student_participation (id, session_id, student_id, activity_id, badge_type, stars_awarded, note, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-  `);
-  stmt.run(
-    partId,
-    sessionId,
-    studentId,
-    pData.activity_id || pData.activityId || null,
-    pData.badge_type || pData.badgeType || 'PARTICIPATION',
-    starsAwarded,
-    pData.note || ''
-  );
-
-  return { id: partId, success: true };
+  return insertHistoryOnce('student_participation', { id: partId, session_id: sessionId, student_id: studentId,
+    activity_id: pData.activity_id || pData.activityId || null, badge_type: pData.badge_type || pData.badgeType || 'PARTICIPATION',
+    stars_awarded: starsAwarded, note: pData.note || '' }, pData.created_at);
 }

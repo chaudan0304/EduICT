@@ -1,7 +1,7 @@
 // Service layer kết nối API SQLite và Fallback LocalStorage cho Classroom Sessions
 import StorageService from '../../services/StorageService';
 import apiClient from '../../services/apiClient';
-import { queueSessionWrite, retrySessionWrites, mergePendingSession, clearSessionWrites } from './sessionPersistence';
+import { queueSessionWrite, queueSessionHistory, isHistoryPending, retrySessionWrites, mergePendingSession, clearSessionWrites } from './sessionPersistence';
 
 export const ACTIVITY_TYPES = {
   WARMUP: {
@@ -347,49 +347,17 @@ export async function saveActivitiesApi(sessionId, activities, { allowLocalFallb
 }
 
 export async function addSessionEventApi(sessionId, eventData) {
-  try {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/events`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(eventData)
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (e) {
-    console.warn('Backend SQLite error logging session event:', e);
-  }
-  return { id: `ev_${Date.now()}`, success: true };
+  return persistSessionHistory(sessionId, 'events', eventData);
 }
 
 export async function addStudentParticipationApi(sessionId, participationData) {
-  // Cập nhật ngay vào cache local để F5 / offline không bao giờ bị mất
-  try {
-    const cached = getCachedSessions();
-    const targetSession = cached.find(s => s.id === sessionId);
-    if (targetSession) {
-      const prevParts = targetSession.participation || [];
-      const updatedSession = {
-        ...targetSession,
-        participation: [participationData, ...prevParts]
-      };
-      setCachedSessions([updatedSession, ...cached.filter(s => s.id !== sessionId)]);
-    }
-  } catch (err) {
-    console.warn('Error updating local cache for participation:', err);
-  }
+  return persistSessionHistory(sessionId, 'participation', participationData);
+}
 
-  try {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/participation`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(participationData)
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (e) {
-    console.warn('Backend SQLite error recording participation:', e);
-  }
-  return { id: `part_${Date.now()}`, success: true };
+async function persistSessionHistory(sessionId, kind, payload) {
+  const data = queueSessionHistory(sessionId, kind, payload);
+  setCachedSessions(getCachedSessions().map(session => session.id === sessionId ? mergePendingSession(session) : session));
+  try { await retrySessionWrites(sessionId); } catch { /* The banner shows the retained pending record. */ }
+  const pending = isHistoryPending(sessionId, data.id);
+  return { id: data.id, success: !pending, pending };
 }

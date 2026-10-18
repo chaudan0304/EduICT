@@ -48,6 +48,7 @@ export default function SessionDashboard({
   });
 
   const [participationRecords, setParticipationRecords] = useState(() => initialSession.participation || []);
+  const [interactionError, setInteractionError] = useState('');
   
   // Khung giờ tiết học theo Thời Khóa Biểu
   const [activeSlot, setActiveSlot] = useState(() => {
@@ -566,6 +567,7 @@ export default function SessionDashboard({
   const handleAwardStudent = async (studentId, badgeType, starsDelta, note) => {
     if (isAwardingRef.current) return;
     isAwardingRef.current = true;
+    setInteractionError('');
     try {
       const students = currentClass?.students || [];
       const targetStudent = students.find(s => String(s.id) === String(studentId));
@@ -585,6 +587,8 @@ export default function SessionDashboard({
           onUpdateStudents(applyNewBalance(currentClass?.students || [], studentId, newBalance));
         } catch (e) {
           console.error('Lỗi cập nhật sao tham gia:', e);
+          setInteractionError('Chưa xác nhận thay đổi sao. Hãy kiểm tra lịch sử sao trước khi thử lại; chưa ghi nhật ký thành công cho thao tác này.');
+          return;
         }
 
         // Phát âm thanh
@@ -608,7 +612,8 @@ export default function SessionDashboard({
             note: `Ghi nhận tại Tiết học: ${session.lesson_title}`
           };
           const prevGoodScores = currentClass?.goodScores || [];
-          onUpdateGoodScores([gsRecord, ...prevGoodScores]);
+          try { await onUpdateGoodScores([gsRecord, ...prevGoodScores]); }
+          catch { setInteractionError('Sao đã được xác nhận, nhưng chưa lưu được sổ điểm tốt. Không bấm thưởng lại cho thao tác này.'); }
         }
       } else {
         // Nếu không đổi sao (chỉ ghi nhận phát biểu)
@@ -646,6 +651,7 @@ export default function SessionDashboard({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '5.5rem' }}>
       <SessionSaveStatus sessionId={session.id} />
+      {interactionError && <p role="alert" className="session-save-warning">{interactionError}</p>}
       {/* 1. Header Thông tin Session */}
       <SessionHeader
         session={session}

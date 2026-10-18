@@ -22,15 +22,29 @@ export function queueSessionWrite(id, change) {
   entries()[id] = { ...previous, ...change, patch: { ...previous.patch, ...change.patch }, revision: (previous.revision || 0) + 1, error: '' };
   changed();
 }
+export function queueSessionHistory(sessionId, kind, payload) {
+  if (!['events', 'participation'].includes(kind)) throw new Error('Loại nhật ký không hợp lệ.');
+  const data = { ...payload, id: payload.id || `history_${crypto.randomUUID()}`, created_at: payload.created_at || new Date().toISOString() };
+  const history = { ...entries()[sessionId]?.history, [data.id]: { kind, data } };
+  queueSessionWrite(sessionId, { history });
+  return data;
+}
+export const isHistoryPending = (sessionId, id) => Boolean(entries()[sessionId]?.history?.[id]);
 export function mergePendingSession(session) {
   if (!session) return session;
   const value = entries()[session.id];
-  return value ? { ...session, ...value.patch, ...(value.activities ? { activities: value.activities } : {}) } : session;
+  if (!value) return session;
+  const merged = { ...session, ...value.patch, ...(value.activities ? { activities: value.activities } : {}) };
+  for (const kind of ['events', 'participation']) {
+    const saved = merged[kind] || [];
+    merged[kind] = [...Object.values(value.history || {}).filter(record => record.kind === kind && !saved.some(row => row.id === record.data.id)).map(record => ({ ...record.data, syncPending: true })), ...saved];
+  }
+  return merged;
 }
 export function clearSessionWrites(id) { delete entries()[id]; changed(); }
 export function getSessionWriteStatus(id) {
   const values = Object.entries(entries()).filter(([key]) => !id || key === id).map(([,value]) => value);
-  return { pending: values.length, error: values.find(value => value.error)?.error || '', durable };
+  return { pending: values.length, historyPending: values.reduce((total, value) => total + Object.keys(value.history || {}).length, 0), error: values.find(value => value.error)?.error || '', durable };
 }
 export async function retrySessionWrites(id) {
   if (!id) { for (const key of Object.keys(entries())) await retrySessionWrites(key); return; }
@@ -47,6 +61,12 @@ export async function retrySessionWrites(id) {
         if (snapshot.activities) {
           const saved = await apiClient.put(`/api/sessions/${encodeURIComponent(id)}/activities`, { activities: snapshot.activities });
           if (!Array.isArray(saved)) throw new Error('Máy chủ chưa xác nhận tiến trình.');
+        }
+        for (const record of Object.values(snapshot.history || {})) {
+          const saved = await apiClient.post(`/api/sessions/${encodeURIComponent(id)}/${record.kind}`, record.data);
+          if (saved?.id !== record.data.id || saved.success !== true) throw new Error('Máy chủ chưa xác nhận nhật ký tiết học.');
+          if (entries()[id]?.history?.[record.data.id] === record) delete entries()[id].history[record.data.id];
+          changed();
         }
         if (entries()[id]?.revision === snapshot.revision) delete entries()[id];
         changed();
