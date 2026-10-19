@@ -7,6 +7,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { PARTICIPATION_BADGES } from './sessionStorage';
+import { matchesStudentSearch } from '../../utils/studentSearch';
 
 export default function StudentParticipationGrid({
   students = [],
@@ -66,12 +67,7 @@ export default function StudentParticipationGrid({
   const filteredStudents = useMemo(() => {
     const list = students.filter(s => {
       const sId = String(s?.id || '').trim();
-      const q = (searchTerm || '').toLowerCase().trim();
-      const matchSearch = !q ||
-                          String(s?.name || '').toLowerCase().includes(q) ||
-                          sId.toLowerCase().includes(q) ||
-                          (s.machineNumber && `máy ${s.machineNumber}`.includes(q)) ||
-                          (s.machineNumber && String(s.machineNumber).includes(q));
+      const matchSearch = matchesStudentSearch(s, searchTerm);
 
       const stats = studentBadgeStats[sId];
       const hasParticipated = stats && stats.totalActions > 0;

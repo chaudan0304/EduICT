@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import DialogService from '../services/DialogService';
+import { matchesStudentSearch } from '../utils/studentSearch';
 import {
   Search, 
   UserPlus, 
@@ -131,13 +132,8 @@ export default function Gradebook({
 
   // Lọc học sinh
   const filteredStudents = useMemo(() => {
-    const q = (searchTerm || '').trim().toLowerCase();
     return students.filter(s => {
-      const matchSearch = !q ||
-                          String(s.name || '').toLowerCase().includes(q) || 
-                          String(s.id || '').toLowerCase().includes(q) ||
-                          (s.machineNumber && `máy ${s.machineNumber}`.includes(q)) ||
-                          (s.machineNumber && String(s.machineNumber).includes(q));
+      const matchSearch = matchesStudentSearch(s, searchTerm);
       const matchGender = genderFilter === 'all' || s.gender === genderFilter;
       
       const ev = s.eval_hk2 ?? s.eval_regular ?? 'T';

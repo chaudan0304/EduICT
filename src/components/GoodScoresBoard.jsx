@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { exportFullDatabaseExcel } from '../services/FullDataExportService';
 import { soundEffects } from '../utils/audio';
+import { normalizeSearchText, matchesStudentSearch } from '../utils/studentSearch';
 import { 
   getClassroomRules, 
   saveClassroomRules, 
@@ -569,14 +570,14 @@ export default function GoodScoresBoard({
 
   // Lọc nhật ký
   const filteredRecords = useMemo(() => {
-    const q = (searchTerm || '').trim().toLowerCase();
+    const q = normalizeSearchText(searchTerm);
     return (meritRecords || []).filter(r => {
       if (!r) return false;
       const targetStudent = students.find(s => String(s.id).trim() === String(r.studentId).trim());
-      const studentName = String(r.studentName || targetStudent?.name || '').toLowerCase();
-      const studentId = String(r.studentId || '').toLowerCase();
-      const title = String(r.title || '').toLowerCase();
-      const note = String(r.note || '').toLowerCase();
+      const studentName = normalizeSearchText(r.studentName || targetStudent?.name);
+      const studentId = normalizeSearchText(r.studentId);
+      const title = normalizeSearchText(r.title);
+      const note = normalizeSearchText(r.note);
 
       const matchSearch = !q || studentName.includes(q) || studentId.includes(q) || title.includes(q) || note.includes(q);
       const matchType = historyTypeFilter === 'all' || r.type === historyTypeFilter;
@@ -587,16 +588,13 @@ export default function GoodScoresBoard({
 
   // Lọc bảng tổng kết thi đua học sinh theo từ khóa tìm kiếm + sắp xếp theo chế độ
   const filteredStudentSummary = useMemo(() => {
-    const q = (searchTerm || '').trim().toLowerCase();
+    const q = normalizeSearchText(searchTerm);
     let result = studentSummary;
     if (q) {
       result = result.filter(item => {
         const s = item?.student;
         if (!s) return false;
-        const name = String(s.name || '').toLowerCase();
-        const id = String(s.id || '').toLowerCase();
-        const machine = s.machineNumber ? `máy ${s.machineNumber}` : '';
-        return name.includes(q) || id.includes(q) || machine.includes(q);
+        return matchesStudentSearch(s, q);
       });
     }
 
