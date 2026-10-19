@@ -1,5 +1,12 @@
 # Lịch sử thay đổi
 
+## 1.16.1 — 19/10/2026
+
+- Tìm học sinh nhận cả hai cách đặt dấu như Thùy/Thuỳ và tên không dấu, không phân biệt chữ hoa/thường; chuẩn hóa khoảng trắng khi tìm.
+- Áp dụng cho Điểm tốt & nội quy (bảng thi đua và nhật ký), Sổ đánh giá và tương tác học sinh trong tiết học. Giữ nguyên họ tên hiển thị, mã học sinh, điểm và sao.
+
+Chi tiết kiểm chứng: docs/student-search-1.16.1.md.
+
 ## 1.16.0 — 18/10/2026
 
 - Nhật ký tương tác và phát biểu chỉ báo đã lưu sau xác nhận máy chủ. Bản chờ được giữ cục bộ, có nút thử lại và mã bản ghi cố định để không tạo trùng; thử lại nhật ký không phát lại thưởng sao.
